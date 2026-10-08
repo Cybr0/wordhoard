@@ -1,0 +1,63 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+.build/
+.swiftpm/
+# Package.resolved is intentionally NOT ignored: for an app it should be
+# committed so every clone builds with the same dependency versions.
+
+# Xcode Cloud / CI
+ci_scripts/.env
+
+# Code signing and secrets
+*.mobileprovision
+*.p12
+*.cer
+*.certSigningRequest
+.env
+.env.*
+
+# App Store Connect / fastlane (if ever added)
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Local notes and scratch files
+scratch/
+*.local.md
