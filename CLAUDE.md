@@ -64,13 +64,28 @@ Rule of thumb: if it can be unit-tested without a simulator, it belongs in `Word
 
 ## Working with the agents
 
-Three agents are defined in `.claude/agents/`:
+Five agents are defined in `.claude/agents/`:
 
-- `analyst` — owns `docs/`. Writes acceptance criteria before work starts, keeps requirements and plan in sync, records ADRs, and pushes back on scope creep by pointing at `requirements.md` §11.
-- `ios-developer` — implements one plan task at a time on a branch, builds, writes unit tests for its own code, opens the PR.
-- `qa` — does not edit app code. Writes additional tests, runs the full suite, checks acceptance criteria and edge cases, files findings as issues or PR review comments.
+| Agent | Edits | Job |
+|---|---|---|
+| `analyst` | `docs/` only | Acceptance criteria before work starts; keeps requirements, plan and ADRs consistent; pushes back on scope creep via `requirements.md` §11; settles disputes about intended behaviour. |
+| `ios-developer` | app and test code, `project.yml` | Implements one plan task on its own branch, with unit tests, and opens the PR. |
+| `reviewer` | nothing | Reviews the *code* in a PR: concurrency, SwiftData, AI fallbacks, conventions, test quality. Posts a review with file:line findings. |
+| `qa` | tests, plan checkboxes | Verifies the *behaviour*: runs the suite, walks every acceptance criterion, hunts edge cases, adds tests, posts a report. |
+| `fixer` | the PR's branch | Addresses reviewer/qa/CI findings on an open PR, one commit per finding, replies in each thread. Does not widen the task. |
 
-Typical flow for a task: analyst confirms criteria → developer implements → qa verifies → developer fixes → merge. If qa and developer disagree about intended behaviour, the analyst decides by reference to requirements, and records the answer.
+Typical flow for a task:
+
+```
+analyst confirms criteria
+  → ios-developer implements, opens PR
+  → reviewer reviews code   ┐  (can run in parallel)
+  → qa verifies behaviour   ┘
+  → fixer addresses findings, asks for re-check
+  → reviewer / qa re-check → merge → qa ticks the plan
+```
+
+`reviewer` and `qa` are deliberately separate: one reads the diff, the other runs the app. `fixer` is separate from `ios-developer` so that "address review comments" stays a narrow, auditable step rather than a second round of feature work. If `fixer` and a reviewer disagree about intended behaviour, the `analyst` decides by reference to requirements and records the answer.
 
 ## Things that look like good ideas but are not (yet)
 
