@@ -10,13 +10,14 @@ Checkbox = merged to `main` with tests passing and qa sign-off.
 
 Throwaway code in a separate Xcode project (`spike/`), not held to project conventions. Goal: answer `requirements.md` §10 before committing to the architecture. Budget: a few evenings.
 
-- [ ] **0.1 Minimal generator.** One screen, text field, button, `@Generable` card struct (senses → definition, translation, synonyms, antonyms, examples with topic tag). Print raw output. *(issue: #—)*
-- [ ] **0.2 Regression word list.** Run the generator over `docs/regression-words.md` (≈20 words: common nouns and verbs, a polysemous word, two phrasal verbs, an idiom, two abstract words, one rare word). Record the output verbatim in `docs/decisions/0001-spike-results.md`.
-- [ ] **0.3 Translation check.** Compare model translations into Russian against the Translation framework (`TranslationSession`) for the same words. Decide: model, Translation framework, or manual. Record in ADR 0001.
-- [ ] **0.4 Latency.** Time a full card on the author's device. If > ~10 s, try splitting into two calls (senses first, then examples per sense) and time again.
-- [ ] **0.5 Image Playground check.** Generate 5 images from model-written prompts. Note availability, refusals, time, visual quality. Record in ADR 0001.
-- [ ] **0.6 Siri check.** Minimal App Intent with a `String` parameter. Test "add a word to Wordhoard" with device language Russian and with English. Record recognition quality in ADR 0001.
-- [ ] **0.7 Free signing check.** Confirm Foundation Models, Image Playground and App Intents work when signed with a free personal team.
+- [ ] **0.1 Minimal generator.** One screen, text field, button, `@Generable` card struct (senses → definition, translation, synonyms, antonyms, examples with topic tag). Print raw output. *(#1)*
+- [ ] **0.2 Regression word list.** Run the generator over `docs/regression-words.md` (≈20 words: common nouns and verbs, a polysemous word, two phrasal verbs, an idiom, two abstract words, one rare word). Record the output verbatim in `docs/decisions/0001-spike-results.md`. *(#2)*
+- [ ] **0.3 Translation check.** Compare model translations into Russian against the Translation framework (`TranslationSession`) for the same words. Decide: model, Translation framework, or manual. Record in ADR 0001. *(#3)*
+- [ ] **0.4 Latency.** Time a full card on the author's device. If > ~10 s, try splitting into two calls (senses first, then examples per sense) and time again. *(#4)*
+- [ ] **0.5 Image Playground check.** Generate 5 images from model-written prompts. Note availability, refusals, time, visual quality. Record in ADR 0001. *(#5)*
+- [ ] **0.6 Siri check.** Minimal App Intent with a `String` parameter. Test "add a word to Wordhoard" with device language Russian and with English. Record recognition quality in ADR 0001. *(#6)*
+- [ ] **0.7 Free signing check.** Confirm Foundation Models, Image Playground and App Intents work when signed with a free personal team. *(#7)*
+- [ ] **0.8 ADR 0001.** Analyst writes the verdict and propagates adjustments into requirements and plan. *(#8)*
 
 **Exit criteria:** ADR 0001 written; it states go / adjust / stop. "Adjust" might mean: translations via Translation framework; examples generated per sense in separate calls; images optional by default. Requirements updated accordingly by the analyst.
 
