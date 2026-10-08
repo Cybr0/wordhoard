@@ -31,13 +31,11 @@ struct SpikeSense: Sendable {
 
 struct SpikeCard: Sendable {
     var headword: String
-    var pronunciation: String
     var imagePrompt: String
     var senses: [SpikeSense]
 
     init(senses generated: GeneratedSenses) {
         headword = generated.headword
-        pronunciation = generated.pronunciation
         imagePrompt = generated.imagePrompt
         senses = generated.senses.map {
             SpikeSense(
@@ -53,7 +51,6 @@ struct SpikeCard: Sendable {
 
     init(card generated: GeneratedCard) {
         headword = generated.headword
-        pronunciation = generated.pronunciation
         imagePrompt = generated.imagePrompt
         senses = generated.senses.map {
             SpikeSense(
@@ -70,7 +67,7 @@ struct SpikeCard: Sendable {
     /// Shape of requirements.md Appendix B.
     var readableDescription: String {
         var lines: [String] = []
-        lines.append("Word: \(headword)  \(pronunciation)")
+        lines.append("Word: \(headword)")
         for (index, sense) in senses.enumerated() {
             lines.append("")
             lines.append("Sense \(index + 1) — \(sense.partOfSpeech.rawValue)")

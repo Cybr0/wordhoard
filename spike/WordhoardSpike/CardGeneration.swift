@@ -98,9 +98,6 @@ struct GeneratedSenses {
     @Guide(description: "The headword exactly as given by the user.")
     var headword: String
 
-    @Guide(description: "IPA pronunciation of the headword in British English, between slashes, e.g. /bʊk/.")
-    var pronunciation: String
-
     @Guide(description: "Distinct meanings of the word, most common first. Include both the noun and the verb sense when the word has both.", .count(1...3))
     var senses: [GeneratedSenseCore]
 
@@ -177,9 +174,6 @@ func cardPrompt(for word: String) -> String {
 struct GeneratedCard {
     @Guide(description: "The headword exactly as given by the user.")
     var headword: String
-
-    @Guide(description: "IPA pronunciation of the headword in British English, between slashes, e.g. /bʊk/.")
-    var pronunciation: String
 
     @Guide(description: "Distinct meanings of the word, most common first.", .count(1...4))
     var senses: [GeneratedSense]
