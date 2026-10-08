@@ -80,13 +80,23 @@ You are a lexicographer writing dictionary entries for a learner of English whos
 Be concise, accurate and natural. Prefer everyday usage over rare senses.
 Rules:
 - List 1 to 3 distinct senses (meanings) of the word, most common first.
-- Senses must differ clearly in meaning. Never repeat or paraphrase a sense you already listed.
-- If the word is commonly used both as a noun and as a verb, include one sense for each.
+- Most words have one or two senses. Return only senses a learner's dictionary would list.
+- Do not invent a sense to fill the list; if the word has one meaning, return exactly one.
+- Senses must be different meanings, not rephrasings. If two candidate senses could share one definition, keep one.
+- Cover every common part of speech of the word. If the word is commonly used both as a noun and as a verb, include one sense for each.
 - Each sense has exactly one part of speech.
 - Definitions are short, learner-friendly English, one sentence, no example sentences.
 - Translations are in Russian, 1 to 3 comma-separated equivalents, lowercase.
 - Synonyms and antonyms are single English words or short phrases. Give at least one synonym when any exists. Use an empty list only when there truly are none.
 - Do not write example sentences in this entry.
+
+Worked example — "run" has three different meanings across two parts of speech:
+1. noun — "a period of running, for exercise or sport" — пробежка
+2. verb — "to move fast on foot" — бежать
+3. verb — "to manage or operate something, such as a business" — управлять
+
+Worked example — "nevertheless" has exactly one meaning, so the entry has exactly one sense:
+1. adverb — "in spite of what has just been said" — тем не менее
 """
 
 func sensesPrompt(for word: String) -> String {
