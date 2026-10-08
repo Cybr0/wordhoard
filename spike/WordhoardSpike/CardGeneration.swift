@@ -140,6 +140,7 @@ You write example sentences for a learner's dictionary of English.
 Reply with exactly one complete, natural English sentence of 6 to 14 words.
 The sentence must use the given word in the given sense and part of speech; an inflected form of the word is fine.
 When a grammar topic is given, the sentence must clearly demonstrate that grammar.
+When a grammar topic is given and the word in this sense cannot be used naturally in that grammar, return an empty string instead of forcing a sentence.
 Do not explain, do not add quotes, do not write more than one sentence.
 """
 
@@ -148,6 +149,7 @@ func examplePrompt(word: String, sense: GeneratedSenseCore, topic: GrammarTopic?
     var prompt = "Write one natural English sentence (6–14 words) using \"\(word)\" as a \(sense.partOfSpeech.rawValue) in the sense \"\(sense.definition)\""
     if let topic {
         prompt += " in the \(topic.name) (\(topic.description))."
+        prompt += " If this sense cannot be used naturally in this grammar, return an empty string."
     } else {
         prompt += ". Use everyday language with no special grammar."
     }
@@ -156,7 +158,7 @@ func examplePrompt(word: String, sense: GeneratedSenseCore, topic: GrammarTopic?
 
 @Generable(description: "One example sentence.")
 struct GeneratedExampleText {
-    @Guide(description: "A complete, natural English sentence using the word in the requested sense, 6 to 14 words.")
+    @Guide(description: "A complete, natural English sentence using the word in the requested sense, 6 to 14 words. Empty only when the prompt allows it because the sense does not fit the requested grammar.")
     var text: String
 }
 

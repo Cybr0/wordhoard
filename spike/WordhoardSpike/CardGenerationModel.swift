@@ -308,7 +308,15 @@ final class CardGenerationModel {
         switch outcome.result {
         case let .success(result):
             appendLog(label: outcome.job.label, result: result)
-            text = result.content.text
+            let trimmed = result.content.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty, outcome.job.topic != nil {
+                // Topic examples are optional: the model may return "" when the sense does not fit
+                // the grammar (e.g. passive of an intransitive sense). No slot on the card for it.
+                rawLog += "--- \(outcome.job.label) skipped: empty example, sense does not fit this grammar ---\n\n"
+                print("\(outcome.job.label) skipped: empty example")
+                return
+            }
+            text = trimmed.isEmpty ? "⚠︎ empty (neutral example is mandatory)" : trimmed
         case let .failure(error):
             callCount += 1
             rawLog += "--- \(outcome.job.label) FAILED ---\n\(error)\n\n"
