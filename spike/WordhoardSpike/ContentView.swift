@@ -3,21 +3,17 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var word = ""
-    @State private var isGenerating = false
-    @State private var readableOutput = ""
-    @State private var rawOutput = ""
-    @State private var errorText: String?
-    @State private var elapsedText: String?
+    @State private var model = CardGenerationModel()
 
-    private let model = SystemLanguageModel.default
+    private let languageModel = SystemLanguageModel.default
 
     private var isAvailable: Bool {
-        if case .available = model.availability { return true }
+        if case .available = languageModel.availability { return true }
         return false
     }
 
     private var availabilityText: String {
-        switch model.availability {
+        switch languageModel.availability {
         case .available:
             return "Model available"
         case let .unavailable(reason):
@@ -41,31 +37,54 @@ struct ContentView: View {
                     .foregroundStyle(isAvailable ? .green : .red)
                     .font(.footnote)
 
+                Picker("Mode", selection: $model.mode) {
+                    ForEach(CardGenerationModel.Mode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(model.isGenerating)
+
+                if model.mode == .split {
+                    Toggle("Parallel example calls (3 at a time)", isOn: $model.parallelExamples)
+                        .font(.footnote)
+                        .disabled(model.isGenerating)
+                }
+
                 HStack {
                     TextField("English word", text: $word)
                         .textFieldStyle(.roundedBorder)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .onSubmit(generate)
-                    Button("Generate", action: generate)
-                        .buttonStyle(.borderedProminent)
-                        .disabled(!isAvailable || isGenerating || trimmedWord.isEmpty)
-                }
-
-                if isGenerating {
-                    HStack(spacing: 8) {
-                        ProgressView()
-                        Text("Generating…")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                    if model.isGenerating {
+                        Button("Cancel", role: .cancel) { model.cancel() }
+                            .buttonStyle(.bordered)
+                    } else {
+                        Button("Generate", action: generate)
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!isAvailable || trimmedWord.isEmpty)
                     }
-                } else if let elapsedText {
-                    Text(elapsedText)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
 
-                if let errorText {
+                HStack(spacing: 8) {
+                    if model.isGenerating {
+                        ProgressView()
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        if !model.statusText.isEmpty {
+                            Text(model.statusText)
+                        }
+                        if !model.timingText.isEmpty {
+                            Text(model.timingText)
+                                .fontWeight(.semibold)
+                        }
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+
+                if let errorText = model.errorText {
                     Text(errorText)
                         .font(.footnote)
                         .foregroundStyle(.red)
@@ -74,17 +93,17 @@ struct ContentView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        if !readableOutput.isEmpty {
+                        if let card = model.card {
                             Text("Card")
                                 .font(.headline)
-                            Text(readableOutput)
+                            Text(card.readableDescription)
                                 .font(.system(.footnote, design: .monospaced))
                                 .textSelection(.enabled)
                         }
-                        if !rawOutput.isEmpty {
-                            Text("Raw JSON")
+                        if !model.rawLog.isEmpty {
+                            Text("Raw JSON (\(model.callCount) call\(model.callCount == 1 ? "" : "s"))")
                                 .font(.headline)
-                            Text(rawOutput)
+                            Text(model.rawLog)
                                 .font(.system(.caption2, design: .monospaced))
                                 .foregroundStyle(.secondary)
                                 .textSelection(.enabled)
@@ -105,29 +124,8 @@ struct ContentView: View {
 
     private func generate() {
         let target = trimmedWord
-        guard isAvailable, !isGenerating, !target.isEmpty else { return }
-
-        isGenerating = true
-        errorText = nil
-        elapsedText = nil
-        readableOutput = ""
-        rawOutput = ""
-
-        Task {
-            do {
-                let result = try await generateCard(for: target)
-                readableOutput = result.card.readableDescription
-                rawOutput = result.rawJSON
-                elapsedText = "Took \(result.elapsed.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 1))))"
-            } catch let error as LanguageModelSession.GenerationError {
-                errorText = "GenerationError: \(error.errorDescription ?? String(describing: error))"
-                print("GenerationError: \(error)")
-            } catch {
-                errorText = "Error: \(error.localizedDescription)"
-                print("Error: \(error)")
-            }
-            isGenerating = false
-        }
+        guard isAvailable, !target.isEmpty else { return }
+        model.generate(word: target)
     }
 }
 
