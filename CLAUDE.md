@@ -57,7 +57,8 @@ Rule of thumb: if it can be unit-tested without a simulator, it belongs in `Word
 ## Git and PRs
 
 - Branch per plan task: `phase-2/autofill-service`, `fix/duplicate-case-folding`.
-- Commits: imperative subject ≤ 72 chars, body explains *why*. Reference the issue: `Closes #12`.
+- Commits: one imperative subject line, ≤ 72 chars, and nothing else in the common case. Add a body only when the *why* is not obvious from the diff, and keep it to a few lines. No trailers of any kind: no `Co-Authored-By`, no `Signed-off-by`, no session links. Reference the issue in the PR description (`Closes #12`), not in every commit.
+- Author identity is the repo-level config (`Tim <tim.cybr0@gmail.com>`); `core.hooksPath` is set to `/dev/null` in this repo on purpose to keep a global sign-off hook out. Do not change either.
 - One PR per plan task, small enough to review in ten minutes. PR description lists which acceptance criteria from `docs/plan.md` it satisfies and how it was verified (device or simulator, which iOS).
 - `main` always builds and passes `swift test`.
 - Do not commit: `xcuserdata`, provisioning profiles, API keys (there should be none), screenshots of the author's own word list.

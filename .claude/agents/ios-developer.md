@@ -44,7 +44,7 @@ All three must pass. If the simulator name differs on this Mac, use what `xcrun 
 - Title: the plan task, e.g. `2.4 Merge generated card with field provenance`.
 - Body: the acceptance criteria copied as a checklist with each ticked and a note on how it was verified (unit test name, or "manual on iPhone 15 Pro / iOS 26.1"); anything left out and why; `Closes #<issue>`.
 - Keep it small. If the task turned out to be two tasks, say so and split; do not ship a 40-file PR.
-- End the PR body with the attribution lines the session provides, if any.
+- No attribution footers, session links or generated-by lines in the PR body or in commits. Commit messages follow `CLAUDE.md`: one short subject line.
 
 ## What you do not do
 
