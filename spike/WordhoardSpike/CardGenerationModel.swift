@@ -3,9 +3,10 @@
 //
 // Split mode is lazy (issue #4):
 //   1. senses call                      → card appears with senses, no examples yet
-//   2. one neutral example per sense    → "time to first card"
-//   3. one example per (sense, topic)   → appended as they arrive; "time to full card"
-// Every example is its own short LanguageModelSession, so the context never grows.
+//   2. one yes/no call per sense        → invented or paraphrased senses are dropped (toggleable)
+//   3. one neutral example per sense    → "time to first card" (includes the verification calls)
+//   4. one example per (sense, topic)   → appended as they arrive; "time to full card"
+// Every call is its own short LanguageModelSession, so the context never grows.
 //
 // Throwaway code. Not held to the root CLAUDE.md conventions (print is fine here).
 
@@ -27,6 +28,24 @@ struct SpikeSense: Sendable {
     var synonyms: [String]
     var antonyms: [String]
     var examples: [SpikeExample]
+
+    init(_ core: GeneratedSenseCore) {
+        partOfSpeech = core.partOfSpeech
+        definition = core.definition
+        translation = core.translation
+        synonyms = core.synonyms
+        antonyms = core.antonyms
+        examples = []
+    }
+
+    init(_ generated: GeneratedSense) {
+        partOfSpeech = generated.partOfSpeech
+        definition = generated.definition
+        translation = generated.translation
+        synonyms = generated.synonyms
+        antonyms = generated.antonyms
+        examples = generated.examples.map { SpikeExample(topicKey: $0.grammarTopic, text: $0.text) }
+    }
 }
 
 struct SpikeCard: Sendable {
@@ -37,31 +56,13 @@ struct SpikeCard: Sendable {
     init(senses generated: GeneratedSenses) {
         headword = generated.headword
         imagePrompt = generated.imagePrompt
-        senses = generated.senses.map {
-            SpikeSense(
-                partOfSpeech: $0.partOfSpeech,
-                definition: $0.definition,
-                translation: $0.translation,
-                synonyms: $0.synonyms,
-                antonyms: $0.antonyms,
-                examples: []
-            )
-        }
+        senses = generated.senses.map(SpikeSense.init)
     }
 
     init(card generated: GeneratedCard) {
         headword = generated.headword
         imagePrompt = generated.imagePrompt
-        senses = generated.senses.map {
-            SpikeSense(
-                partOfSpeech: $0.partOfSpeech,
-                definition: $0.definition,
-                translation: $0.translation,
-                synonyms: $0.synonyms,
-                antonyms: $0.antonyms,
-                examples: $0.examples.map { SpikeExample(topicKey: $0.grammarTopic, text: $0.text) }
-            )
-        }
+        senses = generated.senses.map(SpikeSense.init)
     }
 
     /// Shape of requirements.md Appendix B.
@@ -103,6 +104,7 @@ final class CardGenerationModel {
         case idle
         case generatingCard
         case generatingSenses
+        case verifyingSenses(done: Int, total: Int)
         case generatingNeutralExamples(done: Int, total: Int)
         case generatingTopicExamples(done: Int, total: Int)
         case finished
@@ -115,9 +117,15 @@ final class CardGenerationModel {
     /// first device measurement is the predictable serial one; flip it to see if concurrent
     /// sessions help or just contend for the model.
     var parallelExamples = false
+    /// After the senses call, ask the model one yes/no question per sense and drop the senses it
+    /// rejects. On by default; switch it off to measure what it costs in time and what it buys.
+    var verifySenses = true
 
     private(set) var phase: Phase = .idle
     private(set) var card: SpikeCard?
+    /// What verification did to the sense list, when it changed anything. Set to a warning when
+    /// every sense was rejected and the first one was kept unverified rather than showing nothing.
+    private(set) var verificationNote: String?
     /// Raw JSON of every call in this run, in order, with per-call timing.
     private(set) var rawLog = ""
     private(set) var errorText: String?
@@ -140,6 +148,8 @@ final class CardGenerationModel {
             return "Generating the whole card in one call…"
         case .generatingSenses:
             return "Call 1: senses…"
+        case let .verifyingSenses(done, total):
+            return "Verifying senses \(done)/\(total)…"
         case let .generatingNeutralExamples(done, total):
             return "Neutral examples \(done)/\(total)…"
         case let .generatingTopicExamples(done, total):
@@ -165,6 +175,7 @@ final class CardGenerationModel {
         cancel()
         phase = mode == .split ? .generatingSenses : .generatingCard
         card = nil
+        verificationNote = nil
         rawLog = ""
         errorText = nil
         sensesElapsed = nil
@@ -229,7 +240,13 @@ final class CardGenerationModel {
         card = SpikeCard(senses: sensesResult.content)
         sensesElapsed = clock.now - start
 
-        let senses = sensesResult.content.senses
+        var senses = sensesResult.content.senses
+        if verifySenses {
+            senses = try await verify(word: word, senses: senses)
+            try Task.checkCancellation()
+            card?.senses = senses.map(SpikeSense.init)
+        }
+
         let neutralJobs = senses.indices.map { ExampleJob(senseIndex: $0, sense: senses[$0], topic: nil) }
         phase = .generatingNeutralExamples(done: 0, total: neutralJobs.count)
         try await runExamples(word: word, jobs: neutralJobs) { done, total in
@@ -250,6 +267,64 @@ final class CardGenerationModel {
         fullCardElapsed = clock.now - start
         print("time to full card: \((clock.now - start).spikeFormatted) (\(callCount) calls)")
     }
+
+    // MARK: Verification
+
+    /// One yes/no call per sense, one after another (they are cheap and few). Returns the senses
+    /// to keep, in their original order. A verification call that *fails* keeps its sense, so a
+    /// flaky model never empties the card; only an explicit "no" drops one. If every sense is
+    /// rejected the first one is kept and `verificationNote` says so.
+    private func verify(word: String, senses: [GeneratedSenseCore]) async throws -> [GeneratedSenseCore] {
+        phase = .verifyingSenses(done: 0, total: senses.count)
+        var kept: [GeneratedSenseCore] = []
+        var rejected: [Int] = []
+
+        for (index, sense) in senses.enumerated() {
+            let label = "verify: sense \(index + 1) (\(sense.partOfSpeech.rawValue)) \"\(sense.definition)\""
+            let outcome = await Self.runVerification(word: word, sense: sense)
+            try Task.checkCancellation()
+            switch outcome {
+            case let .success(result):
+                let verdict = result.content.isCommonlyUsed ? "yes" : "no"
+                appendLog(label: "\(label) → \(verdict)", result: result)
+                print("\(label) → \(verdict)")
+                if result.content.isCommonlyUsed {
+                    kept.append(sense)
+                } else {
+                    rejected.append(index + 1)
+                }
+            case let .failure(error):
+                callCount += 1
+                rawLog += "--- \(label) FAILED, sense kept ---\n\(error)\n\n"
+                print("\(label) failed, sense kept: \(error)")
+                kept.append(sense)
+            }
+            phase = .verifyingSenses(done: index + 1, total: senses.count)
+        }
+
+        if kept.isEmpty, let first = senses.first {
+            verificationNote = "⚠︎ Verification rejected all \(senses.count) sense\(senses.count == 1 ? "" : "s"); showing sense 1 unverified."
+            kept = [first]
+        } else if !rejected.isEmpty {
+            verificationNote = "Verification dropped sense\(rejected.count == 1 ? "" : "s") \(rejected.map(String.init).joined(separator: ", ")) of \(senses.count)."
+        }
+        if let verificationNote { print(verificationNote) }
+        return kept
+    }
+
+    /// Nonisolated so the call runs off the main actor, like the example calls.
+    private nonisolated static func runVerification(
+        word: String,
+        sense: GeneratedSenseCore
+    ) async -> Result<ModelCallResult<SenseVerdict>, any Error> {
+        do {
+            return try .success(await verifySense(word: word, sense: sense))
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    // MARK: Examples
 
     private struct ExampleJob: Sendable {
         let senseIndex: Int

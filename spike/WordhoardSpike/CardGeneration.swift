@@ -5,6 +5,7 @@
 //
 // Two paths are kept side by side (issue #4):
 //   - "Split calls" (default, the one to measure): call 1 returns the senses only;
+//     one cheap yes/no call per sense drops invented or paraphrased senses (iteration 2);
 //     then one tiny call per (sense, topic) returns a single example sentence.
 //     The grammar topic is assigned by the caller, never classified by the model.
 //   - "Single call": the PR #9 shape, one big call returning the whole card.
@@ -131,6 +132,34 @@ struct GeneratedSenseCore {
 
     @Guide(description: "English antonyms for this sense. Empty if none exist.", .maximumCount(5))
     var antonyms: [String]
+}
+
+// MARK: - Split path, verification: one yes/no call per sense
+
+// Small models verify better than they generate (issue #4): the senses call pads
+// `.count(1...3)` with paraphrases and inventions, so each sense is checked in its own
+// cheap call before any example is written for it. Senses that get "no" are dropped.
+
+let verificationInstructions = """
+You check entries for a learner's dictionary of English.
+You are given an English word, a part of speech and a short definition.
+Answer whether the word is commonly used with exactly that part of speech and that meaning, as a learner's dictionary would list it.
+Answer no for invented meanings, for rare or technical meanings, and when the part of speech is wrong for that meaning.
+Answer yes or no only.
+"""
+
+func verificationPrompt(word: String, sense: GeneratedSenseCore) -> String {
+    let article = ["a", "e", "i", "o", "u"].contains(String(sense.partOfSpeech.rawValue.prefix(1))) ? "an" : "a"
+    return "Is the English word \"\(word)\" commonly used as \(article) \(sense.partOfSpeech.rawValue) meaning \"\(sense.definition)\"? Answer yes or no."
+}
+
+/// The verdict is a single `Bool`. Guided generation constrains the model to the JSON
+/// boolean tokens, so there is nothing to parse and no "Yes."/"No, because…" to normalise;
+/// a `String` with `.anyOf(["yes", "no"])` would work too but adds a string compare for no gain.
+@Generable(description: "Verdict on whether one dictionary sense is real.")
+struct SenseVerdict {
+    @Guide(description: "true if the word is commonly used with this part of speech and this meaning; false otherwise.")
+    var isCommonlyUsed: Bool
 }
 
 // MARK: - Split path, calls 2…N: one example per (sense, topic)
@@ -263,6 +292,16 @@ func generateSenses(for word: String) async throws -> ModelCallResult<GeneratedS
         prompt: sensesPrompt(for: word),
         generating: GeneratedSenses.self,
         label: "senses for \"\(word)\""
+    )
+}
+
+/// Split path, verification. One fresh session per sense.
+func verifySense(word: String, sense: GeneratedSenseCore) async throws -> ModelCallResult<SenseVerdict> {
+    try await respond(
+        instructions: verificationInstructions,
+        prompt: verificationPrompt(word: word, sense: sense),
+        generating: SenseVerdict.self,
+        label: "verify \"\(word)\" as \(sense.partOfSpeech.rawValue): \(sense.definition)"
     )
 }
 

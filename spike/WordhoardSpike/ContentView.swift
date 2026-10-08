@@ -46,6 +46,9 @@ struct ContentView: View {
                 .disabled(model.isGenerating)
 
                 if model.mode == .split {
+                    Toggle("Verify each sense (one yes/no call per sense)", isOn: $model.verifySenses)
+                        .font(.footnote)
+                        .disabled(model.isGenerating)
                     Toggle("Parallel example calls (3 at a time)", isOn: $model.parallelExamples)
                         .font(.footnote)
                         .disabled(model.isGenerating)
@@ -82,6 +85,12 @@ struct ContentView: View {
                     }
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                }
+
+                if let verificationNote = model.verificationNote {
+                    Text(verificationNote)
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
                 }
 
                 if let errorText = model.errorText {
