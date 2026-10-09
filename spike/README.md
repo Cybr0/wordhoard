@@ -15,8 +15,12 @@ Nothing here is meant to survive into the real app except the lessons.
 - `WordhoardSpike/CardGenerationModel.swift` — the `@MainActor @Observable` orchestrator: runs the
   calls, keeps the on-screen card, records timings, cancels the previous run when a new word is typed.
 - `WordhoardSpike/ContentView.swift` — the screen.
+- `WordhoardSpike/WordNetLookup.swift` — loads the bundled WordNet once and answers "which senses
+  does this headword have" without the model. No `FoundationModels` import.
+- `WordhoardSpike/Resources/oewn-2024.json` — the WordNet bundle (13.8 MB) and `OEWN-LICENSE.txt`.
+- `tools/convert_oewn.py` — builds that bundle from the Open English WordNet release.
 
-## Two modes (issue #4)
+## Three modes (issues #4 and #11)
 
 **Split calls** (default, the one to measure):
 
@@ -58,9 +62,79 @@ There is no pronunciation field in either mode: the model's IPA was wrong on the
 **Single call**: the PR #9 shape, one big call for the whole card (now with the same three topics).
 Kept for comparison only — it overflowed the 4096-token context on "however".
 
+**WordNet + model** (issue #11): the sense *inventory* is where the on-device model fails (three
+prompt iterations never produced *book → to reserve*; the verifier rejected both senses of *look up*),
+while everything downstream of a correct sense is good. So the senses come from a dictionary and the
+model only writes.
+
+1. *Lookup, no model call.* `WordNetLookup` returns the headword's senses from the bundled Open
+   English WordNet 2024: part of speech, gloss, synonyms (other members of the synset) and antonyms,
+   in WordNet sense order. The card shows the top 3: round-robin over parts of speech in noun, verb,
+   adjective, adverb order (for *book*: noun 1, verb 1, noun 2). The log line says how many senses the
+   bundle has for the word and which were kept. No verification call — WordNet is authoritative.
+2. *One writing call per sense.* Prompt: the word, part of speech, gloss and synonyms; the model
+   returns `SenseWriting { learnerDefinition, translation }` — a one-sentence learner-friendly
+   rewrite of the gloss and the Russian translation of the word in that sense. Synonyms and antonyms
+   on the card come from WordNet, never from this call. A failed writing call keeps the sense with
+   the raw gloss as its definition.
+3. *One neutral example per sense*, with the learner definition in the prompt — the card is on screen
+   from this point ("time to first card").
+4. *One example per (sense, topic)* in the background, as in split mode ("time to full card").
+
+Calls for a word with 2 WordNet senses and 3 topics: 2 writing + 2 neutral = 4 calls to the first
+card, then up to 2 × 3 = 6 topic calls, 10 in total. With 3 senses: 6 to the first card, then up
+to 9. The timings line adds **Lookup** (the bundle lookup alone; the first one includes decoding the
+bundle unless the launch-time warm-up has finished — 0.4 s on the iPhone 17 simulator, Debug build;
+the console prints `WordNet: loaded …` with the time).
+
+*Fallback.* When the headword is not in the bundle (`by the book`, `break the ice`, `asdfgh` from the
+regression list) the log and the screen say `WordNet: "<word>" not found → model-only senses call`
+and the split flow above runs unchanged, including its verification toggle. The card marks every
+sense with its source: `Sense 1 — verb [wordnet]` or `[model]`; WordNet senses also show the gloss
+the definition was written from. There is no image prompt in WordNet mode.
+
+*Known limits of the bundle* (for ADR 0001): WordNet has no prepositions or other function words
+(*despite* is found, but only as an archaic noun, "contemptuous disregard" — the model-only path
+would be right here); no recent senses (*gaslight* is a noun only, the lamp); only one sense of *look
+up* ("seek information from" — the literal "raise one's eyes" is not an entry); no idioms beyond its
+own list (*by the book*, *break the ice* are missing); and the sense order is WordNet's, which puts
+*book* → "engage for a performance" before "reserve" (SemCor counts 3 vs 1), so *reserve* is verb
+sense 2 and outside the top 3 as long as the cut is three senses in total.
+
+### The WordNet bundle
+
+`WordhoardSpike/Resources/oewn-2024.json`, 13.8 MB (14 494 184 bytes), plain JSON with no
+whitespace: a `synsets` array (`[gloss]` or `[gloss, [member lemma, …]]`, the index is the synset
+id) and a `lemmas` map from the lowercased lemma (multi-word lemmas with spaces: `look up`) to its
+senses per part of speech (`n`, `v`, `a`, `r`), each sense an int synset index or
+`[index, [antonym, …]]`. Only the top 3 senses per part of speech are kept (the card never shows more
+than 3 in total), which drops 15k of 212k senses and 6k of 121k synsets; satellite adjectives are
+folded into `a`; examples, pronunciations, ILI and all other relations are stripped. The full
+dump would be 16.7 MB. SemCor tag counts are not in the LMF release, so sense order within a part of
+speech is the `<Sense>` element order of the entry, which is WordNet's own ranking.
+
+Source: Open English WordNet, 2024 edition, CC BY 4.0, derived from Princeton WordNet
+(https://github.com/globalwordnet/english-wordnet). Attribution is in
+`WordhoardSpike/Resources/OEWN-LICENSE.txt`, which ships inside the app bundle.
+
+To regenerate (the release is not committed; download it into an empty directory outside the
+repo and treat it as untrusted input):
+
+```
+gh release download 2024-edition --repo globalwordnet/english-wordnet --pattern '*.xml.gz' --dir <dir>
+python3 -I spike/tools/convert_oewn.py <dir>/english-wordnet-2024.xml.gz spike/WordhoardSpike/Resources/oewn-2024.json
+python3 -I spike/tools/convert_oewn.py --check spike/WordhoardSpike/Resources/oewn-2024.json
+```
+
+The script is standard-library Python 3.9 (the system `python3`), takes about 5 s, and `--check`
+prints, for the 22 words of `docs/regression-words.md`, whether the lemma is found and the top 3
+senses with the same selection policy as `WordNetLookup`.
+
 ### Timings on screen (also printed to the console)
 
-- **Senses** — the senses call alone.
+- **Lookup** — WordNet mode only: the bundle lookup.
+- **Senses** — split mode: the senses call alone. WordNet mode: lookup plus the writing calls, i.e.
+  the moment every sense has a definition and translation.
 - **First card** — senses, verification (when on) and one neutral example per sense; what a user
   would wait for.
 - **Full card** — every topic example has arrived. In single-call mode first and full are the same.
@@ -92,6 +166,11 @@ The simulator usually reports the model as unavailable (`deviceNotEligible` or
 Re-run **book**, **however** and **look up** first in split mode (these are the words that failed or
 misbehaved with the single call) and note senses, first-card and full-card times for #4, once with
 verification on and once off. Then do the full `docs/regression-words.md` run for #2.
+
+For #11, run regression words 1–5 (**book**, **run**, **light**, **set**, **apple**) in "WordNet +
+model" and compare the learner definitions, translations and timings with split mode; then
+**look up** and **give up** (multi-word entries), **gaslight** (noun only in WordNet) and
+**by the book** (not in WordNet → fallback, check the log line).
 
 ## Build check without a device
 
