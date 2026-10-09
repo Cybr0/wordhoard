@@ -23,7 +23,12 @@ targets:
     platform: iOS
     deploymentTarget: "26.0"
     sources:
-      - WordhoardSpike
+      - path: WordhoardSpike
+        excludes:
+          - Resources
+      # The WordNet bundle and its license; see README "WordNet + model".
+      - path: WordhoardSpike/Resources
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.wordhoard.spike

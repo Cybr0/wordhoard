@@ -1,0 +1,26 @@
+Open English WordNet, 2024 edition
+https://github.com/globalwordnet/english-wordnet (release tag 2024-edition)
+https://en-word.net
+
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+From the release's LICENSE.md:
+
+  This resource is derived from Princeton WordNet under the WordNet License
+  and further developed under the Creative Commons Attribution 4.0 International License.
+  You may share and adapt this resource providing attribution is given to both
+  Princeton WordNet and the Open English Wordnet team.
+
+Princeton WordNet: Copyright Princeton University, WordNet License,
+https://wordnet.princeton.edu/license-and-commercial-use
+
+Canonical citation:
+  John P. McCrae, Alexandre Rademaker, Francis Bond, Ewa Rudnicka and Christiane Fellbaum (2019)
+  "English WordNet 2019 - An Open-Source WordNet for English".
+  Proceedings of the 10th Global WordNet Conference (GWC 2019), Wroclaw.
+
+oewn-2024.json in this folder is a trimmed derivative of the release (definitions,
+synonyms, antonyms and sense order only; at most three senses per part of speech),
+produced by spike/tools/convert_oewn.py. The XML examples, pronunciations and all
+other relations were removed. No other changes were made to the content.

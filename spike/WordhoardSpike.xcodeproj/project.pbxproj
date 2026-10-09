@@ -10,6 +10,8 @@
 		0D86ED4B5A728C97C6396C8E /* CardGeneration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B786C8470EA43BC7FDAA7BC /* CardGeneration.swift */; };
 		1098EFA05BABCDF1664BBF6E /* WordhoardSpikeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47738B4C2DC73C27160F877F /* WordhoardSpikeApp.swift */; };
 		298195004003EDF0B76CE7EF /* CardGenerationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF6FA18178B9ADE94DEEA92 /* CardGenerationModel.swift */; };
+		4CD028FE58390F98A5C53A60 /* oewn-2024.json in Resources */ = {isa = PBXBuildFile; fileRef = E543C9E362FAA7E32F000520 /* oewn-2024.json */; };
+		8216C7FE1D3BD5A6D00F0588 /* OEWN-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D4AE6EF0CAC8E7642BA63CA1 /* OEWN-LICENSE.txt */; };
 		C511E21D3761B5A7C1FC2574 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC3C3A43961F6215DF9F98D /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
@@ -19,9 +21,20 @@
 		47738B4C2DC73C27160F877F /* WordhoardSpikeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordhoardSpikeApp.swift; sourceTree = "<group>"; };
 		6B786C8470EA43BC7FDAA7BC /* CardGeneration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardGeneration.swift; sourceTree = "<group>"; };
 		7FC3C3A43961F6215DF9F98D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		D4AE6EF0CAC8E7642BA63CA1 /* OEWN-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OEWN-LICENSE.txt"; sourceTree = "<group>"; };
+		E543C9E362FAA7E32F000520 /* oewn-2024.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "oewn-2024.json"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		1BC7FAFD4281D5C6ED27EA4C /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				E543C9E362FAA7E32F000520 /* oewn-2024.json */,
+				D4AE6EF0CAC8E7642BA63CA1 /* OEWN-LICENSE.txt */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		3B7EA5B2ED373F75A20029A5 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -45,6 +58,7 @@
 				0CF6FA18178B9ADE94DEEA92 /* CardGenerationModel.swift */,
 				7FC3C3A43961F6215DF9F98D /* ContentView.swift */,
 				47738B4C2DC73C27160F877F /* WordhoardSpikeApp.swift */,
+				1BC7FAFD4281D5C6ED27EA4C /* Resources */,
 			);
 			path = WordhoardSpike;
 			sourceTree = "<group>";
@@ -57,6 +71,7 @@
 			buildConfigurationList = CD3CDF85129D030231098B03 /* Build configuration list for PBXNativeTarget "WordhoardSpike" */;
 			buildPhases = (
 				66601A96B7967EB68A50AD07 /* Sources */,
+				269911FD9446E47109C12CAB /* Resources */,
 			);
 			buildRules = (
 			);
@@ -102,6 +117,18 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		269911FD9446E47109C12CAB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8216C7FE1D3BD5A6D00F0588 /* OEWN-LICENSE.txt in Resources */,
+				4CD028FE58390F98A5C53A60 /* oewn-2024.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		66601A96B7967EB68A50AD07 /* Sources */ = {
