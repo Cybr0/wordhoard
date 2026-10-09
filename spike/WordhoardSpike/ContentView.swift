@@ -45,10 +45,15 @@ struct ContentView: View {
                 .pickerStyle(.segmented)
                 .disabled(model.isGenerating)
 
-                if model.mode == .split {
-                    Toggle("Verify each sense (one yes/no call per sense)", isOn: $model.verifySenses)
-                        .font(.footnote)
-                        .disabled(model.isGenerating)
+                if model.mode != .single {
+                    Toggle(
+                        model.mode == .wordNet
+                            ? "Verify model senses (fallback only; WordNet senses are not verified)"
+                            : "Verify each sense (one yes/no call per sense)",
+                        isOn: $model.verifySenses
+                    )
+                    .font(.footnote)
+                    .disabled(model.isGenerating)
                     Toggle("Parallel example calls (3 at a time)", isOn: $model.parallelExamples)
                         .font(.footnote)
                         .disabled(model.isGenerating)
@@ -85,6 +90,13 @@ struct ContentView: View {
                     }
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                }
+
+                if let wordNetNote = model.wordNetNote {
+                    Text(wordNetNote)
+                        .font(.footnote)
+                        .foregroundStyle(.blue)
+                        .textSelection(.enabled)
                 }
 
                 if let verificationNote = model.verificationNote {
@@ -124,6 +136,11 @@ struct ContentView: View {
             .padding()
             .navigationTitle("Wordhoard Spike")
             .navigationBarTitleDisplayMode(.inline)
+        }
+        .task {
+            // Decode the WordNet bundle at launch, off the main actor, so the first lookup
+            // in "WordNet + model" mode does not pay for it; the load time is printed.
+            await WordNetLookup.shared.warmUp()
         }
     }
 

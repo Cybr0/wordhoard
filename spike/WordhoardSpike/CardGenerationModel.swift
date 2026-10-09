@@ -8,6 +8,14 @@
 //   4. one example per (sense, topic)   → appended as they arrive; "time to full card"
 // Every call is its own short LanguageModelSession, so the context never grows.
 //
+// WordNet + model mode (issue #11) replaces steps 1–2 with a bundle lookup:
+//   1. WordNetLookup gives the top 3 senses  → no model call, no verification (authoritative)
+//   2. one writing call per sense            → learner definition + translation
+//   3. one neutral example per sense         → "time to first card"
+//   4. one example per (sense, topic)        → "time to full card"
+// When WordNet has no entry for the word, the split flow above runs instead and the
+// log says so.
+//
 // Throwaway code. Not held to the root CLAUDE.md conventions (print is fine here).
 
 import Foundation
@@ -21,8 +29,17 @@ struct SpikeExample: Sendable {
     var text: String
 }
 
+/// Where a sense's inventory (part of speech, meaning, synonyms, antonyms) came from.
+enum SenseSource: String, Sendable {
+    case model
+    case wordNet = "wordnet"
+}
+
 struct SpikeSense: Sendable {
+    var source: SenseSource
     var partOfSpeech: PartOfSpeech
+    /// The WordNet gloss the learner definition was written from; `nil` for model senses.
+    var gloss: String?
     var definition: String
     var translation: String
     var synonyms: [String]
@@ -30,7 +47,9 @@ struct SpikeSense: Sendable {
     var examples: [SpikeExample]
 
     init(_ core: GeneratedSenseCore) {
+        source = .model
         partOfSpeech = core.partOfSpeech
+        gloss = nil
         definition = core.definition
         translation = core.translation
         synonyms = core.synonyms
@@ -39,18 +58,34 @@ struct SpikeSense: Sendable {
     }
 
     init(_ generated: GeneratedSense) {
+        source = .model
         partOfSpeech = generated.partOfSpeech
+        gloss = nil
         definition = generated.definition
         translation = generated.translation
         synonyms = generated.synonyms
         antonyms = generated.antonyms
         examples = generated.examples.map { SpikeExample(topicKey: $0.grammarTopic, text: $0.text) }
     }
+
+    /// A WordNet sense before or after the model has written for it. Until `writing` arrives
+    /// the gloss stands in as the definition so the card can be shown immediately.
+    init(wordNet sense: WordNetSense, writing: SenseWriting?) {
+        source = .wordNet
+        partOfSpeech = PartOfSpeech(sense.partOfSpeech)
+        gloss = sense.gloss
+        definition = writing?.learnerDefinition ?? sense.gloss
+        translation = writing?.translation ?? "…"
+        synonyms = sense.synonyms
+        antonyms = sense.antonyms
+        examples = []
+    }
 }
 
 struct SpikeCard: Sendable {
     var headword: String
-    var imagePrompt: String
+    /// Only the model paths produce one; WordNet mode has no image prompt (yet).
+    var imagePrompt: String?
     var senses: [SpikeSense]
 
     init(senses generated: GeneratedSenses) {
@@ -65,13 +100,22 @@ struct SpikeCard: Sendable {
         senses = generated.senses.map(SpikeSense.init)
     }
 
+    init(headword: String, wordNet senses: [WordNetSense]) {
+        self.headword = headword
+        imagePrompt = nil
+        self.senses = senses.map { SpikeSense(wordNet: $0, writing: nil) }
+    }
+
     /// Shape of requirements.md Appendix B.
     var readableDescription: String {
         var lines: [String] = []
         lines.append("Word: \(headword)")
         for (index, sense) in senses.enumerated() {
             lines.append("")
-            lines.append("Sense \(index + 1) — \(sense.partOfSpeech.rawValue)")
+            lines.append("Sense \(index + 1) — \(sense.partOfSpeech.rawValue) [\(sense.source.rawValue)]")
+            if let gloss = sense.gloss {
+                lines.append("  gloss:       \(gloss)")
+            }
             lines.append("  definition:  \(sense.definition)")
             lines.append("  translation: \(sense.translation)")
             lines.append("  synonyms:    \(sense.synonyms.isEmpty ? "—" : sense.synonyms.joined(separator: ", "))")
@@ -83,7 +127,11 @@ struct SpikeCard: Sendable {
             }
         }
         lines.append("")
-        lines.append("Image prompt: \"\(imagePrompt)\"")
+        if let imagePrompt {
+            lines.append("Image prompt: \"\(imagePrompt)\"")
+        } else {
+            lines.append("Image prompt: — (not generated in WordNet mode)")
+        }
         return lines.joined(separator: "\n")
     }
 }
@@ -96,6 +144,7 @@ final class CardGenerationModel {
     enum Mode: String, CaseIterable, Identifiable {
         case split = "Split calls"
         case single = "Single call"
+        case wordNet = "WordNet + model"
 
         var id: String { rawValue }
     }
@@ -103,8 +152,10 @@ final class CardGenerationModel {
     enum Phase: Equatable {
         case idle
         case generatingCard
+        case lookingUp
         case generatingSenses
         case verifyingSenses(done: Int, total: Int)
+        case writingSenses(done: Int, total: Int)
         case generatingNeutralExamples(done: Int, total: Int)
         case generatingTopicExamples(done: Int, total: Int)
         case finished
@@ -126,9 +177,15 @@ final class CardGenerationModel {
     /// What verification did to the sense list, when it changed anything. Set to a warning when
     /// every sense was rejected and the first one was kept unverified rather than showing nothing.
     private(set) var verificationNote: String?
+    /// WordNet mode: what the lookup found, or that it found nothing and the model took over.
+    private(set) var wordNetNote: String?
     /// Raw JSON of every call in this run, in order, with per-call timing.
     private(set) var rawLog = ""
     private(set) var errorText: String?
+    /// WordNet mode: the bundle lookup alone (includes the first-time bundle load, if any).
+    private(set) var lookupElapsed: Duration?
+    /// Split mode: the senses call. WordNet mode: lookup plus the writing calls, i.e. when the
+    /// senses are on screen with definitions and translations.
     private(set) var sensesElapsed: Duration?
     /// Senses + one neutral example per sense are on screen.
     private(set) var firstCardElapsed: Duration?
@@ -146,10 +203,14 @@ final class CardGenerationModel {
             return ""
         case .generatingCard:
             return "Generating the whole card in one call…"
+        case .lookingUp:
+            return "Looking up WordNet…"
         case .generatingSenses:
             return "Call 1: senses…"
         case let .verifyingSenses(done, total):
             return "Verifying senses \(done)/\(total)…"
+        case let .writingSenses(done, total):
+            return "Writing senses \(done)/\(total)…"
         case let .generatingNeutralExamples(done, total):
             return "Neutral examples \(done)/\(total)…"
         case let .generatingTopicExamples(done, total):
@@ -165,6 +226,7 @@ final class CardGenerationModel {
 
     var timingText: String {
         var parts: [String] = []
+        if let lookupElapsed { parts.append("Lookup: \(lookupElapsed.spikeFormatted)") }
         if let sensesElapsed { parts.append("Senses: \(sensesElapsed.spikeFormatted)") }
         if let firstCardElapsed { parts.append("First card: \(firstCardElapsed.spikeFormatted)") }
         if let fullCardElapsed { parts.append("Full card: \(fullCardElapsed.spikeFormatted)") }
@@ -173,11 +235,17 @@ final class CardGenerationModel {
 
     func generate(word: String) {
         cancel()
-        phase = mode == .split ? .generatingSenses : .generatingCard
+        switch mode {
+        case .split: phase = .generatingSenses
+        case .single: phase = .generatingCard
+        case .wordNet: phase = .lookingUp
+        }
         card = nil
         verificationNote = nil
+        wordNetNote = nil
         rawLog = ""
         errorText = nil
+        lookupElapsed = nil
         sensesElapsed = nil
         firstCardElapsed = nil
         fullCardElapsed = nil
@@ -190,6 +258,8 @@ final class CardGenerationModel {
                     try await runSplit(word: word)
                 case .single:
                     try await runSingle(word: word)
+                case .wordNet:
+                    try await runWordNet(word: word)
                 }
                 phase = .finished
             } catch is CancellationError {
@@ -247,7 +317,86 @@ final class CardGenerationModel {
             card?.senses = senses.map(SpikeSense.init)
         }
 
-        let neutralJobs = senses.indices.map { ExampleJob(senseIndex: $0, sense: senses[$0], topic: nil) }
+        try await runAllExamples(word: word, senses: senses.map(SpikeSense.init), since: start)
+    }
+
+    // MARK: WordNet + model
+
+    private func runWordNet(word: String) async throws {
+        let clock = ContinuousClock()
+        let start = clock.now
+
+        let entry = await WordNetLookup.shared.entry(for: word)
+        try Task.checkCancellation()
+        lookupElapsed = clock.now - start
+
+        guard let entry, !entry.top.isEmpty else {
+            let note = "WordNet: \"\(word)\" not found → model-only senses call"
+            wordNetNote = note
+            rawLog += "--- \(note) (\(lookupElapsed?.spikeFormatted ?? "?")) ---\n\n"
+            print(note)
+            phase = .generatingSenses
+            try await runSplit(word: word)
+            return
+        }
+
+        let counts = entry.senseCounts.map { "\($0.count) \($0.partOfSpeech.name)" }.joined(separator: ", ")
+        let kept = entry.top.enumerated().map { index, sense in
+            "  \(index + 1). \(sense.partOfSpeech.name): \(sense.gloss)"
+        }.joined(separator: "\n")
+        let note = "WordNet: \"\(word)\" → \(entry.bundledSenseCount) sense\(entry.bundledSenseCount == 1 ? "" : "s") in bundle (\(counts)), kept \(entry.top.count)"
+        wordNetNote = note
+        rawLog += "--- \(note) (\(lookupElapsed?.spikeFormatted ?? "?")) ---\n\(kept)\n\n"
+        print("\(note)\n\(kept)")
+
+        card = SpikeCard(headword: word, wordNet: entry.top)
+
+        // One writing call per sense, one after another (few and cheap). A failed call keeps the
+        // sense with the raw gloss as its definition rather than dropping a sense WordNet vouches for.
+        phase = .writingSenses(done: 0, total: entry.top.count)
+        for (index, sense) in entry.top.enumerated() {
+            let label = "write: sense \(index + 1) (\(sense.partOfSpeech.name)) \"\(sense.gloss)\""
+            let outcome = await Self.runWriting(word: word, sense: sense)
+            try Task.checkCancellation()
+            switch outcome {
+            case let .success(result):
+                appendLog(label: label, result: result)
+                card?.senses[index] = SpikeSense(wordNet: sense, writing: result.content)
+            case let .failure(error):
+                callCount += 1
+                rawLog += "--- \(label) FAILED, gloss kept as definition ---\n\(error)\n\n"
+                print("\(label) failed, gloss kept: \(error)")
+                card?.senses[index].translation = "⚠︎ failed: \(error.localizedDescription)"
+            }
+            phase = .writingSenses(done: index + 1, total: entry.top.count)
+        }
+        sensesElapsed = clock.now - start
+
+        guard let senses = card?.senses else { return }
+        try await runAllExamples(word: word, senses: senses, since: start)
+    }
+
+    /// Nonisolated so the call runs off the main actor, like the example calls.
+    private nonisolated static func runWriting(
+        word: String,
+        sense: WordNetSense
+    ) async -> Result<ModelCallResult<SenseWriting>, any Error> {
+        do {
+            return try .success(await writeSense(word: word, sense: sense))
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    // MARK: Examples for every sense (shared by split and WordNet modes)
+
+    /// Neutral example per sense (then "time to first card"), then one example per
+    /// (sense, topic) ("time to full card"). `senses` are the card's senses in order.
+    private func runAllExamples(word: String, senses: [SpikeSense], since start: ContinuousClock.Instant) async throws {
+        let clock = ContinuousClock()
+        let neutralJobs = senses.indices.map {
+            ExampleJob(senseIndex: $0, partOfSpeech: senses[$0].partOfSpeech, definition: senses[$0].definition, topic: nil)
+        }
         phase = .generatingNeutralExamples(done: 0, total: neutralJobs.count)
         try await runExamples(word: word, jobs: neutralJobs) { done, total in
             .generatingNeutralExamples(done: done, total: total)
@@ -257,7 +406,9 @@ final class CardGenerationModel {
         print("time to first card: \((clock.now - start).spikeFormatted) (\(callCount) calls)")
 
         let topicJobs = senses.indices.flatMap { index in
-            GrammarTopic.active.map { ExampleJob(senseIndex: index, sense: senses[index], topic: $0) }
+            GrammarTopic.active.map {
+                ExampleJob(senseIndex: index, partOfSpeech: senses[index].partOfSpeech, definition: senses[index].definition, topic: $0)
+            }
         }
         phase = .generatingTopicExamples(done: 0, total: topicJobs.count)
         try await runExamples(word: word, jobs: topicJobs) { done, total in
@@ -328,11 +479,13 @@ final class CardGenerationModel {
 
     private struct ExampleJob: Sendable {
         let senseIndex: Int
-        let sense: GeneratedSenseCore
+        let partOfSpeech: PartOfSpeech
+        /// The model's definition (split mode) or its learner definition of the WordNet gloss.
+        let definition: String
         let topic: GrammarTopic?
 
         var topicKey: String { topic?.key ?? GrammarTopic.neutral.key }
-        var label: String { "example: sense \(senseIndex + 1) (\(sense.partOfSpeech.rawValue)) / \(topicKey)" }
+        var label: String { "example: sense \(senseIndex + 1) (\(partOfSpeech.rawValue)) / \(topicKey)" }
     }
 
     private struct ExampleOutcome: Sendable {
@@ -371,7 +524,12 @@ final class CardGenerationModel {
     /// Nonisolated so a task-group child can run it off the main actor.
     private nonisolated static func runExample(word: String, job: ExampleJob) async -> ExampleOutcome {
         do {
-            let result = try await generateExample(word: word, sense: job.sense, topic: job.topic)
+            let result = try await generateExample(
+                word: word,
+                partOfSpeech: job.partOfSpeech,
+                definition: job.definition,
+                topic: job.topic
+            )
             return ExampleOutcome(job: job, result: .success(result))
         } catch {
             return ExampleOutcome(job: job, result: .failure(error))
