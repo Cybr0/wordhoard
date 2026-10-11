@@ -122,7 +122,7 @@ Priorities: **M** = must have for v1, **S** = should have, **L** = later.
 
 | # | Requirement | Pri |
 |---|---|---|
-| S1 | Native language for translations. Asked once on first launch, with the system language preselected when it is in the supported list (otherwise Russian). Changeable later in Settings. Initial list: Russian, Uzbek; others addable later. Changing the language does not retranslate existing cards automatically; it only affects new autofill (a "retranslate" action may come later). | M |
+| S1 | Native language for translations. Asked once on first launch, with the system language preselected when it is supported; otherwise "No translation" is preselected with a note that translation for that language is not available yet and can be typed manually. Changeable later in Settings. **Supported set = languages the Translation framework can translate to on device** (translations are produced by that framework, not by the model, so adding a language costs only QA). Display order puts the most common learner languages first: Russian, Spanish, Chinese (Simplified), Hindi, Arabic, Portuguese (Brazil), French, German, Japanese, Korean, Turkish, Italian, Vietnamese, Indonesian, Polish, Ukrainian, then the remaining supported languages alphabetically. Languages the framework does not support (e.g. Uzbek) are deferred — see §11. Changing the language does not retranslate existing cards automatically; it only affects new autofill (a "retranslate" action may come later). | M |
 | S2 | Grammar topics currently being learned (see G2). | M |
 | S3 | Export all data as JSON (and import). This is the user's safety net since there is no cloud. | M |
 | S4 | "Support the developer" screen with tip-jar in-app purchases (consumables). | S |
@@ -200,7 +200,7 @@ ReviewEvent            (post-v1, append-only)
   direction: enum (wordToMeaning, meaningToWord)
 
 UserSettings           (single record)
-  nativeLanguage: String   (BCP-47, e.g. "ru", "uz")
+  nativeLanguage: String?  (BCP-47, e.g. "ru", "es", "zh-Hans"; nil = no translation)
   learningLanguage: String (always "en" in v1)
   activeGrammarTopics: [GrammarTopicID]
   autoGenerateImages: Bool
