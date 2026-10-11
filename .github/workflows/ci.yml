@@ -1,5 +1,6 @@
-# Lint, regenerate-and-diff the committed project, run the Core tests, build for a simulator.
-# UI tests are not run here (slow and flaky on hosted runners); qa runs `xcodebuild test` locally.
+# Lint, regenerate-and-diff the committed project, run the Core tests, build the app and the UI-test
+# bundle for a simulator. UI tests are compiled but not run here (slow and flaky on hosted runners);
+# qa runs `xcodebuild test` locally.
 name: CI
 
 on:
@@ -73,8 +74,10 @@ jobs:
           echo "Using simulator: $SIM"
           echo "name=$SIM" >> "$GITHUB_OUTPUT"
 
+      # `build-for-testing` also compiles WordhoardUITests, which the plain `build` action skips because
+      # the scheme does not build the test bundle for running. Nothing is executed.
       - name: Build for simulator
         run: |
           xcodebuild -scheme Wordhoard \
             -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
-            CODE_SIGNING_ALLOWED=NO build
+            CODE_SIGNING_ALLOWED=NO build-for-testing
