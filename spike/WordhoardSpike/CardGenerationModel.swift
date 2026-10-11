@@ -13,8 +13,8 @@
 //   2. one writing call per sense            → learner definition + translation
 //   3. one neutral example per sense         → "time to first card"
 //   4. one example per (sense, topic)        → "time to full card"
-// When WordNet has no entry for the word, the split flow above runs instead and the
-// log says so.
+// When the word is on the function-word stoplist (however, despite, …) or WordNet has
+// no entry for it, the split flow above runs instead and the log says so.
 //
 // Throwaway code. Not held to the root CLAUDE.md conventions (print is fine here).
 
@@ -177,7 +177,7 @@ final class CardGenerationModel {
     /// What verification did to the sense list, when it changed anything. Set to a warning when
     /// every sense was rejected and the first one was kept unverified rather than showing nothing.
     private(set) var verificationNote: String?
-    /// WordNet mode: what the lookup found, or that it found nothing and the model took over.
+    /// WordNet mode: what the lookup found, or why the model took over (function word, not found).
     private(set) var wordNetNote: String?
     /// Raw JSON of every call in this run, in order, with per-call timing.
     private(set) var rawLog = ""
@@ -326,17 +326,21 @@ final class CardGenerationModel {
         let clock = ContinuousClock()
         let start = clock.now
 
+        // Closed-class words never reach the bundle (issue #11, decision 3).
+        let isFunctionWord = await WordNetLookup.shared.isFunctionWord(word)
+        try Task.checkCancellation()
+        if isFunctionWord {
+            lookupElapsed = clock.now - start
+            try await fallBackToModel(word: word, note: "WordNet: \"\(word)\" is a function word → model-only senses call")
+            return
+        }
+
         let entry = await WordNetLookup.shared.entry(for: word)
         try Task.checkCancellation()
         lookupElapsed = clock.now - start
 
         guard let entry, !entry.top.isEmpty else {
-            let note = "WordNet: \"\(word)\" not found → model-only senses call"
-            wordNetNote = note
-            rawLog += "--- \(note) (\(lookupElapsed?.spikeFormatted ?? "?")) ---\n\n"
-            print(note)
-            phase = .generatingSenses
-            try await runSplit(word: word)
+            try await fallBackToModel(word: word, note: "WordNet: \"\(word)\" not found → model-only senses call")
             return
         }
 
@@ -374,6 +378,15 @@ final class CardGenerationModel {
 
         guard let senses = card?.senses else { return }
         try await runAllExamples(word: word, senses: senses, since: start)
+    }
+
+    /// The model-only (split) flow for a word WordNet cannot serve, with the reason on screen and in the log.
+    private func fallBackToModel(word: String, note: String) async throws {
+        wordNetNote = note
+        rawLog += "--- \(note) (\(lookupElapsed?.spikeFormatted ?? "?")) ---\n\n"
+        print(note)
+        phase = .generatingSenses
+        try await runSplit(word: word)
     }
 
     /// Nonisolated so the call runs off the main actor, like the example calls.

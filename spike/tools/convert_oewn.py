@@ -9,7 +9,9 @@ The first form reads the gzipped WN-LMF XML from the GitHub release
 (https://github.com/globalwordnet/english-wordnet, tag `2024-edition`, asset
 `english-wordnet-2024.xml.gz`, CC BY 4.0) and writes the bundle. The second form
 loads a bundle and prints, for every word in `docs/regression-words.md`, whether the
-lemma is found and the senses the app would show.
+lemma is found and the senses the app would show. If a `function-words.txt` sits next
+to the bundle (it does in the app's Resources folder) the check applies the same
+stoplist as the app: those words never reach WordNet and go to the model-only path.
 
 Standard library only (system python3 is 3.9). Run with `-I` because the release is
 untrusted input; the script never executes anything from it.
@@ -59,6 +61,8 @@ POS_ORDER = ["n", "v", "a", "r"]
 # Senses kept and shown per part of speech (issue #11, decision 1: missing a real sense
 # costs more than showing a spare one). For "book": noun, noun, verb engage, verb reserve.
 TOP = 2
+# Stoplist shipped next to the bundle; words on it are always model-only in the app.
+FUNCTION_WORDS_FILE = "function-words.txt"
 
 REGRESSION_WORDS = [
     "book", "run", "light", "set", "apple", "however", "despite", "achieve", "look up",
@@ -205,13 +209,35 @@ def top_senses(groups, limit=TOP):
     return [(pos, sense) for pos in POS_ORDER for sense in groups.get(pos, [])[:limit]]
 
 
+def load_function_words(path):
+    """One lemma per line, lowercase; blank lines and `#` comments are skipped.
+    Same parsing as FunctionWords in WordNetLookup.swift."""
+    words = set()
+    with open(path, "r", encoding="utf-8") as stream:
+        for line in stream:
+            text = line.split("#", 1)[0]
+            key = normalise(text)
+            if key:
+                words.add(key)
+    return words
+
+
 def check(bundle_path):
     with open(bundle_path, "r", encoding="utf-8") as stream:
         bundle = json.load(stream)
     synsets = bundle["synsets"]
     lemmas = bundle["lemmas"]
+    stoplist_path = os.path.join(os.path.dirname(os.path.abspath(bundle_path)), FUNCTION_WORDS_FILE)
+    function_words = load_function_words(stoplist_path) if os.path.exists(stoplist_path) else set()
+    if function_words:
+        print(f"stoplist: {len(function_words)} function words from {stoplist_path}")
+    else:
+        print(f"stoplist: no {FUNCTION_WORDS_FILE} next to the bundle, not applied")
     for word in REGRESSION_WORDS:
         key = normalise(word)
+        if key in function_words:
+            print(f"{word}: function word -> model-only senses call")
+            continue
         groups = lemmas.get(key)
         if groups is None:
             print(f"{word}: NOT FOUND -> model-only fallback")

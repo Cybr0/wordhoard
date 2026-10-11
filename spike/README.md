@@ -18,6 +18,8 @@ Nothing here is meant to survive into the real app except the lessons.
 - `WordhoardSpike/WordNetLookup.swift` — loads the bundled WordNet once and answers "which senses
   does this headword have" without the model. No `FoundationModels` import.
 - `WordhoardSpike/Resources/oewn-2024.json` — the WordNet bundle (13.8 MB) and `OEWN-LICENSE.txt`.
+- `WordhoardSpike/Resources/function-words.txt` — the closed-class stoplist; these words are always
+  model-only.
 - `tools/convert_oewn.py` — builds that bundle from the Open English WordNet release.
 
 ## Three modes (issues #4 and #11)
@@ -94,15 +96,25 @@ to 9. The timings line adds **Lookup** (the bundle lookup alone; the first one i
 bundle unless the launch-time warm-up has finished — 0.4 s on the iPhone 17 simulator, Debug build;
 the console prints `WordNet: loaded …` with the time).
 
-*Fallback.* When the headword is not in the bundle (`by the book`, `break the ice`, `asdfgh` from the
-regression list) the log and the screen say `WordNet: "<word>" not found → model-only senses call`
-and the split flow above runs unchanged, including its verification toggle. The card marks every
+*Fallback, two triggers (issue #11, decision 3).* **Function words:** before the lookup, the headword
+is checked against `Resources/function-words.txt`, a closed-class stoplist of about 385 lemmas —
+determiners, pronouns, prepositions, conjunctions, auxiliaries and modals, discourse adverbs and
+connectives (*however*, *despite*, *although*, *nevertheless*, *moreover*, *therefore*, *whereas*,
+*unless*, …). WordNet is useless or misleading for these (no prepositions at all, *despite* only as an
+archaic noun) while the model-only senses call handled *however* perfectly, so they never reach the
+bundle: the log and the screen say `WordNet: "<word>" is a function word → model-only senses call`.
+The file is one lowercase lemma per line, `#` comments allowed, matched against the normalised
+headword; `--check` applies it too when it sits next to the bundle. **Not in the bundle:** `by the
+book`, `break the ice`, `asdfgh` from the regression list give `WordNet: "<word>" not found →
+model-only senses call`. In both cases the split flow above runs, including its verification toggle.
+Recent senses missing from WordNet (*gaslight* as a verb) are **not** a trigger: the noun sense is
+shown and the user adds the verb manually — accepted limitation for v1. The card marks every
 sense with its source: `Sense 1 — verb [wordnet]` or `[model]`; WordNet senses also show the gloss
 the definition was written from. There is no image prompt in WordNet mode.
 
 *Known limits of the bundle* (for ADR 0001): WordNet has no prepositions or other function words
-(*despite* is found, but only as an archaic noun, "contemptuous disregard" — the model-only path
-would be right here); no recent senses (*gaslight* is a noun only, the lamp); only one sense of *look
+(*despite* is found, but only as an archaic noun, "contemptuous disregard" — hence the stoplist
+above); no recent senses (*gaslight* is a noun only, the lamp); only one sense of *look
 up* ("seek information from" — the literal "raise one's eyes" is compositional, not an entry, and
 that one sense is the accepted result); no idioms beyond its
 own list (*by the book*, *break the ice* are missing); and the sense order is WordNet's, which puts
@@ -177,8 +189,9 @@ verification on and once off. Then do the full `docs/regression-words.md` run fo
 
 For #11, run regression words 1–5 (**book**, **run**, **light**, **set**, **apple**) in "WordNet +
 model" and compare the learner definitions, translations and timings with split mode; then
-**look up** and **give up** (multi-word entries), **gaslight** (noun only in WordNet) and
-**by the book** (not in WordNet → fallback, check the log line).
+**look up** and **give up** (multi-word entries), **gaslight** (noun only in WordNet),
+**however** and **despite** (function words → model-only, check the log line) and **by the book**
+(not in WordNet → fallback, check the log line).
 
 ## Build check without a device
 

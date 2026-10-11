@@ -6,6 +6,9 @@
 // sees this file; CardGenerationModel asks it for a headword's senses and lets the model
 // write the learner definition, translation and examples for each one (issue #11).
 //
+// Headwords on the closed-class stoplist (Resources/function-words.txt) never reach the
+// bundle: `isFunctionWord` says so and CardGenerationModel takes the model-only path.
+//
 // No FoundationModels import here on purpose. Throwaway code.
 
 import Foundation
@@ -60,10 +63,19 @@ actor WordNetLookup {
 
     private var bundle: WordNetBundle?
     private var loadTask: Task<WordNetBundle?, Never>?
+    private var functionWords: FunctionWords?
 
     /// Starts loading in the background so the first lookup does not pay for it.
     func warmUp() async {
         _ = await loadedBundle()
+    }
+
+    /// Whether the headword is on the closed-class stoplist (`function-words.txt`): determiners,
+    /// pronouns, prepositions, conjunctions, auxiliaries, discourse adverbs. WordNet is useless
+    /// or misleading for these, so the caller takes the model-only path (issue #11, decision 3).
+    func isFunctionWord(_ headword: String) -> Bool {
+        if functionWords == nil { functionWords = FunctionWords.load() }
+        return functionWords?.contains(headword) ?? false
     }
 
     /// The top senses for a headword, or `nil` when WordNet has no entry for it.
@@ -116,6 +128,39 @@ actor WordNetLookup {
         bundle = loaded
         loadTask = nil
         return loaded
+    }
+}
+
+// MARK: - Function-word stoplist
+
+/// `function-words.txt`: one lemma per line, lowercase, `#` starts a comment. Same parsing as
+/// `load_function_words` in tools/convert_oewn.py, so `--check` and the app agree.
+private struct FunctionWords: Sendable {
+    let words: Set<String>
+
+    func contains(_ headword: String) -> Bool {
+        words.contains(WordNetLookup.normalise(headword))
+    }
+
+    static func load() -> FunctionWords? {
+        guard let url = Bundle.main.url(forResource: "function-words", withExtension: "txt") else {
+            print("WordNet: function-words.txt missing from the app bundle, no stoplist")
+            return nil
+        }
+        do {
+            let text = try String(contentsOf: url, encoding: .utf8)
+            var words: Set<String> = []
+            for line in text.split(whereSeparator: \.isNewline) {
+                let content = line.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first ?? ""
+                let key = WordNetLookup.normalise(String(content))
+                if !key.isEmpty { words.insert(key) }
+            }
+            print("WordNet: loaded function-words.txt, \(words.count) function words")
+            return FunctionWords(words: words)
+        } catch {
+            print("WordNet: failed to load function-words.txt: \(error)")
+            return nil
+        }
     }
 }
 
