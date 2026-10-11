@@ -14,7 +14,7 @@ Open English WordNet (2024 edition)
   License: Creative Commons Attribution 4.0 International (CC BY 4.0)
   Derived from Princeton WordNet (WordNet License). Attribution to both is
   required. Full text: spike/WordhoardSpike/Resources/OEWN-LICENSE.txt
-  (will move to the app's Resources in Phase 1).
+  (moves to the app's Resources with plan task 2.2).
 
 Apple frameworks (Foundation Models, Translation, Image Playground, SwiftData,
 App Intents) are used under the Apple Developer Program License Agreement and
