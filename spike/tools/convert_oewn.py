@@ -20,9 +20,11 @@ What is kept, per lemma (lowercased, multi-word lemmas with single spaces):
   - senses grouped by part of speech, in WordNet sense order, at most TOP per part
     of speech (the app shows every kept sense: up to TOP per part of speech)
   - per sense: synset index and the antonym lemmas (SenseRelation relType="antonym")
-Per synset (deduplicated, stored once): the Definition text and the member lemmas when
-there is more than one. Everything else in the release (examples, ILI, pronunciations,
-subcats, all other relations, synsets no kept sense points to) is dropped.
+Per synset (deduplicated, stored once): the Definition text, the member lemmas when
+there is more than one, and up to EXAMPLES_PER_SYNSET of its Example sentences (they
+go into the model's writing prompt so a terse gloss is not misread). Everything else in
+the release (ILI, pronunciations, subcats, all other relations, synsets no kept sense
+points to) is dropped.
 
 Sense rank: the 2024 release carries no <Count> elements on senses (checked with
 grep: zero hits), so the order of <Sense> elements inside each <LexicalEntry> is used
@@ -39,11 +41,12 @@ adjective, r -> adverb. Other values are dropped.
 Bundle shape (no whitespace; array indices are the synset ids):
     {
       "edition": "oewn-2024",
-      "synsets": [[gloss] | [gloss, [member lemma, ...]], ...],
+      "synsets": [[gloss] | [gloss, [member lemma, ...]] | [gloss, [members], [example, ...]], ...],
       "lemmas": {"book": {"n": [sense, ...], "v": [...]}, ...}
     }
     sense = synset index | [synset index, [antonym lemma, ...]]
     part of speech keys: n noun, v verb, a adjective, r adverb
+    The members list may be empty when a synset has examples but a single member.
 Synonyms on a card are the synset members minus the headword; the app does that.
 """
 
@@ -61,6 +64,9 @@ POS_ORDER = ["n", "v", "a", "r"]
 # Senses kept and shown per part of speech (issue #11, decision 1: missing a real sense
 # costs more than showing a spare one). For "book": noun, noun, verb engage, verb reserve.
 TOP = 2
+# Example sentences kept per synset (the first in the release is the canonical one). Two per
+# synset pushed the bundle to 15.1 MB, over the 15 MB target; one keeps it at 14.8 MB.
+EXAMPLES_PER_SYNSET = 1
 # Stoplist shipped next to the bundle; words on it are always model-only in the app.
 FUNCTION_WORDS_FILE = "function-words.txt"
 
@@ -89,7 +95,7 @@ def parse(input_path):
     entries = []  # (lemma_key, written_form, pos_key, [(synset_id, [antonym sense ids])])
     entry_form_by_id = {}  # LexicalEntry id -> writtenForm (for synset members)
     entry_form_by_sense = {}  # Sense id -> writtenForm (for antonym targets)
-    synsets = {}  # synset id -> (gloss, [member entry ids])
+    synsets = {}  # synset id -> (gloss, [member entry ids], [example sentences])
 
     with open_input(input_path) as stream:
         for _event, element in ET.iterparse(stream, events=("end",)):
@@ -117,7 +123,14 @@ def parse(input_path):
             elif tag == "Synset":
                 definition = element.find("Definition")
                 gloss = (definition.text or "").strip() if definition is not None else ""
-                synsets[element.get("id", "")] = (gloss, element.get("members", "").split())
+                examples = []
+                for example in element.findall("Example"):
+                    text = re.sub(r"\s+", " ", example.text or "").strip()
+                    if text and text not in examples:
+                        examples.append(text)
+                    if len(examples) == EXAMPLES_PER_SYNSET:
+                        break
+                synsets[element.get("id", "")] = (gloss, element.get("members", "").split(), examples)
                 element.clear()
             elif tag == "Lexicon":
                 element.clear()
@@ -161,17 +174,25 @@ def convert(input_path, output_path):
     # Dense synset indices, file order of the referenced synsets.
     synset_index = {}
     synset_rows = []
+    example_count = 0
     for synset_id in synsets:  # file order
         if synset_id not in seen:
             continue
-        gloss, member_ids = synsets[synset_id]
+        gloss, member_ids, examples = synsets[synset_id]
         members = []
         for member_id in member_ids:
             form = entry_form_by_id.get(member_id)
             if form and form not in members:
                 members.append(form)
         synset_index[synset_id] = len(synset_rows)
-        synset_rows.append([gloss, members] if len(members) > 1 else [gloss])
+        if examples:
+            row = [gloss, members if len(members) > 1 else [], examples]
+            example_count += len(examples)
+        elif len(members) > 1:
+            row = [gloss, members]
+        else:
+            row = [gloss]
+        synset_rows.append(row)
 
     lemmas = {}
     for key, groups in kept.items():
@@ -192,7 +213,8 @@ def convert(input_path, output_path):
     kept_senses = sum(len(rows) for groups in lemmas.values() for rows in groups.values())
     print(f"release: {len(entries)} entries, {total_senses} senses, {len(synsets)} synsets")
     print(f"bundle:  {len(lemmas)} lemmas, {kept_senses} senses (top {TOP} per part of speech), "
-          f"{len(synset_rows)} synsets; {dropped_unknown} senses pointed to unknown synsets")
+          f"{len(synset_rows)} synsets, {example_count} examples (up to {EXAMPLES_PER_SYNSET} per synset); "
+          f"{dropped_unknown} senses pointed to unknown synsets")
     print(f"wrote {output_path}: {size} bytes ({size / 1_048_576:.1f} MB)")
 
 
@@ -201,6 +223,14 @@ def sense_parts(sense):
     if isinstance(sense, list):
         return sense[0], sense[1]
     return sense, []
+
+
+def synset_parts(row):
+    """A synset row is [gloss], [gloss, members] or [gloss, members, examples]."""
+    gloss = row[0]
+    members = row[1] if len(row) > 1 else []
+    examples = row[2] if len(row) > 2 else []
+    return gloss, members, examples
 
 
 def top_senses(groups, limit=TOP):
@@ -247,9 +277,7 @@ def check(bundle_path):
         print(f"{word}: found, {total} sense{'s' if total != 1 else ''} kept ({by_pos}); up to {TOP} per part of speech:")
         for rank, (pos, sense) in enumerate(top_senses(groups), start=1):
             index, antonyms = sense_parts(sense)
-            row = synsets[index]
-            gloss = row[0]
-            members = row[1] if len(row) > 1 else []
+            gloss, members, examples = synset_parts(synsets[index])
             synonyms = [member for member in members if normalise(member) != key]
             line = f"  {rank}. {POS_NAMES[pos]}: {gloss}"
             if synonyms:
@@ -257,6 +285,8 @@ def check(bundle_path):
             if antonyms:
                 line += f"  [ant: {', '.join(antonyms)}]"
             print(line)
+            for example in examples:
+                print(f"       e.g. {example}")
 
 
 def main(argv):

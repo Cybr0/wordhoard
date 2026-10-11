@@ -2,7 +2,8 @@
 // (Resources/oewn-2024.json, CC BY 4.0, produced by tools/convert_oewn.py).
 //
 // The bundle gives, per lemma, the senses in WordNet order grouped by part of speech,
-// each with a gloss, the synset's other members (synonyms) and antonyms. The model never
+// each with a gloss, the synset's other members (synonyms), antonyms and the synset's example
+// sentence. The model never
 // sees this file; CardGenerationModel asks it for a headword's senses and lets the model
 // write the learner definition, translation and examples for each one (issue #11).
 //
@@ -38,6 +39,10 @@ struct WordNetSense: Sendable {
     /// Other members of the synset, in WordNet order; never contains the headword.
     let synonyms: [String]
     let antonyms: [String]
+    /// The synset's example sentences from the release (the bundle keeps at most one). They may
+    /// use a synonym rather than the headword; they go into the writing prompt so the model does
+    /// not misread a terse gloss ("engage for a performance" was read as *rehearse*).
+    let examples: [String]
 }
 
 /// What the bundle knows about one headword.
@@ -103,7 +108,8 @@ actor WordNetLookup {
                     partOfSpeech: partOfSpeech,
                     gloss: synset.gloss,
                     synonyms: synset.members.filter { Self.normalise($0) != key },
-                    antonyms: ref.antonyms
+                    antonyms: ref.antonyms,
+                    examples: synset.examples
                 ))
             }
         }
@@ -191,15 +197,18 @@ private struct WordNetBundle: Sendable, Decodable {
     }
 }
 
-/// `[gloss]` or `[gloss, [member, ...]]`.
+/// `[gloss]`, `[gloss, [member, ...]]` or `[gloss, [member, ...], [example, ...]]`
+/// (the member list may be empty in the third form).
 private struct WordNetSynset: Sendable, Decodable {
     let gloss: String
     let members: [String]
+    let examples: [String]
 
     init(from decoder: any Decoder) throws {
         var container = try decoder.unkeyedContainer()
         gloss = try container.decode(String.self)
         members = container.isAtEnd ? [] : try container.decode([String].self)
+        examples = container.isAtEnd ? [] : try container.decode([String].self)
     }
 }
 

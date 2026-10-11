@@ -179,13 +179,16 @@ struct SenseVerdict {
 
 // MARK: - WordNet path: one writing call per WordNet sense
 
-// WordNet supplies the sense (part of speech, gloss, synonyms, antonyms); the model is
-// only asked to rewrite the terse gloss for a learner and to translate the word in that
-// sense. Synonyms and antonyms on the card come from WordNet, never from this call.
+// WordNet supplies the sense (part of speech, gloss, synonyms, antonyms, example); the model
+// is only asked to rewrite the terse gloss for a learner and to translate the word in that
+// sense. Synonyms and antonyms on the card come from WordNet, never from this call. The
+// WordNet example sentence and synonyms are in the prompt because the gloss alone was
+// misread on the device run ("engage for a performance" → *rehearse*).
 
 let senseWritingInstructions = """
 You write entries for a learner's dictionary of English. The learner's native language is Russian.
-You are given one sense of an English word: the word, its part of speech, the dictionary gloss and its synonyms.
+You are given one sense of an English word: the word, its part of speech, the dictionary gloss, its synonyms and an example sentence from the dictionary that shows this sense (the example may use a synonym instead of the word).
+Use the gloss, the synonyms and the example together to understand exactly which meaning is intended.
 Write a learner-friendly definition of this sense: exactly one short English sentence in simple everyday words that explains the meaning. Rewrite the gloss in your own words; do not copy it and do not use the word itself in the definition.
 Give the Russian translation of the word in this sense: 1 to 3 comma-separated equivalents, lowercase.
 Stay with the given sense; do not describe other meanings of the word.
@@ -199,6 +202,9 @@ func senseWritingPrompt(word: String, sense: WordNetSense) -> String {
     ]
     if !sense.synonyms.isEmpty {
         lines.append("Synonyms: \(sense.synonyms.joined(separator: ", "))")
+    }
+    for example in sense.examples {
+        lines.append("Example of this sense: \(example)")
     }
     return lines.joined(separator: "\n")
 }

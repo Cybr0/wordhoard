@@ -17,7 +17,7 @@ Nothing here is meant to survive into the real app except the lessons.
 - `WordhoardSpike/ContentView.swift` — the screen.
 - `WordhoardSpike/WordNetLookup.swift` — loads the bundled WordNet once and answers "which senses
   does this headword have" without the model. No `FoundationModels` import.
-- `WordhoardSpike/Resources/oewn-2024.json` — the WordNet bundle (13.8 MB) and `OEWN-LICENSE.txt`.
+- `WordhoardSpike/Resources/oewn-2024.json` — the WordNet bundle (14.8 MB) and `OEWN-LICENSE.txt`.
 - `WordhoardSpike/Resources/function-words.txt` — the closed-class stoplist; these words are always
   model-only.
 - `tools/convert_oewn.py` — builds that bundle from the Open English WordNet release.
@@ -70,8 +70,8 @@ while everything downstream of a correct sense is good. So the senses come from 
 model only writes.
 
 1. *Lookup, no model call.* `WordNetLookup` returns the headword's senses from the bundled Open
-   English WordNet 2024: part of speech, gloss, synonyms (other members of the synset) and antonyms,
-   in WordNet sense order. The card shows **up to 2 senses per part of speech**, nouns first, then
+   English WordNet 2024: part of speech, gloss, synonyms (other members of the synset), antonyms and
+   the synset's example sentence, in WordNet sense order. The card shows **up to 2 senses per part of speech**, nouns first, then
    verbs, adjectives, adverbs (for *book*: noun, noun, verb *engage for a performance*, verb *reserve*).
    Missing a real sense costs more than showing a spare one — the user can delete a sense but will
    not know to add one (issue #11, decision 1). The log line says how many senses the bundle has for
@@ -81,11 +81,14 @@ model only writes.
    editing in the real app (requirements W2) — e.g. *look up* has one WordNet sense, "seek information
    from"; the compositional "raise one's eyes" is not a lexical entry and is not added (issue #11,
    decision 2).
-2. *One writing call per sense.* Prompt: the word, part of speech, gloss and synonyms; the model
-   returns `SenseWriting { learnerDefinition, translation }` — a one-sentence learner-friendly
-   rewrite of the gloss and the Russian translation of the word in that sense. Synonyms and antonyms
-   on the card come from WordNet, never from this call. A failed writing call keeps the sense with
-   the raw gloss as its definition.
+2. *One writing call per sense.* Prompt: the word, part of speech, gloss, synonyms and the WordNet
+   example sentence of the synset (it may use a synonym rather than the headword); the model returns
+   `SenseWriting { learnerDefinition, translation }` — a one-sentence learner-friendly rewrite of the
+   gloss and the Russian translation of the word in that sense. The example and synonyms are there
+   because the gloss alone was misread on the first device run ("engage for a performance" became
+   *rehearse*). Synonyms and antonyms on the card come from WordNet, never from this call. A failed
+   writing call (including a guardrail refusal, seen for *gaslight*) keeps the sense with the raw
+   gloss as its definition.
 3. *One neutral example per sense*, with the learner definition in the prompt — the card is on screen
    from this point ("time to first card").
 4. *One example per (sense, topic)* in the background, as in split mode ("time to full card").
@@ -123,14 +126,16 @@ sense 2, which is why the cut is two per part of speech rather than three in tot
 
 ### The WordNet bundle
 
-`WordhoardSpike/Resources/oewn-2024.json`, 13.8 MB (14 494 184 bytes), plain JSON with no
-whitespace: a `synsets` array (`[gloss]` or `[gloss, [member lemma, …]]`, the index is the synset
-id) and a `lemmas` map from the lowercased lemma (multi-word lemmas with spaces: `look up`) to its
-senses per part of speech (`n`, `v`, `a`, `r`), each sense an int synset index or
-`[index, [antonym, …]]`. Only the top 2 senses per part of speech are kept (the card shows every kept
-sense), which drops 25k of 212k senses and 10k of 121k synsets; satellite adjectives are
-folded into `a`; examples, pronunciations, ILI and all other relations are stripped. The full
-dump would be 16.7 MB. SemCor tag counts are not in the LMF release, so sense order within a part of
+`WordhoardSpike/Resources/oewn-2024.json`, 14.8 MB (15 492 477 bytes), plain JSON with no
+whitespace: a `synsets` array (`[gloss]`, `[gloss, [member lemma, …]]` or
+`[gloss, [members], [example, …]]`, the index is the synset id) and a `lemmas` map from the
+lowercased lemma (multi-word lemmas with spaces: `look up`) to its senses per part of speech (`n`,
+`v`, `a`, `r`), each sense an int synset index or `[index, [antonym, …]]`. Only the top 2 senses per
+part of speech are kept (the card shows every kept sense), which drops 25k of 212k senses and 10k of
+121k synsets; satellite adjectives are folded into `a`; the first example sentence of each synset is
+kept (28k examples — two per synset made the bundle 15.1 MB, over the 15 MB target, one keeps it
+under); further examples, pronunciations, ILI and all other relations are stripped. Without examples
+the same bundle was 13.5 MB; with three senses per part of speech and no examples, 13.8 MB. SemCor tag counts are not in the LMF release, so sense order within a part of
 speech is the `<Sense>` element order of the entry, which is WordNet's own ranking.
 
 Source: Open English WordNet, 2024 edition, CC BY 4.0, derived from Princeton WordNet

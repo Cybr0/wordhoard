@@ -21,6 +21,7 @@ Canonical citation:
   Proceedings of the 10th Global WordNet Conference (GWC 2019), Wroclaw.
 
 oewn-2024.json in this folder is a trimmed derivative of the release (definitions,
-synonyms, antonyms and sense order only; at most three senses per part of speech),
-produced by spike/tools/convert_oewn.py. The XML examples, pronunciations and all
-other relations were removed. No other changes were made to the content.
+synonyms, antonyms, sense order and the first example sentence of each synset; at most
+two senses per part of speech), produced by spike/tools/convert_oewn.py. Further
+examples, pronunciations and all other relations were removed. No other changes were
+made to the content.
