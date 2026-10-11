@@ -137,7 +137,7 @@ struct GeneratedSenses {
 
 @Generable(description: "One meaning of the word, without examples.")
 struct GeneratedSenseCore {
-    @Guide(description: "Part of speech for this sense.")
+    @Guide(description: "Part of speech for this sense: noun, verb, adjective or adverb; phrase for an idiom or multi-word expression; other for a preposition, conjunction, determiner or pronoun (prepositions are never adverbs).")
     var partOfSpeech: PartOfSpeech
 
     @Guide(description: "Short learner-friendly definition in English, one sentence.")
@@ -168,8 +168,13 @@ Answer yes or no only.
 """
 
 func verificationPrompt(word: String, sense: GeneratedSenseCore) -> String {
-    let article = ["a", "e", "i", "o", "u"].contains(String(sense.partOfSpeech.rawValue.prefix(1))) ? "an" : "a"
-    return "Is the English word \"\(word)\" commonly used as \(article) \(sense.partOfSpeech.rawValue) meaning \"\(sense.definition)\"? Answer yes or no."
+    let role: String = switch sense.partOfSpeech {
+    case .phrase: "as an idiom or fixed phrase"
+    case .other: "as a preposition, conjunction, determiner or pronoun"
+    case .adjective, .adverb: "as an \(sense.partOfSpeech.rawValue)"
+    case .noun, .verb: "as a \(sense.partOfSpeech.rawValue)"
+    }
+    return "Is the English word \"\(word)\" commonly used \(role) meaning \"\(sense.definition)\"? Answer yes or no."
 }
 
 /// The verdict is a single `Bool`. Guided generation constrains the model to the JSON
@@ -197,8 +202,9 @@ Use the gloss, the synonyms and the example only to understand exactly which mea
 Write a learner-friendly definition of this sense: one short phrase or sentence in simple everyday words that explains the meaning in general terms, as a dictionary would.
 Rules:
 - A definition is not a sentence about a particular person, place, thing or event. Never retell, paraphrase or reuse the example sentence or anything in it (its people, objects, places).
-- For a verb, start with "to": "to arrange for a seat, room or ticket to be kept for you". For a noun, write a noun phrase: "a soft lamp that burns gas". For an adjective or adverb, describe the quality: "not heavy".
-- Define the given word, not a synonym from the example sentence. The definition must fit the headword in the part of speech given.
+- For a verb, start with "to": "to give food to a person or an animal". For a noun, write a noun phrase: "a small animal with soft fur and long ears". For an adjective, describe the quality: "very large". For an adverb, describe the manner: "in a quiet way, without much noise".
+- Define the given word, not a synonym from the example sentence. The definition must fit the headword in the part of speech given; an adverb's definition must differ from the related adjective's.
+- Keep facts that are the meaning itself: a proper name keeps its real referent (a city stays the capital of its real country), a species stays that species.
 - Rewrite the gloss in your own simple words; do not copy it, and do not use the word itself in the definition.
 - Stay with the given sense; do not describe other meanings of the word.
 """
@@ -235,8 +241,8 @@ When a grammar topic is given, the sentence must clearly show that grammar:
 - Present Perfect: have/has + past participle — "She has booked a table for tonight."
 - Second Conditional: if + past simple, would + verb — "If I had more time, I would read every day."
 - Passive Voice: be + past participle, the subject receives the action — "The room was lit by candles."
-If the word in this sense cannot be used in a natural sentence with that grammar, return an empty string. An empty string is better than a sentence that does not clearly show the grammar or that uses the word in a different sense.
-Do not explain, do not add quotes, do not write more than one sentence.
+When a grammar topic is given and the word in this sense cannot be used naturally in that grammar, return an empty string instead of forcing a sentence.
+Do not explain, do not add quotes, do not write more than one sentence, never write the word "empty".
 """
 
 /// Prompt for one example. The topic is chosen by the caller; `nil` means a neutral example.
