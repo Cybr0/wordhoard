@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0D86ED4B5A728C97C6396C8E /* CardGeneration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B786C8470EA43BC7FDAA7BC /* CardGeneration.swift */; };
 		1098EFA05BABCDF1664BBF6E /* WordhoardSpikeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47738B4C2DC73C27160F877F /* WordhoardSpikeApp.swift */; };
+		18B68C32C7AFF63D5FF6BF5A /* RegressionRunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5418EF468448475396E41443 /* RegressionRunnerTests.swift */; };
 		1CFFCD3AAFFA5EA9DFC4EE5A /* SpikeTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52D6B33B6D8AC9DC5C4F3D5 /* SpikeTranslator.swift */; };
 		298195004003EDF0B76CE7EF /* CardGenerationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF6FA18178B9ADE94DEEA92 /* CardGenerationModel.swift */; };
 		4CD028FE58390F98A5C53A60 /* oewn-2024.json in Resources */ = {isa = PBXBuildFile; fileRef = E543C9E362FAA7E32F000520 /* oewn-2024.json */; };
@@ -16,13 +17,27 @@
 		8216C7FE1D3BD5A6D00F0588 /* OEWN-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D4AE6EF0CAC8E7642BA63CA1 /* OEWN-LICENSE.txt */; };
 		A823071433FDF410E0155072 /* WordNetLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED1209E9448D1237D16A5C5C /* WordNetLookup.swift */; };
 		C511E21D3761B5A7C1FC2574 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC3C3A43961F6215DF9F98D /* ContentView.swift */; };
+		F0D52AEE36D933A5991376F2 /* regression-words.md in Resources */ = {isa = PBXBuildFile; fileRef = 73FE8843C4E1F107666BD954 /* regression-words.md */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		328D5E3D49482C39FDF519A3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4ABE913307541B5D6DC899FE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A88D30074892FAA59440A51;
+			remoteInfo = WordhoardSpike;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		02665B3F1B6E94FFB545279C /* WordhoardSpike.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WordhoardSpike.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0CF6FA18178B9ADE94DEEA92 /* CardGenerationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardGenerationModel.swift; sourceTree = "<group>"; };
 		47738B4C2DC73C27160F877F /* WordhoardSpikeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordhoardSpikeApp.swift; sourceTree = "<group>"; };
+		5418EF468448475396E41443 /* RegressionRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegressionRunnerTests.swift; sourceTree = "<group>"; };
 		6B786C8470EA43BC7FDAA7BC /* CardGeneration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardGeneration.swift; sourceTree = "<group>"; };
+		73BB8BBE6F636608CAD1AF7C /* WordhoardSpikeRegression.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WordhoardSpikeRegression.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		73FE8843C4E1F107666BD954 /* regression-words.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "regression-words.md"; sourceTree = "<group>"; };
 		7FC3C3A43961F6215DF9F98D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		D4AE6EF0CAC8E7642BA63CA1 /* OEWN-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OEWN-LICENSE.txt"; sourceTree = "<group>"; };
 		E23A113A2BC476079B4D0586 /* function-words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "function-words.txt"; sourceTree = "<group>"; };
@@ -42,10 +57,20 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		223C72D2178AC5CFFD419145 /* wordhoard */ = {
+			isa = PBXGroup;
+			children = (
+				B6B461CD9052B25F5B81E25B /* docs */,
+			);
+			name = wordhoard;
+			path = ..;
+			sourceTree = "<group>";
+		};
 		3B7EA5B2ED373F75A20029A5 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				02665B3F1B6E94FFB545279C /* WordhoardSpike.app */,
+				73BB8BBE6F636608CAD1AF7C /* WordhoardSpikeRegression.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -53,7 +78,9 @@
 		648B6493F0850F3670A6AAEB = {
 			isa = PBXGroup;
 			children = (
+				223C72D2178AC5CFFD419145 /* wordhoard */,
 				6B0DC7CAEFE092EB9B04857B /* WordhoardSpike */,
+				7BF88602419575918B972FF8 /* WordhoardSpikeRegression */,
 				3B7EA5B2ED373F75A20029A5 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -70,6 +97,22 @@
 				1BC7FAFD4281D5C6ED27EA4C /* Resources */,
 			);
 			path = WordhoardSpike;
+			sourceTree = "<group>";
+		};
+		7BF88602419575918B972FF8 /* WordhoardSpikeRegression */ = {
+			isa = PBXGroup;
+			children = (
+				5418EF468448475396E41443 /* RegressionRunnerTests.swift */,
+			);
+			path = WordhoardSpikeRegression;
+			sourceTree = "<group>";
+		};
+		B6B461CD9052B25F5B81E25B /* docs */ = {
+			isa = PBXGroup;
+			children = (
+				73FE8843C4E1F107666BD954 /* regression-words.md */,
+			);
+			path = docs;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -93,6 +136,25 @@
 			productReference = 02665B3F1B6E94FFB545279C /* WordhoardSpike.app */;
 			productType = "com.apple.product-type.application";
 		};
+		4748ECC60B91565DA946A7F8 /* WordhoardSpikeRegression */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 469F13D5D02F905D876EB46E /* Build configuration list for PBXNativeTarget "WordhoardSpikeRegression" */;
+			buildPhases = (
+				147F01BB3E551B0933DB90F4 /* Sources */,
+				6ACBCD0A2DD73BE76CCF2111 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				973C4E7F0467D0B0E82B9554 /* PBXTargetDependency */,
+			);
+			name = WordhoardSpikeRegression;
+			packageProductDependencies = (
+			);
+			productName = WordhoardSpikeRegression;
+			productReference = 73BB8BBE6F636608CAD1AF7C /* WordhoardSpikeRegression.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -103,6 +165,10 @@
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					1A88D30074892FAA59440A51 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					4748ECC60B91565DA946A7F8 = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
@@ -123,6 +189,7 @@
 			projectRoot = "";
 			targets = (
 				1A88D30074892FAA59440A51 /* WordhoardSpike */,
+				4748ECC60B91565DA946A7F8 /* WordhoardSpikeRegression */,
 			);
 		};
 /* End PBXProject section */
@@ -138,9 +205,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6ACBCD0A2DD73BE76CCF2111 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F0D52AEE36D933A5991376F2 /* regression-words.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		147F01BB3E551B0933DB90F4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18B68C32C7AFF63D5FF6BF5A /* RegressionRunnerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		66601A96B7967EB68A50AD07 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -156,7 +239,33 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		973C4E7F0467D0B0E82B9554 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A88D30074892FAA59440A51 /* WordhoardSpike */;
+			targetProxy = 328D5E3D49482C39FDF519A3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		50F1F10553CE0C74871B9BB7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.wordhoard.spike.regression;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WordhoardSpike.app/WordhoardSpike";
+			};
+			name = Debug;
+		};
 		AB7FF45DAC034F3C515FA59B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -332,9 +441,36 @@
 			};
 			name = Debug;
 		};
+		D8EA80ADE3EEB13741782810 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.wordhoard.spike.regression;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WordhoardSpike.app/WordhoardSpike";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		469F13D5D02F905D876EB46E /* Build configuration list for PBXNativeTarget "WordhoardSpikeRegression" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				50F1F10553CE0C74871B9BB7 /* Debug */,
+				D8EA80ADE3EEB13741782810 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		7AD2C99D6F1161E3A430AC26 /* Build configuration list for PBXProject "WordhoardSpike" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

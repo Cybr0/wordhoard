@@ -19,6 +19,8 @@ Nothing here is meant to survive into the real app except the lessons.
   does this headword have" without the model. No `FoundationModels` import.
 - `WordhoardSpike/SpikeTranslator.swift` — English → Russian through Apple's Translation framework
   (WordNet mode only). No `FoundationModels` import.
+- `WordhoardSpikeRegression/RegressionRunnerTests.swift` — the on-device regression runner (issue
+  #14): a unit-test bundle hosted by the app; see "Regression runner" below.
 - `WordhoardSpike/Resources/oewn-2024.json` — the WordNet bundle (14.8 MB) and `OEWN-LICENSE.txt`.
 - `WordhoardSpike/Resources/function-words.txt` — the closed-class stoplist; these words are always
   model-only.
@@ -224,6 +226,59 @@ model" and compare the learner definitions, translations and timings with split 
 **look up** and **give up** (multi-word entries), **gaslight** (noun only in WordNet),
 **however** and **despite** (function words → model-only, check the log line) and **by the book**
 (not in WordNet → fallback, check the log line).
+
+## Regression runner (issue #14)
+
+`WordhoardSpikeRegression` is an XCTest bundle hosted by the app (`TEST_HOST`, `@testable import
+WordhoardSpike`), so one test can drive `CardGenerationModel` in "WordNet + model" mode in-process
+on the phone, with the bundled WordNet and the device's Translation packs. It parses the table in
+`docs/regression-words.md` (copied into the test bundle at build time — the list lives only there),
+runs every word through `CardGenerationModel.generateAndWait(word:)` (the same `generate(word:)` the
+screen uses, awaited until every topic example has arrived), and records per word: path taken
+(`wordnet` / `stoplist` / `model-only` / `not-found`), senses with part of speech, source, gloss,
+learner definition, translation, synonyms (with their translations) and antonyms, neutral and topic
+examples, guardrail refusals and failed calls, lookup / senses / translation / first-card / full-card
+seconds, errors.
+
+Mechanical checks per word, reported, never fatal to the run: generated without error (a writing or
+verification refusal with gloss fallback is a flagged pass; a failed example call is a fail);
+1 ≤ senses ≤ 4 with no duplicate definitions; translation non-empty, Cyrillic, no token three times;
+headword or inflection in every example (simple stem match plus a few irregular forms); the three
+grammar patterns (`present_perfect`: have/has then -ed/-en or an irregular participle within 3
+tokens; `second_conditional`: *if* plus would/could/might; `passive_voice`: was/were/been/being/is/are
+then a participle within 2 tokens); full card ≤ 30 s. The judged checks of issue #14 are not
+automated: the report ends with the judged table pre-filled with the actual senses and an empty
+verdict column.
+
+Output: `regression-report.md` and `regression-report.json`, attached to the test (`XCTAttachment`,
+kept always), written to the app's Documents directory, and printed to the log between
+`=== REPORT BEGIN ===` / `=== REPORT END ===` and `=== JSON BEGIN ===` / `=== JSON END ===`.
+
+The run fails loudly (`XCTFail`, no report) when: zero words parse from the table, the model is not
+`.available`, `oewn-2024.json` is missing from the host app or does not load, or the en→ru
+Translation pack is not `.installed`.
+
+Device prerequisites: iPhone with Apple Intelligence enabled and the model downloaded; English and
+Russian downloaded in the Translate app; **USB cable**, phone **unlocked**, Settings → Display &
+Brightness → **Auto-Lock: Never** (a locked phone suspends the test host); Settings → Privacy &
+Security → **Developer Mode on**; a **personal team** selected once (pass it on the command line as
+below, or pick it in Xcode under Signing & Capabilities for both targets — never commit it).
+
+```
+UDID=$(xcrun devicectl list devices | awk '/connected/ && /iPhone/ {print $NF; exit}')   # or copy it from the list
+xcodebuild test -project spike/WordhoardSpike.xcodeproj -scheme WordhoardSpikeRegression \
+  -destination "platform=iOS,id=$UDID" -allowProvisioningUpdates \
+  DEVELOPMENT_TEAM=<your team id> CODE_SIGN_STYLE=Automatic \
+  TEST_RUNNER_GIT_COMMIT=$(git rev-parse --short HEAD) \
+  -resultBundlePath /tmp/regression.xcresult 2>&1 | tee /tmp/regression.log
+```
+
+`-destination 'platform=iOS,name=<device name>'` works too, but the UDID avoids the curly apostrophe
+in "Tim’s iPhone". A full run is 22 words × 15–30 s; run it in the background and poll the log.
+Smoke run on a subset: `TEST_RUNNER_REGRESSION_WORDS="book,however"` (xcodebuild strips the
+`TEST_RUNNER_` prefix). Pull the report with
+`sed -n '/=== REPORT BEGIN ===/,/=== REPORT END ===/p' /tmp/regression.log`, or from the
+`.xcresult` attachments.
 
 ## Build check without a device
 

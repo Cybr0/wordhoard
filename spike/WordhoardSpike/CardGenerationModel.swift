@@ -39,6 +39,39 @@ enum SenseSource: String, Sendable {
     case wordNet = "wordnet"
 }
 
+/// Which route a WordNet-mode run took for the headword (recorded for the regression runner).
+enum GenerationPath: String, Sendable {
+    /// Senses came from the bundle.
+    case wordNet = "wordnet"
+    /// On the function-word stoplist → model-only senses call.
+    case stoplist
+    /// Not in the bundle → model-only senses call.
+    case modelOnly = "model-only"
+    /// Fallback ran and the verifier rejected every model sense → no card.
+    case notFound = "not-found"
+}
+
+/// One failed model call, kept alongside the raw log so a headless caller does not have to parse it.
+struct CallFailure: Sendable {
+    let label: String
+    let description: String
+    /// `LanguageModelSession.GenerationError.guardrailViolation` or `.refusal`.
+    let isRefusal: Bool
+
+    init(label: String, error: any Error) {
+        self.label = label
+        description = String(describing: error)
+        if let generationError = error as? LanguageModelSession.GenerationError {
+            switch generationError {
+            case .guardrailViolation, .refusal: isRefusal = true
+            default: isRefusal = false
+            }
+        } else {
+            isRefusal = false
+        }
+    }
+}
+
 struct SpikeSense: Sendable {
     var source: SenseSource
     var partOfSpeech: PartOfSpeech
@@ -199,6 +232,10 @@ final class CardGenerationModel {
     private(set) var wordNetNote: String?
     /// WordNet mode: why there are no translations (language pack not installed), when so.
     private(set) var translationNote: String?
+    /// WordNet mode: which route the run took. `nil` in the other modes and before the lookup.
+    private(set) var path: GenerationPath?
+    /// Every failed model call of this run (writing, verification, example), in order.
+    private(set) var callFailures: [CallFailure] = []
     /// Raw JSON of every call in this run, in order, with per-call timing.
     private(set) var rawLog = ""
     private(set) var errorText: String?
@@ -269,6 +306,8 @@ final class CardGenerationModel {
         verificationNote = nil
         wordNetNote = nil
         translationNote = nil
+        path = nil
+        callFailures = []
         rawLog = ""
         errorText = nil
         lookupElapsed = nil
@@ -313,6 +352,14 @@ final class CardGenerationModel {
         phase = .cancelled
     }
 
+    /// Headless entry point for the regression runner: the same `generate(word:)` the screen uses,
+    /// returning once the run has finished, failed or produced "not found" — i.e. after every topic
+    /// example has arrived. UI behaviour is unchanged; the screen never calls this.
+    func generateAndWait(word: String) async {
+        generate(word: word)
+        await task?.value
+    }
+
     // MARK: Single call
 
     private func runSingle(word: String) async throws {
@@ -350,6 +397,7 @@ final class CardGenerationModel {
                     // Unknown-word policy (issue #11, decision 6): nothing vouches for this word, so
                     // do not show the invented sense.
                     verificationNote = "Not found. Add senses manually. (WordNet has no usable entry and \(rejected).)"
+                    path = .notFound
                     rawLog += "--- \"\(word)\": not found — WordNet has no usable entry and \(rejected) ---\n\n"
                     print("\"\(word)\": not found — WordNet has no usable entry and \(rejected)")
                     card = nil
@@ -376,6 +424,7 @@ final class CardGenerationModel {
         try Task.checkCancellation()
         if isFunctionWord {
             lookupElapsed = clock.now - start
+            path = .stoplist
             try await fallBackToModel(word: word, note: "WordNet: \"\(word)\" is a function word → model-only senses call")
             return
         }
@@ -385,6 +434,7 @@ final class CardGenerationModel {
         lookupElapsed = clock.now - start
 
         guard let entry, !entry.top.isEmpty else {
+            path = .modelOnly
             try await fallBackToModel(word: word, note: "WordNet: \"\(word)\" not found → model-only senses call")
             return
         }
@@ -395,6 +445,7 @@ final class CardGenerationModel {
         }.joined(separator: "\n")
         let note = "WordNet: \"\(word)\" → \(entry.bundledSenseCount) sense\(entry.bundledSenseCount == 1 ? "" : "s") in bundle (\(counts)), kept \(entry.top.count)"
         wordNetNote = note
+        path = .wordNet
         rawLog += "--- \(note) (\(lookupElapsed?.spikeFormatted ?? "?")) ---\n\(kept)\n\n"
         print("\(note)\n\(kept)")
 
@@ -413,6 +464,7 @@ final class CardGenerationModel {
                 card?.senses[index] = SpikeSense(wordNet: sense, writing: result.content)
             case let .failure(error):
                 callCount += 1
+                callFailures.append(CallFailure(label: label, error: error))
                 rawLog += "--- \(label) FAILED, gloss kept as definition ---\n\(error)\n\n"
                 print("\(label) failed, gloss kept: \(error)")
             }
@@ -538,6 +590,7 @@ final class CardGenerationModel {
                 }
             case let .failure(error):
                 callCount += 1
+                callFailures.append(CallFailure(label: label, error: error))
                 rawLog += "--- \(label) FAILED, sense kept ---\n\(error)\n\n"
                 print("\(label) failed, sense kept: \(error)")
                 kept.append(sense)
@@ -641,6 +694,7 @@ final class CardGenerationModel {
             text = trimmed.isEmpty ? "⚠︎ empty (neutral example is mandatory)" : trimmed
         case let .failure(error):
             callCount += 1
+            callFailures.append(CallFailure(label: outcome.job.label, error: error))
             rawLog += "--- \(outcome.job.label) FAILED ---\n\(error)\n\n"
             print("\(outcome.job.label) failed: \(error)")
             text = "⚠︎ failed: \(error.localizedDescription)"
