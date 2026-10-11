@@ -114,6 +114,7 @@ struct RunReport: Codable, Sendable {
     let pipeline: String
     let topics: [String]
     let maxSensesPerPartOfSpeech: Int
+    let maxSensesTotal: Int
     let words: [WordRecord]
 }
 
@@ -325,6 +326,7 @@ final class RegressionRunnerTests: XCTestCase {
             pipeline: "WordNet + model (stoplist → WordNet → writing call → Translation en→ru → examples; model-only fallback with verifier)",
             topics: GrammarTopic.active.map(\.key),
             maxSensesPerPartOfSpeech: WordNetLookup.maxSensesPerPartOfSpeech,
+            maxSensesTotal: WordNetLookup.maxSensesTotal,
             words: records
         )
 
@@ -554,7 +556,7 @@ enum ReportWriter {
         out.append("- Device: \(report.device), \(report.system)")
         out.append("- Commit: \(report.commit ?? "(not passed; set TEST_RUNNER_GIT_COMMIT)")")
         out.append("- Pipeline: \(report.pipeline)")
-        out.append("- Topics: \(report.topics.joined(separator: ", ")) · cap: \(report.maxSensesPerPartOfSpeech) senses per part of speech")
+        out.append("- Topics: \(report.topics.joined(separator: ", ")) · cap: \(report.maxSensesPerPartOfSpeech) senses per part of speech, \(report.maxSensesTotal) in all")
         out.append("- Words: \(report.words.count)")
         out.append("")
 
