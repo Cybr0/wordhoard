@@ -319,7 +319,7 @@ final class RegressionRunnerTests: XCTestCase {
 
         let report = RunReport(
             date: ISO8601DateFormatter().string(from: Date()),
-            device: "\(device.name) (\(device.model))",
+            device: "\(device.model) \(Self.hardwareIdentifier())",
             system: "\(device.systemName) \(device.systemVersion)",
             commit: commit,
             pipeline: "WordNet + model (stoplist → WordNet → writing call → Translation en→ru → examples; model-only fallback with verifier)",
@@ -360,6 +360,15 @@ final class RegressionRunnerTests: XCTestCase {
         // The run itself passes as long as it ran; individual check failures are in the report.
         // The one assertion that must hold for the report to mean anything:
         XCTAssertEqual(records.count, words.count, "every word must produce a record")
+    }
+
+    /// "iPhone16,2" and the like; `UIDevice.name` is just "iPhone" without an entitlement.
+    private static func hardwareIdentifier() -> String {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        return withUnsafeBytes(of: &systemInfo.machine) { buffer in
+            String(decoding: buffer.prefix { $0 != 0 }, as: UTF8.self)
+        }
     }
 
     // MARK: Recording
