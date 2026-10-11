@@ -19,6 +19,8 @@ Nothing here is meant to survive into the real app except the lessons.
   does this headword have" without the model. No `FoundationModels` import.
 - `WordhoardSpike/SpikeTranslator.swift` — English → Russian through Apple's Translation framework
   (WordNet mode only). No `FoundationModels` import.
+- `WordhoardSpikeRegression/RegressionRunnerTests.swift` — the on-device regression runner (issue
+  #14): a unit-test bundle hosted by the app; see "Regression runner" below.
 - `WordhoardSpike/Resources/oewn-2024.json` — the WordNet bundle (14.8 MB) and `OEWN-LICENSE.txt`.
 - `WordhoardSpike/Resources/function-words.txt` — the closed-class stoplist; these words are always
   model-only.
@@ -73,8 +75,10 @@ model only writes.
 
 1. *Lookup, no model call.* `WordNetLookup` returns the headword's senses from the bundled Open
    English WordNet 2024: part of speech, gloss, synonyms (other members of the synset), antonyms and
-   the synset's example sentence, in WordNet sense order. The card shows **up to 2 senses per part of speech**, nouns first, then
-   verbs, adjectives, adverbs (for *book*: noun, noun, verb *engage for a performance*, verb *reserve*).
+   the synset's example sentence, in WordNet sense order. The card shows **up to 2 senses per part of speech and 4 in all** — the first sense of every
+   part of speech before any second sense (issue #14: ≤ 4 senses, five model calls per sense) —
+   grouped nouns first, then verbs, adjectives, adverbs (for *book*: noun, noun, verb *engage for a
+   performance*, verb *reserve*; for *light*: one noun, one verb, one adjective, one adverb).
    Missing a real sense costs more than showing a spare one — the user can delete a sense but will
    not know to add one (issue #11, decision 1). The log line says how many senses the bundle has for
    the word and which were kept. No verification call — WordNet is authoritative. When WordNet knows
@@ -93,13 +97,16 @@ model only writes.
    gloss as its definition.
 3. *Translation, no model call.* The first device run showed the model's Russian is unreliable to
    the point of non-words ("ночальница" for *however*), which settled issue #3 early. In WordNet mode
-   the learner definition of every sense and every WordNet synonym go through Apple's on-device
-   **Translation framework** instead (`SpikeTranslator`): `LanguageAvailability().status(from: en,
-   to: ru)` is checked first; only `.installed` proceeds, with a `TranslationSession(installedSource:
-   target:)` (iOS 26) created and used inside one nonisolated function — `TranslationSession` is not
-   `Sendable`, so it never crosses an isolation boundary. One `translations(from:)` batch per sense
-   (definition + synonyms); a failed batch is logged and skipped. Translated synonyms appear next to
-   the originals on the card (`volume → том`). If the pack is missing the log and the screen say
+   the **headword** (one card-level quick-glance translation shown next to the word) and the learner
+   definition of every sense go through Apple's on-device **Translation framework** instead
+   (`SpikeTranslator`): `LanguageAvailability().status(from: en, to: ru)` is checked first; only
+   `.installed` proceeds, with a `TranslationSession(installedSource: target:)` (iOS 26) created and
+   used inside one nonisolated function — `TranslationSession` is not `Sendable`, so it never crosses
+   an isolation boundary. All strings go in **one** `translations(from:)` call (issue #14, decision A;
+   previously one batch per sense with the synonyms, 4.7–7 s on a 4-sense word). **Synonyms and
+   antonyms are not translated**: bare-word translation is context-free and produced the wrong part of
+   speech (`reserve → резервуйте`, `direct → прямой`). In the model-only fallback only the headword
+   goes through the framework; the model's per-sense Russian stays. If the pack is missing the log and the screen say
    `Translation: en→ru language pack not installed → no translation` and the card shows `—`; the
    model is **never** used as a fallback for translation. The split and single modes keep the
    model's translation, which the readable card marks `[model]`; only the WordNet mode uses the
@@ -181,8 +188,8 @@ the card shows, with the same selection policy as `WordNetLookup`.
 - **Lookup** — WordNet mode only: the bundle lookup.
 - **Senses** — split mode: the senses call alone. WordNet mode: lookup plus the writing calls, i.e.
   the moment every sense has its learner definition.
-- **Translation** — WordNet mode only: the Translation framework calls for the definitions and
-  synonyms (en→ru). Absent when the language pack is not installed.
+- **Translation** — WordNet mode only: the single Translation framework call for the headword and
+  the definitions (en→ru). Absent when the language pack is not installed.
 - **First card** — senses, verification (when on), translation (WordNet mode) and one neutral example
   per sense; what a user would wait for.
 - **Full card** — every topic example has arrived. In single-call mode first and full are the same.
@@ -224,6 +231,59 @@ model" and compare the learner definitions, translations and timings with split 
 **look up** and **give up** (multi-word entries), **gaslight** (noun only in WordNet),
 **however** and **despite** (function words → model-only, check the log line) and **by the book**
 (not in WordNet → fallback, check the log line).
+
+## Regression runner (issue #14)
+
+`WordhoardSpikeRegression` is an XCTest bundle hosted by the app (`TEST_HOST`, `@testable import
+WordhoardSpike`), so one test can drive `CardGenerationModel` in "WordNet + model" mode in-process
+on the phone, with the bundled WordNet and the device's Translation packs. It parses the table in
+`docs/regression-words.md` (copied into the test bundle at build time — the list lives only there),
+runs every word through `CardGenerationModel.generateAndWait(word:)` (the same `generate(word:)` the
+screen uses, awaited until every topic example has arrived), and records per word: path taken
+(`wordnet` / `stoplist` / `model-only` / `not-found`), senses with part of speech, source, gloss,
+learner definition, translation, synonyms (with their translations) and antonyms, neutral and topic
+examples, guardrail refusals and failed calls, lookup / senses / translation / first-card / full-card
+seconds, errors.
+
+Mechanical checks per word, reported, never fatal to the run: generated without error (a writing or
+verification refusal with gloss fallback is a flagged pass; a failed example call is a fail);
+1 ≤ senses ≤ 4 with no duplicate definitions; translation non-empty, Cyrillic, no token three times;
+headword or inflection in every example (simple stem match plus a few irregular forms); the three
+grammar patterns (`present_perfect`: have/has then -ed/-en or an irregular participle within 3
+tokens; `second_conditional`: *if* plus would/could/might; `passive_voice`: was/were/been/being/is/are
+then a participle within 2 tokens); full card ≤ 30 s. The judged checks of issue #14 are not
+automated: the report ends with the judged table pre-filled with the actual senses and an empty
+verdict column.
+
+Output: `regression-report.md` and `regression-report.json`, attached to the test (`XCTAttachment`,
+kept always), written to the app's Documents directory, and printed to the log between
+`=== REPORT BEGIN ===` / `=== REPORT END ===` and `=== JSON BEGIN ===` / `=== JSON END ===`.
+
+The run fails loudly (`XCTFail`, no report) when: zero words parse from the table, the model is not
+`.available`, `oewn-2024.json` is missing from the host app or does not load, or the en→ru
+Translation pack is not `.installed`.
+
+Device prerequisites: iPhone with Apple Intelligence enabled and the model downloaded; English and
+Russian downloaded in the Translate app; **USB cable**, phone **unlocked**, Settings → Display &
+Brightness → **Auto-Lock: Never** (a locked phone suspends the test host); Settings → Privacy &
+Security → **Developer Mode on**; a **personal team** selected once (pass it on the command line as
+below, or pick it in Xcode under Signing & Capabilities for both targets — never commit it).
+
+```
+UDID=$(xcrun devicectl list devices | awk '/connected/ && /iPhone/ {print $NF; exit}')   # or copy it from the list
+xcodebuild test -project spike/WordhoardSpike.xcodeproj -scheme WordhoardSpikeRegression \
+  -destination "platform=iOS,id=$UDID" -allowProvisioningUpdates \
+  DEVELOPMENT_TEAM=<your team id> CODE_SIGN_STYLE=Automatic \
+  TEST_RUNNER_GIT_COMMIT=$(git rev-parse --short HEAD) \
+  -resultBundlePath /tmp/regression.xcresult 2>&1 | tee /tmp/regression.log
+```
+
+`-destination 'platform=iOS,name=<device name>'` works too, but the UDID avoids the curly apostrophe
+in "Tim’s iPhone". A full run is 22 words × 15–30 s; run it in the background and poll the log.
+Smoke run on a subset: `TEST_RUNNER_REGRESSION_WORDS="book,however"` (xcodebuild strips the
+`TEST_RUNNER_` prefix). Pull the report with
+`sed -n '/=== REPORT BEGIN ===/,/=== REPORT END ===/p' /tmp/regression.log`, or from the
+`.xcresult` attachments.
 
 ## Build check without a device
 

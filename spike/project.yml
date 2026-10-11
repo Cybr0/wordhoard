@@ -42,3 +42,41 @@ targets:
         MARKETING_VERSION: "0.1"
         CURRENT_PROJECT_VERSION: "1"
         ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+  # Issue #14: on-device regression runner. A unit-test bundle hosted by the app so it can drive
+  # CardGenerationModel, WordNetLookup and SpikeTranslator in-process with the bundled resources.
+  # Run it on a phone, never on the simulator (no model, no language packs); see README.
+  WordhoardSpikeRegression:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: WordhoardSpikeRegression
+      # The word list is parsed from the repo's docs at run time; it is copied into the test
+      # bundle so the list is never duplicated in code.
+      - path: ../docs/regression-words.md
+        buildPhase: resources
+    dependencies:
+      - target: WordhoardSpike
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.wordhoard.spike.regression
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+
+schemes:
+  WordhoardSpike:
+    build:
+      targets:
+        WordhoardSpike: all
+    run:
+      config: Debug
+  WordhoardSpikeRegression:
+    build:
+      targets:
+        WordhoardSpike: all
+        WordhoardSpikeRegression: [test]
+    test:
+      config: Debug
+      targets:
+        - WordhoardSpikeRegression

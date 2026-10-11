@@ -233,10 +233,23 @@ def synset_parts(row):
     return gloss, members, examples
 
 
-def top_senses(groups, limit=TOP):
-    """Same policy as WordNetLookup.swift: up to `limit` senses per part of speech, parts
-    of speech in POS_ORDER, each part's senses in WordNet rank order."""
-    return [(pos, sense) for pos in POS_ORDER for sense in groups.get(pos, [])[:limit]]
+TOP_TOTAL = 4  # WordNetLookup.maxSensesTotal
+
+
+def top_senses(groups, limit=TOP, total=TOP_TOTAL):
+    """Same policy as WordNetLookup.swift: up to `limit` senses per part of speech and `total`
+    in all — rank 1 of every part of speech (in POS_ORDER) before any rank 2 — shown grouped
+    by part of speech in POS_ORDER, each part's senses in WordNet rank order."""
+    kept = []
+    for rank in range(limit):
+        for pos in POS_ORDER:
+            if len(kept) >= total:
+                break
+            senses = groups.get(pos, [])
+            if rank < len(senses):
+                kept.append((POS_ORDER.index(pos), rank, pos, senses[rank]))
+    kept.sort(key=lambda item: (item[0], item[1]))
+    return [(pos, sense) for _, _, pos, sense in kept]
 
 
 def load_function_words(path):
@@ -274,8 +287,10 @@ def check(bundle_path):
             continue
         total = sum(len(rows) for rows in groups.values())
         by_pos = ", ".join(f"{len(groups[pos])} {POS_NAMES[pos]}" for pos in POS_ORDER if groups.get(pos))
-        print(f"{word}: found, {total} sense{'s' if total != 1 else ''} kept ({by_pos}); up to {TOP} per part of speech:")
-        for rank, (pos, sense) in enumerate(top_senses(groups), start=1):
+        shown = top_senses(groups)
+        print(f"{word}: found, {total} sense{'s' if total != 1 else ''} in bundle ({by_pos}); "
+              f"card shows {len(shown)} (up to {TOP} per part of speech, {TOP_TOTAL} in all):")
+        for rank, (pos, sense) in enumerate(shown, start=1):
             index, antonyms = sense_parts(sense)
             gloss, members, examples = synset_parts(synsets[index])
             synonyms = [member for member in members if normalise(member) != key]

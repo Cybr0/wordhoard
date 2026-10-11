@@ -67,7 +67,7 @@ struct GrammarTopic: Hashable, Sendable {
 
 // MARK: - Shared
 
-@Generable(description: "Part of speech.")
+@Generable(description: "Part of speech. Use phrase for idioms and multi-word expressions, other for prepositions, conjunctions, determiners and pronouns.")
 enum PartOfSpeech: String {
     case noun
     case verb
@@ -101,9 +101,9 @@ Rules:
 - Do not invent a sense to fill the list; if the word has one meaning, return exactly one.
 - Senses must be different meanings, not rephrasings. If two candidate senses could share one definition, keep one.
 - Cover every common part of speech of the word. If the word is commonly used both as a noun and as a verb, include one sense for each.
-- Each sense has exactly one part of speech.
-- Definitions are short, learner-friendly English, one sentence, no example sentences.
-- Translations are in Russian, 1 to 3 comma-separated equivalents, lowercase.
+- Each sense has exactly one part of speech. Prepositions, conjunctions, determiners and pronouns are "other"; idioms and multi-word expressions are "phrase".
+- Definitions are short, learner-friendly English, one sentence, no example sentences. A definition describes the meaning in general terms; it is never a sentence about a particular person or event.
+- Translations are in Russian, 1 to 3 comma-separated equivalents, lowercase. Translate the meaning: for an idiom give the Russian idiom or phrase with the same meaning, never a word-for-word translation.
 - Synonyms and antonyms are single English words or short phrases. Give at least one synonym when any exists. Use an empty list only when there truly are none.
 - Do not write example sentences in this entry.
 
@@ -114,6 +114,9 @@ Worked example — "run" has three different meanings across two parts of speech
 
 Worked example — "nevertheless" has exactly one meaning, so the entry has exactly one sense:
 1. adverb — "in spite of what has just been said" — тем не менее
+
+Worked example — "during" is a preposition, so its part of speech is "other", and it has one meaning:
+1. other — "throughout the whole time that something lasts" — во время, в течение
 """
 
 func sensesPrompt(for word: String) -> String {
@@ -134,7 +137,7 @@ struct GeneratedSenses {
 
 @Generable(description: "One meaning of the word, without examples.")
 struct GeneratedSenseCore {
-    @Guide(description: "Part of speech for this sense.")
+    @Guide(description: "Part of speech for this sense: noun, verb, adjective or adverb; phrase for an idiom or multi-word expression; other for a preposition, conjunction, determiner or pronoun (prepositions are never adverbs).")
     var partOfSpeech: PartOfSpeech
 
     @Guide(description: "Short learner-friendly definition in English, one sentence.")
@@ -165,8 +168,13 @@ Answer yes or no only.
 """
 
 func verificationPrompt(word: String, sense: GeneratedSenseCore) -> String {
-    let article = ["a", "e", "i", "o", "u"].contains(String(sense.partOfSpeech.rawValue.prefix(1))) ? "an" : "a"
-    return "Is the English word \"\(word)\" commonly used as \(article) \(sense.partOfSpeech.rawValue) meaning \"\(sense.definition)\"? Answer yes or no."
+    let role: String = switch sense.partOfSpeech {
+    case .phrase: "as an idiom or fixed phrase"
+    case .other: "as a preposition, conjunction, determiner or pronoun"
+    case .adjective, .adverb: "as an \(sense.partOfSpeech.rawValue)"
+    case .noun, .verb: "as a \(sense.partOfSpeech.rawValue)"
+    }
+    return "Is the English word \"\(word)\" commonly used \(role) meaning \"\(sense.definition)\"? Answer yes or no."
 }
 
 /// The verdict is a single `Bool`. Guided generation constrains the model to the JSON
@@ -190,9 +198,15 @@ struct SenseVerdict {
 let senseWritingInstructions = """
 You write entries for a learner's dictionary of English. The learner's native language is Russian.
 You are given one sense of an English word: the word, its part of speech, the dictionary gloss, its synonyms and an example sentence from the dictionary that shows this sense (the example may use a synonym instead of the word).
-Use the gloss, the synonyms and the example together to understand exactly which meaning is intended.
-Write a learner-friendly definition of this sense: exactly one short English sentence in simple everyday words that explains the meaning. Rewrite the gloss in your own words; do not copy it and do not use the word itself in the definition.
-Stay with the given sense; do not describe other meanings of the word.
+Use the gloss, the synonyms and the example only to understand exactly which meaning is intended.
+Write a learner-friendly definition of this sense: one short phrase or sentence in simple everyday words that explains the meaning in general terms, as a dictionary would.
+Rules:
+- A definition is not a sentence about a particular person, place, thing or event. Never retell, paraphrase or reuse the example sentence or anything in it (its people, objects, places).
+- For a verb, start with "to": "to give food to a person or an animal". For a noun, write a noun phrase: "a small animal with soft fur and long ears". For an adjective, describe the quality: "very large". For an adverb, describe the manner: "in a quiet way, without much noise".
+- Define the given word, not a synonym from the example sentence. The definition must fit the headword in the part of speech given; an adverb's definition must differ from the related adjective's.
+- Keep facts that are the meaning itself: a proper name keeps its real referent (a city stays the capital of its real country), a species stays that species.
+- Rewrite the gloss in your own simple words; do not copy it, and do not use the word itself in the definition.
+- Stay with the given sense; do not describe other meanings of the word.
 """
 
 func senseWritingPrompt(word: String, sense: WordNetSense) -> String {
@@ -205,14 +219,15 @@ func senseWritingPrompt(word: String, sense: WordNetSense) -> String {
         lines.append("Synonyms: \(sense.synonyms.joined(separator: ", "))")
     }
     for example in sense.examples {
-        lines.append("Example of this sense: \(example)")
+        lines.append("Example of this sense (for understanding only, do not reuse it): \(example)")
     }
+    lines.append("Write the learner definition of \"\(word)\" as a \(sense.partOfSpeech.name) in this sense.")
     return lines.joined(separator: "\n")
 }
 
 @Generable(description: "Learner-facing text for one dictionary sense of an English word.")
 struct SenseWriting {
-    @Guide(description: "Learner-friendly definition of this sense in simple English, one short sentence, in your own words rather than the gloss.")
+    @Guide(description: "A general dictionary-style definition of this sense in simple English (verbs start with \"to\", nouns are a noun phrase), in your own words, never a sentence about a particular person or event.")
     var learnerDefinition: String
 }
 
@@ -221,20 +236,23 @@ struct SenseWriting {
 let exampleInstructions = """
 You write example sentences for a learner's dictionary of English.
 Reply with exactly one complete, natural English sentence of 6 to 14 words.
-The sentence must use the given word in the given sense and part of speech; an inflected form of the word is fine.
-When a grammar topic is given, the sentence must clearly demonstrate that grammar.
+The sentence must contain the given word itself (an inflected form is fine) and must use it in the given sense and part of speech, not in another meaning of the word.
+When a grammar topic is given, the sentence must clearly show that grammar:
+- Present Perfect: have/has + past participle — "She has booked a table for tonight."
+- Second Conditional: if + past simple, would + verb — "If I had more time, I would read every day."
+- Passive Voice: be + past participle, the subject receives the action — "The room was lit by candles."
 When a grammar topic is given and the word in this sense cannot be used naturally in that grammar, return an empty string instead of forcing a sentence.
-Do not explain, do not add quotes, do not write more than one sentence.
+Do not explain, do not add quotes, do not write more than one sentence, never write the word "empty".
 """
 
 /// Prompt for one example. The topic is chosen by the caller; `nil` means a neutral example.
 /// The sense is passed as part of speech + definition so model-generated and WordNet
 /// senses (with the model's learner definition) share one prompt.
 func examplePrompt(word: String, partOfSpeech: PartOfSpeech, definition: String, topic: GrammarTopic?) -> String {
-    var prompt = "Write one natural English sentence (6–14 words) using \"\(word)\" as a \(partOfSpeech.rawValue) in the sense \"\(definition)\""
+    var prompt = "Write one natural English sentence (6–14 words) that contains \"\(word)\" used as a \(partOfSpeech.rawValue) in the sense \"\(definition)\""
     if let topic {
         prompt += " in the \(topic.name) (\(topic.description))."
-        prompt += " If this sense cannot be used naturally in this grammar, return an empty string."
+        prompt += " If \"\(word)\" in this sense cannot be used naturally in this grammar, return an empty string."
     } else {
         prompt += ". Use everyday language with no special grammar."
     }

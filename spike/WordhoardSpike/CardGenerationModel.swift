@@ -39,6 +39,49 @@ enum SenseSource: String, Sendable {
     case wordNet = "wordnet"
 }
 
+/// Which route a WordNet-mode run took for the headword (recorded for the regression runner).
+enum GenerationPath: String, Sendable {
+    /// Senses came from the bundle.
+    case wordNet = "wordnet"
+    /// On the function-word stoplist → model-only senses call.
+    case stoplist
+    /// Not in the bundle → model-only senses call.
+    case modelOnly = "model-only"
+    /// Fallback ran and the verifier rejected every model sense → no card.
+    case notFound = "not-found"
+}
+
+/// One failed model call, kept alongside the raw log so a headless caller does not have to parse it.
+struct CallFailure: Sendable {
+    let label: String
+    let description: String
+    /// `LanguageModelSession.GenerationError.guardrailViolation` or `.refusal`.
+    let isRefusal: Bool
+
+    init(label: String, error: any Error) {
+        self.label = label
+        description = String(describing: error)
+        isRefusal = Self.isRefusal(error)
+    }
+
+    /// iOS 27 throws the top-level `LanguageModelError`; iOS 26 the session's `GenerationError`.
+    private static func isRefusal(_ error: any Error) -> Bool {
+        if let generationError = error as? LanguageModelSession.GenerationError {
+            switch generationError {
+            case .guardrailViolation, .refusal: return true
+            default: return false
+            }
+        }
+        if #available(iOS 27, *), let modelError = error as? LanguageModelError {
+            switch modelError {
+            case .guardrailViolation, .refusal: return true
+            default: return false
+            }
+        }
+        return false
+    }
+}
+
 struct SpikeSense: Sendable {
     var source: SenseSource
     var partOfSpeech: PartOfSpeech
@@ -48,9 +91,9 @@ struct SpikeSense: Sendable {
     /// Model senses: the model's Russian (marked `[model]` on the card). WordNet senses: the
     /// Translation framework's Russian for `definition`, or empty when there is none.
     var translation: String
+    /// English only: synonyms and antonyms are not translated (issue #14, decision A — bare-word
+    /// translation is context-free and often the wrong part of speech).
     var synonyms: [String]
-    /// WordNet senses only: synonym → its Translation framework Russian, shown as `volume → том`.
-    var synonymTranslations: [String: String]
     var antonyms: [String]
     var examples: [SpikeExample]
 
@@ -61,7 +104,6 @@ struct SpikeSense: Sendable {
         definition = core.definition
         translation = core.translation
         synonyms = core.synonyms
-        synonymTranslations = [:]
         antonyms = core.antonyms
         examples = []
     }
@@ -73,7 +115,6 @@ struct SpikeSense: Sendable {
         definition = generated.definition
         translation = generated.translation
         synonyms = generated.synonyms
-        synonymTranslations = [:]
         antonyms = generated.antonyms
         examples = generated.examples.map { SpikeExample(topicKey: $0.grammarTopic, text: $0.text) }
     }
@@ -88,7 +129,6 @@ struct SpikeSense: Sendable {
         definition = writing?.learnerDefinition ?? sense.gloss
         translation = "…"
         synonyms = sense.synonyms
-        synonymTranslations = [:]
         antonyms = sense.antonyms
         examples = []
     }
@@ -96,6 +136,9 @@ struct SpikeSense: Sendable {
 
 struct SpikeCard: Sendable {
     var headword: String
+    /// WordNet mode: the Translation framework's Russian for the headword itself, shown next to
+    /// the word as the quick-glance meaning (issue #14, decision A). Empty when not translated.
+    var headwordTranslation = ""
     /// Only the model paths produce one; WordNet mode has no image prompt (yet).
     var imagePrompt: String?
     var senses: [SpikeSense]
@@ -121,7 +164,7 @@ struct SpikeCard: Sendable {
     /// Shape of requirements.md Appendix B.
     var readableDescription: String {
         var lines: [String] = []
-        lines.append("Word: \(headword)")
+        lines.append("Word: \(headword)\(headwordTranslation.isEmpty ? "" : " — \(headwordTranslation)")")
         for (index, sense) in senses.enumerated() {
             lines.append("")
             lines.append("Sense \(index + 1) — \(sense.partOfSpeech.rawValue) [\(sense.source.rawValue)]")
@@ -131,10 +174,7 @@ struct SpikeCard: Sendable {
             lines.append("  definition:  \(sense.definition)")
             let translationTag = sense.source == .model ? " [model]" : ""
             lines.append("  translation: \(sense.translation.isEmpty ? "—" : sense.translation)\(translationTag)")
-            let synonyms = sense.synonyms.map { synonym in
-                sense.synonymTranslations[synonym].map { "\(synonym) → \($0)" } ?? synonym
-            }
-            lines.append("  synonyms:    \(synonyms.isEmpty ? "—" : synonyms.joined(separator: ", "))")
+            lines.append("  synonyms:    \(sense.synonyms.isEmpty ? "—" : sense.synonyms.joined(separator: ", "))")
             lines.append("  antonyms:    \(sense.antonyms.isEmpty ? "—" : sense.antonyms.joined(separator: ", "))")
             lines.append("  examples:")
             for example in sense.examples {
@@ -199,6 +239,10 @@ final class CardGenerationModel {
     private(set) var wordNetNote: String?
     /// WordNet mode: why there are no translations (language pack not installed), when so.
     private(set) var translationNote: String?
+    /// WordNet mode: which route the run took. `nil` in the other modes and before the lookup.
+    private(set) var path: GenerationPath?
+    /// Every failed model call of this run (writing, verification, example), in order.
+    private(set) var callFailures: [CallFailure] = []
     /// Raw JSON of every call in this run, in order, with per-call timing.
     private(set) var rawLog = ""
     private(set) var errorText: String?
@@ -207,8 +251,11 @@ final class CardGenerationModel {
     /// Split mode: the senses call. WordNet mode: lookup plus the writing calls, i.e. when the
     /// senses are on screen with their learner definitions.
     private(set) var sensesElapsed: Duration?
-    /// WordNet mode: the Translation framework calls alone (definitions and synonyms, en→ru).
+    /// WordNet mode: the Translation framework calls alone (headword and definitions, en→ru).
     private(set) var translationElapsed: Duration?
+    /// WordNet mode: how many `translations(from:)` calls were made and how many strings they carried.
+    private(set) var translationCalls = 0
+    private(set) var translationStrings = 0
     /// Senses + one neutral example per sense are on screen.
     private(set) var firstCardElapsed: Duration?
     /// Every (sense, topic) example is on screen.
@@ -269,11 +316,15 @@ final class CardGenerationModel {
         verificationNote = nil
         wordNetNote = nil
         translationNote = nil
+        path = nil
+        callFailures = []
         rawLog = ""
         errorText = nil
         lookupElapsed = nil
         sensesElapsed = nil
         translationElapsed = nil
+        translationCalls = 0
+        translationStrings = 0
         firstCardElapsed = nil
         fullCardElapsed = nil
         callCount = 0
@@ -313,6 +364,14 @@ final class CardGenerationModel {
         phase = .cancelled
     }
 
+    /// Headless entry point for the regression runner: the same `generate(word:)` the screen uses,
+    /// returning once the run has finished, failed or produced "not found" — i.e. after every topic
+    /// example has arrived. UI behaviour is unchanged; the screen never calls this.
+    func generateAndWait(word: String) async {
+        generate(word: word)
+        await task?.value
+    }
+
     // MARK: Single call
 
     private func runSingle(word: String) async throws {
@@ -350,6 +409,7 @@ final class CardGenerationModel {
                     // Unknown-word policy (issue #11, decision 6): nothing vouches for this word, so
                     // do not show the invented sense.
                     verificationNote = "Not found. Add senses manually. (WordNet has no usable entry and \(rejected).)"
+                    path = .notFound
                     rawLog += "--- \"\(word)\": not found — WordNet has no usable entry and \(rejected) ---\n\n"
                     print("\"\(word)\": not found — WordNet has no usable entry and \(rejected)")
                     card = nil
@@ -360,6 +420,9 @@ final class CardGenerationModel {
                 senses = Array(sensesResult.content.senses.prefix(1))
             }
             card?.senses = senses.map(SpikeSense.init)
+        }
+        if asWordNetFallback {
+            try await translateCard(headwordOnly: true)
         }
 
         try await runAllExamples(word: word, senses: senses.map(SpikeSense.init), since: start)
@@ -376,6 +439,7 @@ final class CardGenerationModel {
         try Task.checkCancellation()
         if isFunctionWord {
             lookupElapsed = clock.now - start
+            path = .stoplist
             try await fallBackToModel(word: word, note: "WordNet: \"\(word)\" is a function word → model-only senses call")
             return
         }
@@ -385,6 +449,7 @@ final class CardGenerationModel {
         lookupElapsed = clock.now - start
 
         guard let entry, !entry.top.isEmpty else {
+            path = .modelOnly
             try await fallBackToModel(word: word, note: "WordNet: \"\(word)\" not found → model-only senses call")
             return
         }
@@ -395,6 +460,7 @@ final class CardGenerationModel {
         }.joined(separator: "\n")
         let note = "WordNet: \"\(word)\" → \(entry.bundledSenseCount) sense\(entry.bundledSenseCount == 1 ? "" : "s") in bundle (\(counts)), kept \(entry.top.count)"
         wordNetNote = note
+        path = .wordNet
         rawLog += "--- \(note) (\(lookupElapsed?.spikeFormatted ?? "?")) ---\n\(kept)\n\n"
         print("\(note)\n\(kept)")
 
@@ -413,6 +479,7 @@ final class CardGenerationModel {
                 card?.senses[index] = SpikeSense(wordNet: sense, writing: result.content)
             case let .failure(error):
                 callCount += 1
+                callFailures.append(CallFailure(label: label, error: error))
                 rawLog += "--- \(label) FAILED, gloss kept as definition ---\n\(error)\n\n"
                 print("\(label) failed, gloss kept: \(error)")
             }
@@ -426,36 +493,41 @@ final class CardGenerationModel {
         try await runAllExamples(word: word, senses: senses, since: start)
     }
 
-    /// Translation framework, en→ru: one batch per sense (its definition and synonyms). Without the
+    /// Translation framework, en→ru, one `translations(from:)` call: the headword (card-level
+    /// quick-glance meaning) and every sense's learner definition. Synonyms and antonyms are not
+    /// translated (issue #14, decision A). In the model-only fallback only the headword goes
+    /// through the framework (`headwordOnly`); the model's per-sense Russian stays. Without the
     /// language pack the card stays untranslated and the screen and log say so; the model is never
     /// asked to translate in this mode.
-    private func translateCard() async throws {
-        guard let senses = card?.senses else { return }
-        let batches = senses.map { [$0.definition] + $0.synonyms }
-        phase = .translating(count: batches.reduce(0) { $0 + $1.count })
+    private func translateCard(headwordOnly: Bool = false) async throws {
+        guard let card else { return }
+        let strings = [card.headword] + (headwordOnly ? [] : card.senses.map(\.definition))
+        phase = .translating(count: strings.count)
 
-        let outcome = await SpikeTranslator.translate(batches: batches)
+        let outcome = await SpikeTranslator.translate(batches: [strings])
         try Task.checkCancellation()
         switch outcome {
         case let .unavailable(note):
             translationNote = note
             rawLog += "--- \(note) ---\n\n"
             print(note)
-            for index in senses.indices {
-                card?.senses[index].translation = ""
+            if !headwordOnly {
+                for index in card.senses.indices {
+                    self.card?.senses[index].translation = ""
+                }
             }
         case let .translated(translations, elapsed, log):
             translationElapsed = elapsed
+            translationCalls = 1
+            translationStrings = strings.count
             rawLog += log
-            for (index, sense) in senses.enumerated() {
-                card?.senses[index].translation = translations[sense.definition] ?? ""
-                card?.senses[index].synonymTranslations = Dictionary(
-                    uniqueKeysWithValues: sense.synonyms.compactMap { synonym in
-                        translations[synonym].map { (synonym, $0) }
-                    }
-                )
+            self.card?.headwordTranslation = translations[card.headword] ?? ""
+            if !headwordOnly {
+                for (index, sense) in card.senses.enumerated() {
+                    self.card?.senses[index].translation = translations[sense.definition] ?? ""
+                }
             }
-            print("translation: \(translations.count) strings in \(elapsed.spikeFormatted)")
+            print("translation: \(translations.count) strings in 1 call, \(elapsed.spikeFormatted)")
         }
     }
 
@@ -538,6 +610,7 @@ final class CardGenerationModel {
                 }
             case let .failure(error):
                 callCount += 1
+                callFailures.append(CallFailure(label: label, error: error))
                 rawLog += "--- \(label) FAILED, sense kept ---\n\(error)\n\n"
                 print("\(label) failed, sense kept: \(error)")
                 kept.append(sense)
@@ -641,6 +714,7 @@ final class CardGenerationModel {
             text = trimmed.isEmpty ? "⚠︎ empty (neutral example is mandatory)" : trimmed
         case let .failure(error):
             callCount += 1
+            callFailures.append(CallFailure(label: outcome.job.label, error: error))
             rawLog += "--- \(outcome.job.label) FAILED ---\n\(error)\n\n"
             print("\(outcome.job.label) failed: \(error)")
             text = "⚠︎ failed: \(error.localizedDescription)"

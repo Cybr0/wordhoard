@@ -65,6 +65,10 @@ actor WordNetLookup {
     /// How many senses a card shows per part of speech (issue #11, decision 1: missing a real
     /// sense costs more than showing a spare one). The converter keeps this many per part.
     static let maxSensesPerPartOfSpeech = 2
+    /// How many senses a card shows in total (issue #14: 1 ≤ senses ≤ 4, and five model calls per
+    /// sense). The first sense of every part of speech is taken before any second sense, so a
+    /// word with four parts of speech (*light*) shows one of each rather than two nouns and two verbs.
+    static let maxSensesTotal = 4
 
     private var bundle: WordNetBundle?
     private var loadTask: Task<WordNetBundle?, Never>?
@@ -93,25 +97,40 @@ actor WordNetLookup {
         let key = Self.normalise(headword)
         guard let groups = bundle.lemmas[key] else { return nil }
 
-        // Up to `maxSensesPerPartOfSpeech` senses per part of speech, in WordNet rank order,
-        // parts of speech in noun, verb, adjective, adverb order. For "book" that is noun 1,
-        // noun 2, verb "engage for a performance", verb "reserve". Same policy as `top_senses`
-        // in tools/convert_oewn.py.
+        // Up to `maxSensesPerPartOfSpeech` senses per part of speech, in WordNet rank order, and
+        // `maxSensesTotal` in all: rank 1 of every part of speech first (noun, verb, adjective,
+        // adverb order), then rank 2, until the total is reached; the kept senses are then shown
+        // grouped by part of speech. For "book" that is noun 1, noun 2, verb "engage for a
+        // performance", verb "reserve"; for "light" one noun, one verb, one adjective, one adverb.
+        // Same policy as `top_senses` in tools/convert_oewn.py.
         var counts: [(partOfSpeech: WordNetPartOfSpeech, count: Int)] = []
-        var top: [WordNetSense] = []
+        var keptRefs: [(partOfSpeech: WordNetPartOfSpeech, rank: Int, ref: WordNetSenseRef)] = []
         for partOfSpeech in WordNetPartOfSpeech.allCases {
             guard let refs = groups[partOfSpeech.rawValue], !refs.isEmpty else { continue }
             counts.append((partOfSpeech, refs.count))
-            for ref in refs.prefix(Self.maxSensesPerPartOfSpeech) {
-                let synset = bundle.synsets[ref.synset]
-                top.append(WordNetSense(
-                    partOfSpeech: partOfSpeech,
-                    gloss: synset.gloss,
-                    synonyms: synset.members.filter { Self.normalise($0) != key },
-                    antonyms: ref.antonyms,
-                    examples: synset.examples
-                ))
+        }
+        for rank in 0..<Self.maxSensesPerPartOfSpeech {
+            for partOfSpeech in WordNetPartOfSpeech.allCases {
+                guard keptRefs.count < Self.maxSensesTotal else { break }
+                guard let refs = groups[partOfSpeech.rawValue], rank < refs.count else { continue }
+                keptRefs.append((partOfSpeech, rank, refs[rank]))
             }
+        }
+        let order = Dictionary(uniqueKeysWithValues: WordNetPartOfSpeech.allCases.enumerated().map { ($1, $0) })
+        keptRefs.sort { lhs, rhs in
+            let left = order[lhs.partOfSpeech] ?? 0
+            let right = order[rhs.partOfSpeech] ?? 0
+            return left == right ? lhs.rank < rhs.rank : left < right
+        }
+        let top = keptRefs.map { kept in
+            let synset = bundle.synsets[kept.ref.synset]
+            return WordNetSense(
+                partOfSpeech: kept.partOfSpeech,
+                gloss: synset.gloss,
+                synonyms: synset.members.filter { Self.normalise($0) != key },
+                antonyms: kept.ref.antonyms,
+                examples: synset.examples
+            )
         }
         return WordNetEntry(senseCounts: counts, top: top)
     }
