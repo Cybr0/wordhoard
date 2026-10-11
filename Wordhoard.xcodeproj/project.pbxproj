@@ -1,0 +1,490 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		132042E84B0393F4BA8E7291 /* WordhoardCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9AEF27D9ED49234E8C7CFD94 /* WordhoardCore */; };
+		25FF80C3F7DEB7AE7CA5C43A /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 078B4D3E73CFA61F5FA2A770 /* Localizable.xcstrings */; };
+		324504F048EE4CB34CE99294 /* WordhoardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B498FAD69F54EAFEF99BE62B /* WordhoardUITests.swift */; };
+		600B84B53823E0F1C0F8DD2E /* WordhoardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */; };
+		8C3B499067641BB31A762797 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8DDA685CA7599AFA87A612C6 /* Assets.xcassets */; };
+		F9F9E25C9AB20F8F98ACFC97 /* WordListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4E9B7FF3EE327D268FF674 /* WordListView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0EACBB59B7BBAE3ACE7E92C6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98FF27009298626566F3A3CE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 68F160A01527E48D7ED8E558;
+			remoteInfo = Wordhoard;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		078B4D3E73CFA61F5FA2A770 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		33106C603F8F27F7485EA7B4 /* WordhoardCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = WordhoardCore; path = WordhoardCore; sourceTree = SOURCE_ROOT; };
+		3E950E4D0A0491B07CF5F05B /* WordhoardUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WordhoardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		8A4E9B7FF3EE327D268FF674 /* WordListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListView.swift; sourceTree = "<group>"; };
+		8DDA685CA7599AFA87A612C6 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B498FAD69F54EAFEF99BE62B /* WordhoardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordhoardUITests.swift; sourceTree = "<group>"; };
+		D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordhoardApp.swift; sourceTree = "<group>"; };
+		DD2A89CD07C1F6FD775E4977 /* Wordhoard.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Wordhoard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CE5CD088D01D5DD3D86C82AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				132042E84B0393F4BA8E7291 /* WordhoardCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0130D00FAFD8FF9C88142601 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				8DDA685CA7599AFA87A612C6 /* Assets.xcassets */,
+				078B4D3E73CFA61F5FA2A770 /* Localizable.xcstrings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		17B5FBF6D1EE387CAB32DFBD /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DD2A89CD07C1F6FD775E4977 /* Wordhoard.app */,
+				3E950E4D0A0491B07CF5F05B /* WordhoardUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		1816CF811E18261F0D387586 /* WordhoardUITests */ = {
+			isa = PBXGroup;
+			children = (
+				B498FAD69F54EAFEF99BE62B /* WordhoardUITests.swift */,
+			);
+			path = WordhoardUITests;
+			sourceTree = "<group>";
+		};
+		2CF5DED07A85E5C4804C705A = {
+			isa = PBXGroup;
+			children = (
+				73DF287018FA9DA11B3AAAA8 /* Packages */,
+				8D20469D9571F4835D973FE6 /* Wordhoard */,
+				1816CF811E18261F0D387586 /* WordhoardUITests */,
+				17B5FBF6D1EE387CAB32DFBD /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		73DF287018FA9DA11B3AAAA8 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				33106C603F8F27F7485EA7B4 /* WordhoardCore */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		8D20469D9571F4835D973FE6 /* Wordhoard */ = {
+			isa = PBXGroup;
+			children = (
+				0130D00FAFD8FF9C88142601 /* Resources */,
+				D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */,
+				8A4E9B7FF3EE327D268FF674 /* WordListView.swift */,
+			);
+			path = Wordhoard;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		68F160A01527E48D7ED8E558 /* Wordhoard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CF802564061320B45478473F /* Build configuration list for PBXNativeTarget "Wordhoard" */;
+			buildPhases = (
+				1331E56C017E94115F0E064E /* Sources */,
+				BB38794CE226C95BE2C4D7DF /* Resources */,
+				CE5CD088D01D5DD3D86C82AA /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Wordhoard;
+			packageProductDependencies = (
+				9AEF27D9ED49234E8C7CFD94 /* WordhoardCore */,
+			);
+			productName = Wordhoard;
+			productReference = DD2A89CD07C1F6FD775E4977 /* Wordhoard.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A0DA122F8D7D3BC1911AE217 /* WordhoardUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D1BAF71FEF0E9FF33D0F5A67 /* Build configuration list for PBXNativeTarget "WordhoardUITests" */;
+			buildPhases = (
+				E445659FE3210E64B31F4CA5 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B683C7F98F37E0793817287D /* PBXTargetDependency */,
+			);
+			name = WordhoardUITests;
+			packageProductDependencies = (
+			);
+			productName = WordhoardUITests;
+			productReference = 3E950E4D0A0491B07CF5F05B /* WordhoardUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		98FF27009298626566F3A3CE /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					68F160A01527E48D7ED8E558 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					A0DA122F8D7D3BC1911AE217 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+						TestTargetID = 68F160A01527E48D7ED8E558;
+					};
+				};
+			};
+			buildConfigurationList = BCD9A2B952FD8F50FC35CC00 /* Build configuration list for PBXProject "Wordhoard" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 2CF5DED07A85E5C4804C705A;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B3B6092B9F7A2C9B9F58F105 /* XCLocalSwiftPackageReference "WordhoardCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 17B5FBF6D1EE387CAB32DFBD /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				68F160A01527E48D7ED8E558 /* Wordhoard */,
+				A0DA122F8D7D3BC1911AE217 /* WordhoardUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		BB38794CE226C95BE2C4D7DF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C3B499067641BB31A762797 /* Assets.xcassets in Resources */,
+				25FF80C3F7DEB7AE7CA5C43A /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1331E56C017E94115F0E064E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F9F9E25C9AB20F8F98ACFC97 /* WordListView.swift in Sources */,
+				600B84B53823E0F1C0F8DD2E /* WordhoardApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E445659FE3210E64B31F4CA5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				324504F048EE4CB34CE99294 /* WordhoardUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B683C7F98F37E0793817287D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 68F160A01527E48D7ED8E558 /* Wordhoard */;
+			targetProxy = 0EACBB59B7BBAE3ACE7E92C6 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		02EE39F16F77E40A1B9996CE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		4D75FB48622DA1E19C433DBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.wordhoard.app.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Wordhoard;
+			};
+			name = Debug;
+		};
+		6832E6F70305C4DEBA963298 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Wordhoard;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.wordhoard.app;
+				PRODUCT_NAME = Wordhoard;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		7CBD0CDE64DAD6D3DB529006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.wordhoard.app.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Wordhoard;
+			};
+			name = Release;
+		};
+		A3447D9A3A336673F3CBF07E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Wordhoard;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.wordhoard.app;
+				PRODUCT_NAME = Wordhoard;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		FE54628C76A756FCC44A2D71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BCD9A2B952FD8F50FC35CC00 /* Build configuration list for PBXProject "Wordhoard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE54628C76A756FCC44A2D71 /* Debug */,
+				02EE39F16F77E40A1B9996CE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CF802564061320B45478473F /* Build configuration list for PBXNativeTarget "Wordhoard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6832E6F70305C4DEBA963298 /* Debug */,
+				A3447D9A3A336673F3CBF07E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D1BAF71FEF0E9FF33D0F5A67 /* Build configuration list for PBXNativeTarget "WordhoardUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D75FB48622DA1E19C433DBC /* Debug */,
+				7CBD0CDE64DAD6D3DB529006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		B3B6092B9F7A2C9B9F58F105 /* XCLocalSwiftPackageReference "WordhoardCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = WordhoardCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9AEF27D9ED49234E8C7CFD94 /* WordhoardCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WordhoardCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 98FF27009298626566F3A3CE /* Project object */;
+}
