@@ -1,0 +1,80 @@
+# Lint, regenerate-and-diff the committed project, run the Core tests, build for a simulator.
+# UI tests are not run here (slow and flaky on hosted runners); qa runs `xcodebuild test` locally.
+name: CI
+
+on:
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - "spike/**"
+      - ".claude/**"
+      - LICENSE
+      - NOTICE
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - "spike/**"
+      - ".claude/**"
+      - LICENSE
+      - NOTICE
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # GitHub-hosted preview image with Xcode 27.0 and iOS 27 simulators. macos-26 only has Xcode 26
+    # and cannot build an iOS 27 deployment target.
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 27
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.0.app
+          xcodebuild -version
+          swift --version
+
+      - name: Install tools
+        run: |
+          brew install xcodegen swiftlint
+          command -v swiftformat || brew install swiftformat
+          xcodegen --version
+          swiftformat --version
+          swiftlint version
+
+      - name: Lint
+        run: |
+          swiftformat --lint .
+          swiftlint --strict
+
+      - name: Regenerate project and diff
+        run: |
+          xcodegen generate
+          git diff --exit-code -- Wordhoard.xcodeproj
+
+      - name: Core tests
+        run: swift test
+        working-directory: WordhoardCore
+
+      - name: Pick simulator
+        id: sim
+        run: |
+          SIM=$(xcrun simctl list devices available -j \
+            | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].name')
+          if [ -z "$SIM" ] || [ "$SIM" = "null" ]; then
+            echo "No iPhone simulator available"; xcrun simctl list devices available; exit 1
+          fi
+          echo "Using simulator: $SIM"
+          echo "name=$SIM" >> "$GITHUB_OUTPUT"
+
+      - name: Build for simulator
+        run: |
+          xcodebuild -scheme Wordhoard \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
+            CODE_SIGNING_ALLOWED=NO build
