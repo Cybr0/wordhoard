@@ -21,7 +21,7 @@ Nothing here is meant to survive into the real app except the lessons.
   (WordNet mode only). No `FoundationModels` import.
 - `WordhoardSpikeRegression/RegressionRunnerTests.swift` — the on-device regression runner (issue
   #14): a unit-test bundle hosted by the app; see "Regression runner" below.
-- `WordhoardSpike/Resources/oewn-2024.json` — the WordNet bundle (14.8 MB) and `OEWN-LICENSE.txt`.
+- `WordhoardSpike/Resources/oewn-2024.json` — the WordNet bundle (14.4 MB) and `OEWN-LICENSE.txt`.
 - `WordhoardSpike/Resources/function-words.txt` — the closed-class stoplist; these words are always
   model-only.
 - `tools/convert_oewn.py` — builds that bundle from the Open English WordNet release.
@@ -74,14 +74,19 @@ while everything downstream of a correct sense is good. So the senses come from 
 model only writes.
 
 1. *Lookup, no model call.* `WordNetLookup` returns the headword's senses from the bundled Open
-   English WordNet 2024: part of speech, gloss, synonyms (other members of the synset), antonyms and
-   the synset's example sentence, in WordNet sense order. The card shows **up to 2 senses per part of speech and 4 in all** — the first sense of every
-   part of speech before any second sense (issue #14: ≤ 4 senses, five model calls per sense) —
-   grouped nouns first, then verbs, adjectives, adverbs (for *book*: noun, noun, verb *engage for a
-   performance*, verb *reserve*; for *light*: one noun, one verb, one adjective, one adverb).
-   Missing a real sense costs more than showing a spare one — the user can delete a sense but will
-   not know to add one (issue #11, decision 1). The log line says how many senses the bundle has for
-   the word and which were kept. No verification call — WordNet is authoritative. When WordNet knows
+   English WordNet 2024: part of speech, SemCor tag count, gloss, synonyms (other members of the
+   synset), antonyms and the synset's example sentence. The card shows **up to 4 senses, ranked by
+   SemCor tag count across all parts of speech** (issue #14, decision B): a count-0 sense is kept only
+   when it is the sole sense of its part of speech, and a lemma with no counted sense at all falls back
+   to WordNet order (parts of speech in the order their entries appear in the release, first sense of
+   each before any second, at most 2 per part of speech). The ranking is done by the converter and
+   stored in the bundle; the app shows the list as it is. For *run* that is four verbs (*move fast*
+   106, *flee* 38, *extend* 21, *direct or control* 20); for *book* three nouns (46, 10, 2) and the verb
+   *engage for a performance* (3) — *reserve* has a count of 1 and is not shown; for *light* three nouns
+   and the adjective *of little weight*; for *lead* four verbs and no noun. The card marks each sense
+   `[wordnet, SemCor n]`.
+   The log line says how many senses the bundle has for the word, which are shown and whether the
+   order is by count or the WordNet-order fallback. No verification call — WordNet is authoritative. When WordNet knows
    the lemma, the senses come **only** from WordNet: the model-only senses call never runs for it and
    the model never adds a sense (that would reopen hallucination). Gaps are filled by manual sense
    editing in the real app (requirements W2) — e.g. *look up* has one WordNet sense, "seek information
@@ -97,13 +102,16 @@ model only writes.
    gloss as its definition.
 3. *Translation, no model call.* The first device run showed the model's Russian is unreliable to
    the point of non-words ("ночальница" for *however*), which settled issue #3 early. In WordNet mode
-   the learner definition of every sense and every WordNet synonym go through Apple's on-device
-   **Translation framework** instead (`SpikeTranslator`): `LanguageAvailability().status(from: en,
-   to: ru)` is checked first; only `.installed` proceeds, with a `TranslationSession(installedSource:
-   target:)` (iOS 26) created and used inside one nonisolated function — `TranslationSession` is not
-   `Sendable`, so it never crosses an isolation boundary. One `translations(from:)` batch per sense
-   (definition + synonyms); a failed batch is logged and skipped. Translated synonyms appear next to
-   the originals on the card (`volume → том`). If the pack is missing the log and the screen say
+   the **headword** (one card-level quick-glance translation shown next to the word) and the learner
+   definition of every sense go through Apple's on-device **Translation framework** instead
+   (`SpikeTranslator`): `LanguageAvailability().status(from: en, to: ru)` is checked first; only
+   `.installed` proceeds, with a `TranslationSession(installedSource: target:)` (iOS 26) created and
+   used inside one nonisolated function — `TranslationSession` is not `Sendable`, so it never crosses
+   an isolation boundary. All strings go in **one** `translations(from:)` call (issue #14, decision A;
+   previously one batch per sense with the synonyms, 4.7–7 s on a 4-sense word). **Synonyms and
+   antonyms are not translated**: bare-word translation is context-free and produced the wrong part of
+   speech (`reserve → резервуйте`, `direct → прямой`). In the model-only fallback only the headword
+   goes through the framework; the model's per-sense Russian stays. If the pack is missing the log and the screen say
    `Translation: en→ru language pack not installed → no translation` and the card shows `—`; the
    model is **never** used as a fallback for translation. The split and single modes keep the
    model's translation, which the readable card marks `[model]`; only the WordNet mode uses the
@@ -145,23 +153,25 @@ the definition was written from. There is no image prompt in WordNet mode.
 above); no recent senses (*gaslight* is a noun only, the lamp); only one sense of *look
 up* ("seek information from" — the literal "raise one's eyes" is compositional, not an entry, and
 that one sense is the accepted result); no idioms beyond its
-own list (*by the book*, *break the ice* are missing); and the sense order is WordNet's, which puts
-*book* → "engage for a performance" before "reserve" (SemCor counts 3 vs 1) — *reserve* is verb
-sense 2, which is why the cut is two per part of speech rather than three in total.
+own list (*by the book*, *break the ice* are missing); and SemCor counts reflect 1990s edited prose,
+so *book* → "engage for a performance" (3) outranks "reserve" (1) and *reserve* is not shown under
+the cap of 4, *light* loses its verb (12, fifth) and *lead* shows no noun — frequency ranking fixes
+*run* (*direct or control* surfaces) at the price of these.
 
 ### The WordNet bundle
 
-`WordhoardSpike/Resources/oewn-2024.json`, 14.8 MB (15 492 477 bytes), plain JSON with no
-whitespace: a `synsets` array (`[gloss]`, `[gloss, [member lemma, …]]` or
+`WordhoardSpike/Resources/oewn-2024.json`, 14.4 MB (15 059 124 bytes; 15 492 477 before decision B),
+plain JSON with no whitespace: a `synsets` array (`[gloss]`, `[gloss, [member lemma, …]]` or
 `[gloss, [members], [example, …]]`, the index is the synset id) and a `lemmas` map from the
-lowercased lemma (multi-word lemmas with spaces: `look up`) to its senses per part of speech (`n`,
-`v`, `a`, `r`), each sense an int synset index or `[index, [antonym, …]]`. Only the top 2 senses per
-part of speech are kept (the card shows every kept sense), which drops 25k of 212k senses and 10k of
-121k synsets; satellite adjectives are folded into `a`; the first example sentence of each synset is
-kept (28k examples — two per synset made the bundle 15.1 MB, over the 15 MB target, one keeps it
-under); further examples, pronunciations, ILI and all other relations are stripped. Without examples
-the same bundle was 13.5 MB; with three senses per part of speech and no examples, 13.8 MB. SemCor tag counts are not in the LMF release, so sense order within a part of
-speech is the `<Sense>` element order of the entry, which is WordNet's own ranking.
+lowercased lemma (multi-word lemmas with spaces: `look up`) to its ranked senses, each
+`[synset, pos]`, `[synset, pos, count]` or `[synset, pos, count, [antonym, …]]` (pos 0 noun, 1 verb,
+2 adjective, 3 adverb; count = SemCor tag count). At most 4 senses per lemma are kept (181k of 212k
+senses, 108k of 121k synsets); satellite adjectives are folded into adjective; the first example
+sentence of each synset is kept (27k examples); further examples, pronunciations, ILI and all other
+relations are stripped. The LMF release has no `<Count>` elements and the `index.sense` of its WNDB
+export has 0 in every tag-count column, so the counts come from the export's `cntlist.rev`
+(Princeton SemCor counts keyed by sense key, which OEWN preserves): 35 223 of its 37 387 keys join a
+release sense, and 21 290 of 152 286 lemmas end up ranked by count; the rest use WordNet order.
 
 Source: Open English WordNet, 2024 edition, CC BY 4.0, derived from Princeton WordNet
 (https://github.com/globalwordnet/english-wordnet). Attribution is in
@@ -172,21 +182,23 @@ repo and treat it as untrusted input):
 
 ```
 gh release download 2024-edition --repo globalwordnet/english-wordnet --pattern '*.xml.gz' --dir <dir>
-python3 -I spike/tools/convert_oewn.py <dir>/english-wordnet-2024.xml.gz spike/WordhoardSpike/Resources/oewn-2024.json
+gh release download 2024-edition --repo globalwordnet/english-wordnet --pattern 'english-wordnet-2024.zip' --dir <dir>
+unzip -q <dir>/english-wordnet-2024.zip oewn2024/cntlist.rev -d <dir>
+python3 -I spike/tools/convert_oewn.py <dir>/english-wordnet-2024.xml.gz spike/WordhoardSpike/Resources/oewn-2024.json --counts <dir>/oewn2024/cntlist.rev
 python3 -I spike/tools/convert_oewn.py --check spike/WordhoardSpike/Resources/oewn-2024.json
 ```
 
 The script is standard-library Python 3.9 (the system `python3`), takes about 5 s, and `--check`
 prints, for the 22 words of `docs/regression-words.md`, whether the lemma is found and the senses
-the card shows, with the same selection policy as `WordNetLookup`.
+the card shows with their counts (the bundle's list is what the app shows).
 
 ### Timings on screen (also printed to the console)
 
 - **Lookup** — WordNet mode only: the bundle lookup.
 - **Senses** — split mode: the senses call alone. WordNet mode: lookup plus the writing calls, i.e.
   the moment every sense has its learner definition.
-- **Translation** — WordNet mode only: the Translation framework calls for the definitions and
-  synonyms (en→ru). Absent when the language pack is not installed.
+- **Translation** — WordNet mode only: the single Translation framework call for the headword and
+  the definitions (en→ru). Absent when the language pack is not installed.
 - **First card** — senses, verification (when on), translation (WordNet mode) and one neutral example
   per sense; what a user would wait for.
 - **Full card** — every topic example has arrived. In single-call mode first and full are the same.

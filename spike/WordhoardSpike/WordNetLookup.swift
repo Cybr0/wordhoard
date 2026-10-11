@@ -1,9 +1,10 @@
 // Phase 0 spike: offline sense inventory from the bundled Open English WordNet 2024
 // (Resources/oewn-2024.json, CC BY 4.0, produced by tools/convert_oewn.py).
 //
-// The bundle gives, per lemma, the senses in WordNet order grouped by part of speech,
-// each with a gloss, the synset's other members (synonyms), antonyms and the synset's example
-// sentence. The model never
+// The bundle gives, per lemma, up to four senses ranked by SemCor tag count across all parts of
+// speech (issue #14, decision B; WordNet order for lemmas without counts — see
+// tools/convert_oewn.py), each with its part of speech, count, gloss, the synset's other members
+// (synonyms), antonyms and the synset's example sentence. The model never
 // sees this file; CardGenerationModel asks it for a headword's senses and lets the model
 // write the learner definition, translation and examples for each one (issue #11).
 //
@@ -34,6 +35,8 @@ enum WordNetPartOfSpeech: String, Sendable, CaseIterable {
 /// One WordNet sense of a headword, ready to be handed to the model for writing.
 struct WordNetSense: Sendable {
     let partOfSpeech: WordNetPartOfSpeech
+    /// SemCor tag count of this sense (0 when the corpus never tagged it); the rank key.
+    let count: Int
     /// The synset's `Definition` text, terse lexicographer English.
     let gloss: String
     /// Other members of the synset, in WordNet order; never contains the headword.
@@ -48,11 +51,12 @@ struct WordNetSense: Sendable {
 /// What the bundle knows about one headword.
 struct WordNetEntry: Sendable {
     /// Senses in the bundle per part of speech (the bundle keeps at most
-    /// `WordNetLookup.maxSensesPerPartOfSpeech` per part, so this is a floor, not WordNet's full count).
+    /// `WordNetLookup.maxSensesTotal` per lemma, so this is a floor, not WordNet's full count).
     let senseCounts: [(partOfSpeech: WordNetPartOfSpeech, count: Int)]
-    /// The senses the card will show: up to `WordNetLookup.maxSensesPerPartOfSpeech` per part of
-    /// speech, nouns first, then verbs, adjectives, adverbs.
+    /// The senses the card will show, in the bundle's rank order (SemCor count, highest first).
     let top: [WordNetSense]
+    /// Whether `top` is ranked by count (false: WordNet-order fallback, no SemCor count for the lemma).
+    let rankedByCount: Bool
 
     var bundledSenseCount: Int { senseCounts.reduce(0) { $0 + $1.count } }
 }
@@ -62,12 +66,8 @@ struct WordNetEntry: Sendable {
 actor WordNetLookup {
     static let shared = WordNetLookup()
 
-    /// How many senses a card shows per part of speech (issue #11, decision 1: missing a real
-    /// sense costs more than showing a spare one). The converter keeps this many per part.
-    static let maxSensesPerPartOfSpeech = 2
-    /// How many senses a card shows in total (issue #14: 1 ≤ senses ≤ 4, and five model calls per
-    /// sense). The first sense of every part of speech is taken before any second sense, so a
-    /// word with four parts of speech (*light*) shows one of each rather than two nouns and two verbs.
+    /// How many senses a card shows (issue #14: 1 ≤ senses ≤ 4, and five model calls per sense).
+    /// The converter already ranks and caps the bundle's list; this is the display cap.
     static let maxSensesTotal = 4
 
     private var bundle: WordNetBundle?
@@ -95,44 +95,29 @@ actor WordNetLookup {
     func entry(for headword: String) async -> WordNetEntry? {
         guard let bundle = await loadedBundle() else { return nil }
         let key = Self.normalise(headword)
-        guard let groups = bundle.lemmas[key] else { return nil }
+        guard let refs = bundle.lemmas[key], !refs.isEmpty else { return nil }
 
-        // Up to `maxSensesPerPartOfSpeech` senses per part of speech, in WordNet rank order, and
-        // `maxSensesTotal` in all: rank 1 of every part of speech first (noun, verb, adjective,
-        // adverb order), then rank 2, until the total is reached; the kept senses are then shown
-        // grouped by part of speech. For "book" that is noun 1, noun 2, verb "engage for a
-        // performance", verb "reserve"; for "light" one noun, one verb, one adjective, one adverb.
-        // Same policy as `top_senses` in tools/convert_oewn.py.
+        // The bundle's list is already ranked (SemCor count across parts of speech, WordNet order
+        // when the lemma has no counts) and capped by the converter; show its first
+        // `maxSensesTotal` rows as they are. For "run" that is four verbs (move fast, flee, extend,
+        // direct or control); for "book" three nouns and the verb "engage for a performance".
         var counts: [(partOfSpeech: WordNetPartOfSpeech, count: Int)] = []
-        var keptRefs: [(partOfSpeech: WordNetPartOfSpeech, rank: Int, ref: WordNetSenseRef)] = []
         for partOfSpeech in WordNetPartOfSpeech.allCases {
-            guard let refs = groups[partOfSpeech.rawValue], !refs.isEmpty else { continue }
-            counts.append((partOfSpeech, refs.count))
+            let total = refs.filter { $0.partOfSpeech == partOfSpeech }.count
+            if total > 0 { counts.append((partOfSpeech, total)) }
         }
-        for rank in 0..<Self.maxSensesPerPartOfSpeech {
-            for partOfSpeech in WordNetPartOfSpeech.allCases {
-                guard keptRefs.count < Self.maxSensesTotal else { break }
-                guard let refs = groups[partOfSpeech.rawValue], rank < refs.count else { continue }
-                keptRefs.append((partOfSpeech, rank, refs[rank]))
-            }
-        }
-        let order = Dictionary(uniqueKeysWithValues: WordNetPartOfSpeech.allCases.enumerated().map { ($1, $0) })
-        keptRefs.sort { lhs, rhs in
-            let left = order[lhs.partOfSpeech] ?? 0
-            let right = order[rhs.partOfSpeech] ?? 0
-            return left == right ? lhs.rank < rhs.rank : left < right
-        }
-        let top = keptRefs.map { kept in
-            let synset = bundle.synsets[kept.ref.synset]
+        let top = refs.prefix(Self.maxSensesTotal).map { ref in
+            let synset = bundle.synsets[ref.synset]
             return WordNetSense(
-                partOfSpeech: kept.partOfSpeech,
+                partOfSpeech: ref.partOfSpeech,
+                count: ref.count,
                 gloss: synset.gloss,
                 synonyms: synset.members.filter { Self.normalise($0) != key },
-                antonyms: kept.ref.antonyms,
+                antonyms: ref.antonyms,
                 examples: synset.examples
             )
         }
-        return WordNetEntry(senseCounts: counts, top: top)
+        return WordNetEntry(senseCounts: counts, top: top, rankedByCount: top.contains { $0.count > 0 })
     }
 
     /// Trim, lowercase, underscores to spaces, single spaces — the converter's `normalise`.
@@ -194,7 +179,8 @@ private struct FunctionWords: Sendable {
 private struct WordNetBundle: Sendable, Decodable {
     let edition: String
     let synsets: [WordNetSynset]
-    let lemmas: [String: [String: [WordNetSenseRef]]]
+    /// Lemma key → its senses in rank order (the converter's `rank_senses`).
+    let lemmas: [String: [WordNetSenseRef]]
 
     static func load() -> WordNetBundle? {
         guard let url = Bundle.main.url(forResource: "oewn-2024", withExtension: "json") else {
@@ -231,19 +217,23 @@ private struct WordNetSynset: Sendable, Decodable {
     }
 }
 
-/// A synset index, or `[index, [antonym, ...]]` when the sense has antonyms.
+/// `[synset, pos]`, `[synset, pos, count]` or `[synset, pos, count, [antonym, ...]]`;
+/// pos is 0 noun, 1 verb, 2 adjective, 3 adverb.
 private struct WordNetSenseRef: Sendable, Decodable {
     let synset: Int
+    let partOfSpeech: WordNetPartOfSpeech
+    let count: Int
     let antonyms: [String]
 
     init(from decoder: any Decoder) throws {
-        if let single = try? decoder.singleValueContainer(), let index = try? single.decode(Int.self) {
-            synset = index
-            antonyms = []
-        } else {
-            var container = try decoder.unkeyedContainer()
-            synset = try container.decode(Int.self)
-            antonyms = try container.decode([String].self)
+        var container = try decoder.unkeyedContainer()
+        synset = try container.decode(Int.self)
+        let code = try container.decode(Int.self)
+        guard WordNetPartOfSpeech.allCases.indices.contains(code) else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "part of speech code \(code)")
         }
+        partOfSpeech = WordNetPartOfSpeech.allCases[code]
+        count = container.isAtEnd ? 0 : try container.decode(Int.self)
+        antonyms = container.isAtEnd ? [] : try container.decode([String].self)
     }
 }
