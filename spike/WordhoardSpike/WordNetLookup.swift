@@ -40,9 +40,10 @@ struct WordNetSense: Sendable {
 /// What the bundle knows about one headword.
 struct WordNetEntry: Sendable {
     /// Senses in the bundle per part of speech (the bundle keeps at most
-    /// `WordNetLookup.maxSenses` per part, so this is a floor, not WordNet's full count).
+    /// `WordNetLookup.maxSensesPerPartOfSpeech` per part, so this is a floor, not WordNet's full count).
     let senseCounts: [(partOfSpeech: WordNetPartOfSpeech, count: Int)]
-    /// The top `WordNetLookup.maxSenses` senses the card will show.
+    /// The senses the card will show: up to `WordNetLookup.maxSensesPerPartOfSpeech` per part of
+    /// speech, nouns first, then verbs, adjectives, adverbs.
     let top: [WordNetSense]
 
     var bundledSenseCount: Int { senseCounts.reduce(0) { $0 + $1.count } }
@@ -53,8 +54,9 @@ struct WordNetEntry: Sendable {
 actor WordNetLookup {
     static let shared = WordNetLookup()
 
-    /// How many senses a card shows. The converter keeps this many per part of speech.
-    static let maxSenses = 3
+    /// How many senses a card shows per part of speech (issue #11, decision 1: missing a real
+    /// sense costs more than showing a spare one). The converter keeps this many per part.
+    static let maxSensesPerPartOfSpeech = 2
 
     private var bundle: WordNetBundle?
     private var loadTask: Task<WordNetBundle?, Never>?
@@ -74,22 +76,16 @@ actor WordNetLookup {
         let key = Self.normalise(headword)
         guard let groups = bundle.lemmas[key] else { return nil }
 
+        // Up to `maxSensesPerPartOfSpeech` senses per part of speech, in WordNet rank order,
+        // parts of speech in noun, verb, adjective, adverb order. For "book" that is noun 1,
+        // noun 2, verb "engage for a performance", verb "reserve". Same policy as `top_senses`
+        // in tools/convert_oewn.py.
         var counts: [(partOfSpeech: WordNetPartOfSpeech, count: Int)] = []
-        var queues: [(WordNetPartOfSpeech, [WordNetSenseRef])] = []
+        var top: [WordNetSense] = []
         for partOfSpeech in WordNetPartOfSpeech.allCases {
             guard let refs = groups[partOfSpeech.rawValue], !refs.isEmpty else { continue }
             counts.append((partOfSpeech, refs.count))
-            queues.append((partOfSpeech, refs))
-        }
-
-        // Round-robin over parts of speech in noun, verb, adjective, adverb order, taking
-        // each part's next-ranked sense, until `maxSenses` are picked. For "book" that is
-        // noun 1, verb 1, noun 2. Same policy as `top_senses` in tools/convert_oewn.py.
-        var top: [WordNetSense] = []
-        var position = 0
-        while top.count < Self.maxSenses, queues.contains(where: { $0.1.count > position }) {
-            for (partOfSpeech, refs) in queues where refs.count > position && top.count < Self.maxSenses {
-                let ref = refs[position]
+            for ref in refs.prefix(Self.maxSensesPerPartOfSpeech) {
                 let synset = bundle.synsets[ref.synset]
                 top.append(WordNetSense(
                     partOfSpeech: partOfSpeech,
@@ -98,7 +94,6 @@ actor WordNetLookup {
                     antonyms: ref.antonyms
                 ))
             }
-            position += 1
         }
         return WordNetEntry(senseCounts: counts, top: top)
     }

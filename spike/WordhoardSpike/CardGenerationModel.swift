@@ -9,7 +9,7 @@
 // Every call is its own short LanguageModelSession, so the context never grows.
 //
 // WordNet + model mode (issue #11) replaces steps 1–2 with a bundle lookup:
-//   1. WordNetLookup gives the top 3 senses  → no model call, no verification (authoritative)
+//   1. WordNetLookup gives up to 2 senses per part of speech → no model call, no verification
 //   2. one writing call per sense            → learner definition + translation
 //   3. one neutral example per sense         → "time to first card"
 //   4. one example per (sense, topic)        → "time to full card"

@@ -9,14 +9,14 @@ The first form reads the gzipped WN-LMF XML from the GitHub release
 (https://github.com/globalwordnet/english-wordnet, tag `2024-edition`, asset
 `english-wordnet-2024.xml.gz`, CC BY 4.0) and writes the bundle. The second form
 loads a bundle and prints, for every word in `docs/regression-words.md`, whether the
-lemma is found and the top 3 senses the app would show.
+lemma is found and the senses the app would show.
 
 Standard library only (system python3 is 3.9). Run with `-I` because the release is
 untrusted input; the script never executes anything from it.
 
 What is kept, per lemma (lowercased, multi-word lemmas with single spaces):
   - senses grouped by part of speech, in WordNet sense order, at most TOP per part
-    of speech (the app shows at most TOP senses in total, so lower ranks are never read)
+    of speech (the app shows every kept sense: up to TOP per part of speech)
   - per sense: synset index and the antonym lemmas (SenseRelation relType="antonym")
 Per synset (deduplicated, stored once): the Definition text and the member lemmas when
 there is more than one. Everything else in the release (examples, ILI, pronunciations,
@@ -54,9 +54,11 @@ import xml.etree.ElementTree as ET
 
 POS_KEYS = {"n": "n", "v": "v", "a": "a", "s": "a", "r": "r"}
 POS_NAMES = {"n": "noun", "v": "verb", "a": "adjective", "r": "adverb"}
-# Interleaving order for the top-3 cut; learner's dictionaries list nouns before verbs.
+# Display order of the parts of speech; learner's dictionaries list nouns before verbs.
 POS_ORDER = ["n", "v", "a", "r"]
-TOP = 3
+# Senses kept and shown per part of speech (issue #11, decision 1: missing a real sense
+# costs more than showing a spare one). For "book": noun, noun, verb engage, verb reserve.
+TOP = 2
 
 REGRESSION_WORDS = [
     "book", "run", "light", "set", "apple", "however", "despite", "achieve", "look up",
@@ -198,15 +200,9 @@ def sense_parts(sense):
 
 
 def top_senses(groups, limit=TOP):
-    """Same policy as WordNetLookup.swift: round-robin over parts of speech in POS_ORDER,
-    taking each part's next-ranked sense, until `limit` senses are collected."""
-    queues = [(pos, list(groups[pos])) for pos in POS_ORDER if groups.get(pos)]
-    picked = []
-    while len(picked) < limit and any(queue for _pos, queue in queues):
-        for pos, queue in queues:
-            if queue and len(picked) < limit:
-                picked.append((pos, queue.pop(0)))
-    return picked
+    """Same policy as WordNetLookup.swift: up to `limit` senses per part of speech, parts
+    of speech in POS_ORDER, each part's senses in WordNet rank order."""
+    return [(pos, sense) for pos in POS_ORDER for sense in groups.get(pos, [])[:limit]]
 
 
 def check(bundle_path):
@@ -222,7 +218,7 @@ def check(bundle_path):
             continue
         total = sum(len(rows) for rows in groups.values())
         by_pos = ", ".join(f"{len(groups[pos])} {POS_NAMES[pos]}" for pos in POS_ORDER if groups.get(pos))
-        print(f"{word}: found, {total} sense{'s' if total != 1 else ''} kept ({by_pos}); top {TOP}:")
+        print(f"{word}: found, {total} sense{'s' if total != 1 else ''} kept ({by_pos}); up to {TOP} per part of speech:")
         for rank, (pos, sense) in enumerate(top_senses(groups), start=1):
             index, antonyms = sense_parts(sense)
             row = synsets[index]
