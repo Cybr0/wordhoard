@@ -1,6 +1,6 @@
 # Regression word list
 
-Run the card generator over these words whenever a prompt changes, and in the Phase 0 spike. Paste a summary of the results into the PR (or, for the spike, into ADR 0001). Native language for the run: Russian. Active topics: `present_perfect`, `second_conditional`, `passive_voice`.
+Run the card generator over these words whenever a prompt changes, and in the Phase 0 spike. Paste a summary of the results into the PR (or, for the spike, into ADR 0001). Native language for the run: Russian (the author's test language only — not a product default; the app never preselects a language other than the system one). Add two or three words in Spanish and Chinese (Simplified) runs once the runner exists, to catch crashes rather than to judge quality. Active topics: `present_perfect`, `second_conditional`, `passive_voice`.
 
 The list is chosen to probe specific weaknesses, not to be representative. Each word has a note on what to look at.
 
