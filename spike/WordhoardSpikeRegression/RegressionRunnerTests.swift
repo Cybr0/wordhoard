@@ -64,8 +64,6 @@ struct SenseRecord: Codable, Sendable {
     let partOfSpeech: String
     let source: String
     let gloss: String?
-    /// SemCor tag count for WordNet senses (decision B); `nil` for model senses.
-    let count: Int?
     let definition: String
     let translation: String
     let synonyms: [String]
@@ -117,6 +115,7 @@ struct RunReport: Codable, Sendable {
     let commit: String?
     let pipeline: String
     let topics: [String]
+    let maxSensesPerPartOfSpeech: Int
     let maxSensesTotal: Int
     let words: [WordRecord]
 }
@@ -328,6 +327,7 @@ final class RegressionRunnerTests: XCTestCase {
             commit: commit,
             pipeline: "WordNet + model (stoplist → WordNet → writing call → Translation en→ru → examples; model-only fallback with verifier)",
             topics: GrammarTopic.active.map(\.key),
+            maxSensesPerPartOfSpeech: WordNetLookup.maxSensesPerPartOfSpeech,
             maxSensesTotal: WordNetLookup.maxSensesTotal,
             words: records
         )
@@ -383,7 +383,6 @@ final class RegressionRunnerTests: XCTestCase {
                 partOfSpeech: sense.partOfSpeech.rawValue,
                 source: sense.source.rawValue,
                 gloss: sense.gloss,
-                count: sense.count,
                 definition: sense.definition,
                 translation: sense.translation,
                 synonyms: sense.synonyms,
@@ -569,7 +568,7 @@ enum ReportWriter {
         out.append("- Device: \(report.device), \(report.system)")
         out.append("- Commit: \(report.commit ?? "(not passed; set TEST_RUNNER_GIT_COMMIT)")")
         out.append("- Pipeline: \(report.pipeline)")
-        out.append("- Topics: \(report.topics.joined(separator: ", ")) · senses ranked by SemCor count across parts of speech, cap \(report.maxSensesTotal)")
+        out.append("- Topics: \(report.topics.joined(separator: ", ")) · cap: \(report.maxSensesPerPartOfSpeech) senses per part of speech, \(report.maxSensesTotal) in all")
         out.append("- Words: \(report.words.count)")
         out.append("")
 
@@ -644,7 +643,7 @@ enum ReportWriter {
                     actual = "no senses (\(record.error ?? record.path))"
                 } else {
                     actual = record.senses.enumerated().map { index, sense in
-                        "\(index + 1). \(sense.partOfSpeech) [\(sense.source)\(sense.count.map { ", \($0)" } ?? "")] \(sense.definition) — \(sense.translation)"
+                        "\(index + 1). \(sense.partOfSpeech) [\(sense.source)] \(sense.definition) — \(sense.translation)"
                     }.joined(separator: "<br>")
                 }
                 let headword = record.headwordTranslation.isEmpty ? "" : " (\(record.headwordTranslation))"
@@ -671,7 +670,7 @@ enum ReportWriter {
             if !word.failures.isEmpty { out.append("- **Failed calls:** \(word.failures.joined(separator: " · "))") }
             out.append("- Calls: \(word.callCount) · lookup \(seconds(word.lookupSeconds)) · senses \(seconds(word.sensesSeconds)) · translation \(seconds(word.translationSeconds)) (\(word.translationCalls) call\(word.translationCalls == 1 ? "" : "s"), \(word.translationStrings) strings) · first card \(seconds(word.firstCardSeconds)) · full card \(seconds(word.fullCardSeconds)) · wall \(seconds(word.wallSeconds))")
             for (index, sense) in word.senses.enumerated() {
-                out.append("- Sense \(index + 1) — \(sense.partOfSpeech) [\(sense.source)\(sense.count.map { ", SemCor \($0)" } ?? "")]")
+                out.append("- Sense \(index + 1) — \(sense.partOfSpeech) [\(sense.source)]")
                 if let gloss = sense.gloss { out.append("  - gloss: \(gloss)") }
                 out.append("  - definition: \(sense.definition)")
                 out.append("  - translation: \(sense.translation.isEmpty ? "—" : sense.translation)")

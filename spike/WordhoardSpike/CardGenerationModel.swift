@@ -87,8 +87,6 @@ struct SpikeSense: Sendable {
     var partOfSpeech: PartOfSpeech
     /// The WordNet gloss the learner definition was written from; `nil` for model senses.
     var gloss: String?
-    /// WordNet senses: the SemCor tag count the sense was ranked by (0 = never tagged). `nil` for model senses.
-    var count: Int?
     var definition: String
     /// Model senses: the model's Russian (marked `[model]` on the card). WordNet senses: the
     /// Translation framework's Russian for `definition`, or empty when there is none.
@@ -103,7 +101,6 @@ struct SpikeSense: Sendable {
         source = .model
         partOfSpeech = core.partOfSpeech
         gloss = nil
-        count = nil
         definition = core.definition
         translation = core.translation
         synonyms = core.synonyms
@@ -115,7 +112,6 @@ struct SpikeSense: Sendable {
         source = .model
         partOfSpeech = generated.partOfSpeech
         gloss = nil
-        count = nil
         definition = generated.definition
         translation = generated.translation
         synonyms = generated.synonyms
@@ -130,7 +126,6 @@ struct SpikeSense: Sendable {
         source = .wordNet
         partOfSpeech = PartOfSpeech(sense.partOfSpeech)
         gloss = sense.gloss
-        count = sense.count
         definition = writing?.learnerDefinition ?? sense.gloss
         translation = "…"
         synonyms = sense.synonyms
@@ -172,8 +167,7 @@ struct SpikeCard: Sendable {
         lines.append("Word: \(headword)\(headwordTranslation.isEmpty ? "" : " — \(headwordTranslation)")")
         for (index, sense) in senses.enumerated() {
             lines.append("")
-            let countTag = sense.count.map { ", SemCor \($0)" } ?? ""
-            lines.append("Sense \(index + 1) — \(sense.partOfSpeech.rawValue) [\(sense.source.rawValue)\(countTag)]")
+            lines.append("Sense \(index + 1) — \(sense.partOfSpeech.rawValue) [\(sense.source.rawValue)]")
             if let gloss = sense.gloss {
                 lines.append("  gloss:       \(gloss)")
             }
@@ -462,10 +456,9 @@ final class CardGenerationModel {
 
         let counts = entry.senseCounts.map { "\($0.count) \($0.partOfSpeech.name)" }.joined(separator: ", ")
         let kept = entry.top.enumerated().map { index, sense in
-            "  \(index + 1). \(sense.partOfSpeech.name) [\(sense.count)]: \(sense.gloss)"
+            "  \(index + 1). \(sense.partOfSpeech.name): \(sense.gloss)"
         }.joined(separator: "\n")
-        let ranking = entry.rankedByCount ? "by SemCor count" : "WordNet order, no counts"
-        let note = "WordNet: \"\(word)\" → \(entry.bundledSenseCount) sense\(entry.bundledSenseCount == 1 ? "" : "s") in bundle (\(counts)), showing \(entry.top.count) \(ranking)"
+        let note = "WordNet: \"\(word)\" → \(entry.bundledSenseCount) sense\(entry.bundledSenseCount == 1 ? "" : "s") in bundle (\(counts)), kept \(entry.top.count)"
         wordNetNote = note
         path = .wordNet
         rawLog += "--- \(note) (\(lookupElapsed?.spikeFormatted ?? "?")) ---\n\(kept)\n\n"
