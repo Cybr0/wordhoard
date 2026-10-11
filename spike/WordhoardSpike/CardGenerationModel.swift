@@ -10,9 +10,11 @@
 //
 // WordNet + model mode (issue #11) replaces steps 1–2 with a bundle lookup:
 //   1. WordNetLookup gives up to 2 senses per part of speech → no model call, no verification
-//   2. one writing call per sense            → learner definition + translation
-//   3. one neutral example per sense         → "time to first card"
-//   4. one example per (sense, topic)        → "time to full card"
+//   2. one writing call per sense            → learner definition (no translation from the model)
+//   3. Translation framework, en→ru          → the definition and every synonym; none if the
+//                                              language pack is not installed (never the model)
+//   4. one neutral example per sense         → "time to first card"
+//   5. one example per (sense, topic)        → "time to full card"
 // When the word is on the function-word stoplist (however, despite, …) or WordNet has
 // no entry for it, the split flow above runs instead and the log says so.
 //
@@ -41,8 +43,12 @@ struct SpikeSense: Sendable {
     /// The WordNet gloss the learner definition was written from; `nil` for model senses.
     var gloss: String?
     var definition: String
+    /// Model senses: the model's Russian (marked `[model]` on the card). WordNet senses: the
+    /// Translation framework's Russian for `definition`, or empty when there is none.
     var translation: String
     var synonyms: [String]
+    /// WordNet senses only: synonym → its Translation framework Russian, shown as `volume → том`.
+    var synonymTranslations: [String: String]
     var antonyms: [String]
     var examples: [SpikeExample]
 
@@ -53,6 +59,7 @@ struct SpikeSense: Sendable {
         definition = core.definition
         translation = core.translation
         synonyms = core.synonyms
+        synonymTranslations = [:]
         antonyms = core.antonyms
         examples = []
     }
@@ -64,19 +71,22 @@ struct SpikeSense: Sendable {
         definition = generated.definition
         translation = generated.translation
         synonyms = generated.synonyms
+        synonymTranslations = [:]
         antonyms = generated.antonyms
         examples = generated.examples.map { SpikeExample(topicKey: $0.grammarTopic, text: $0.text) }
     }
 
     /// A WordNet sense before or after the model has written for it. Until `writing` arrives
-    /// the gloss stands in as the definition so the card can be shown immediately.
+    /// the gloss stands in as the definition so the card can be shown immediately; the
+    /// translations stay pending ("…") until the Translation framework step has run.
     init(wordNet sense: WordNetSense, writing: SenseWriting?) {
         source = .wordNet
         partOfSpeech = PartOfSpeech(sense.partOfSpeech)
         gloss = sense.gloss
         definition = writing?.learnerDefinition ?? sense.gloss
-        translation = writing?.translation ?? "…"
+        translation = "…"
         synonyms = sense.synonyms
+        synonymTranslations = [:]
         antonyms = sense.antonyms
         examples = []
     }
@@ -117,8 +127,12 @@ struct SpikeCard: Sendable {
                 lines.append("  gloss:       \(gloss)")
             }
             lines.append("  definition:  \(sense.definition)")
-            lines.append("  translation: \(sense.translation)")
-            lines.append("  synonyms:    \(sense.synonyms.isEmpty ? "—" : sense.synonyms.joined(separator: ", "))")
+            let translationTag = sense.source == .model ? " [model]" : ""
+            lines.append("  translation: \(sense.translation.isEmpty ? "—" : sense.translation)\(translationTag)")
+            let synonyms = sense.synonyms.map { synonym in
+                sense.synonymTranslations[synonym].map { "\(synonym) → \($0)" } ?? synonym
+            }
+            lines.append("  synonyms:    \(synonyms.isEmpty ? "—" : synonyms.joined(separator: ", "))")
             lines.append("  antonyms:    \(sense.antonyms.isEmpty ? "—" : sense.antonyms.joined(separator: ", "))")
             lines.append("  examples:")
             for example in sense.examples {
@@ -156,6 +170,7 @@ final class CardGenerationModel {
         case generatingSenses
         case verifyingSenses(done: Int, total: Int)
         case writingSenses(done: Int, total: Int)
+        case translating(count: Int)
         case generatingNeutralExamples(done: Int, total: Int)
         case generatingTopicExamples(done: Int, total: Int)
         case finished
@@ -179,14 +194,18 @@ final class CardGenerationModel {
     private(set) var verificationNote: String?
     /// WordNet mode: what the lookup found, or why the model took over (function word, not found).
     private(set) var wordNetNote: String?
+    /// WordNet mode: why there are no translations (language pack not installed), when so.
+    private(set) var translationNote: String?
     /// Raw JSON of every call in this run, in order, with per-call timing.
     private(set) var rawLog = ""
     private(set) var errorText: String?
     /// WordNet mode: the bundle lookup alone (includes the first-time bundle load, if any).
     private(set) var lookupElapsed: Duration?
     /// Split mode: the senses call. WordNet mode: lookup plus the writing calls, i.e. when the
-    /// senses are on screen with definitions and translations.
+    /// senses are on screen with their learner definitions.
     private(set) var sensesElapsed: Duration?
+    /// WordNet mode: the Translation framework calls alone (definitions and synonyms, en→ru).
+    private(set) var translationElapsed: Duration?
     /// Senses + one neutral example per sense are on screen.
     private(set) var firstCardElapsed: Duration?
     /// Every (sense, topic) example is on screen.
@@ -211,6 +230,8 @@ final class CardGenerationModel {
             return "Verifying senses \(done)/\(total)…"
         case let .writingSenses(done, total):
             return "Writing senses \(done)/\(total)…"
+        case let .translating(count):
+            return "Translating \(count) string\(count == 1 ? "" : "s") en→ru…"
         case let .generatingNeutralExamples(done, total):
             return "Neutral examples \(done)/\(total)…"
         case let .generatingTopicExamples(done, total):
@@ -228,6 +249,7 @@ final class CardGenerationModel {
         var parts: [String] = []
         if let lookupElapsed { parts.append("Lookup: \(lookupElapsed.spikeFormatted)") }
         if let sensesElapsed { parts.append("Senses: \(sensesElapsed.spikeFormatted)") }
+        if let translationElapsed { parts.append("Translation: \(translationElapsed.spikeFormatted)") }
         if let firstCardElapsed { parts.append("First card: \(firstCardElapsed.spikeFormatted)") }
         if let fullCardElapsed { parts.append("Full card: \(fullCardElapsed.spikeFormatted)") }
         return parts.joined(separator: " · ")
@@ -243,10 +265,12 @@ final class CardGenerationModel {
         card = nil
         verificationNote = nil
         wordNetNote = nil
+        translationNote = nil
         rawLog = ""
         errorText = nil
         lookupElapsed = nil
         sensesElapsed = nil
+        translationElapsed = nil
         firstCardElapsed = nil
         fullCardElapsed = nil
         callCount = 0
@@ -370,14 +394,48 @@ final class CardGenerationModel {
                 callCount += 1
                 rawLog += "--- \(label) FAILED, gloss kept as definition ---\n\(error)\n\n"
                 print("\(label) failed, gloss kept: \(error)")
-                card?.senses[index].translation = "⚠︎ failed: \(error.localizedDescription)"
             }
             phase = .writingSenses(done: index + 1, total: entry.top.count)
         }
         sensesElapsed = clock.now - start
 
+        try await translateCard()
+
         guard let senses = card?.senses else { return }
         try await runAllExamples(word: word, senses: senses, since: start)
+    }
+
+    /// Translation framework, en→ru: one batch per sense (its definition and synonyms). Without the
+    /// language pack the card stays untranslated and the screen and log say so; the model is never
+    /// asked to translate in this mode.
+    private func translateCard() async throws {
+        guard let senses = card?.senses else { return }
+        let batches = senses.map { [$0.definition] + $0.synonyms }
+        phase = .translating(count: batches.reduce(0) { $0 + $1.count })
+
+        let outcome = await SpikeTranslator.translate(batches: batches)
+        try Task.checkCancellation()
+        switch outcome {
+        case let .unavailable(note):
+            translationNote = note
+            rawLog += "--- \(note) ---\n\n"
+            print(note)
+            for index in senses.indices {
+                card?.senses[index].translation = ""
+            }
+        case let .translated(translations, elapsed, log):
+            translationElapsed = elapsed
+            rawLog += log
+            for (index, sense) in senses.enumerated() {
+                card?.senses[index].translation = translations[sense.definition] ?? ""
+                card?.senses[index].synonymTranslations = Dictionary(
+                    uniqueKeysWithValues: sense.synonyms.compactMap { synonym in
+                        translations[synonym].map { (synonym, $0) }
+                    }
+                )
+            }
+            print("translation: \(translations.count) strings in \(elapsed.spikeFormatted)")
+        }
     }
 
     /// The model-only (split) flow for a word WordNet cannot serve, with the reason on screen and in the log.

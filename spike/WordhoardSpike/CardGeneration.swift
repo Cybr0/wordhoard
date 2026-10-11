@@ -12,8 +12,9 @@
 //     Kept for comparison; it overflowed the 4096-token context on "however".
 //   - "WordNet + model" (issue #11): the senses come from the bundled WordNet
 //     (WordNetLookup.swift); the model only writes — one call per sense for the
-//     learner definition and translation, then the same example calls as split mode.
-//     Falls back to the split path when WordNet has no entry for the word.
+//     learner definition, then the same example calls as split mode. Translation in
+//     that mode is the Translation framework (SpikeTranslator.swift), not the model.
+//     Falls back to the split path for function words and words WordNet lacks.
 //
 // Throwaway code. Not held to the root CLAUDE.md conventions (print is fine here).
 
@@ -180,17 +181,17 @@ struct SenseVerdict {
 // MARK: - WordNet path: one writing call per WordNet sense
 
 // WordNet supplies the sense (part of speech, gloss, synonyms, antonyms, example); the model
-// is only asked to rewrite the terse gloss for a learner and to translate the word in that
-// sense. Synonyms and antonyms on the card come from WordNet, never from this call. The
-// WordNet example sentence and synonyms are in the prompt because the gloss alone was
-// misread on the device run ("engage for a performance" → *rehearse*).
+// is only asked to rewrite the terse gloss for a learner. Synonyms and antonyms on the card
+// come from WordNet, never from this call; the Russian comes from the Translation framework
+// (the model's translations were not Russian words on the device run). The WordNet example
+// sentence and synonyms are in the prompt because the gloss alone was misread on that run
+// ("engage for a performance" → *rehearse*).
 
 let senseWritingInstructions = """
 You write entries for a learner's dictionary of English. The learner's native language is Russian.
 You are given one sense of an English word: the word, its part of speech, the dictionary gloss, its synonyms and an example sentence from the dictionary that shows this sense (the example may use a synonym instead of the word).
 Use the gloss, the synonyms and the example together to understand exactly which meaning is intended.
 Write a learner-friendly definition of this sense: exactly one short English sentence in simple everyday words that explains the meaning. Rewrite the gloss in your own words; do not copy it and do not use the word itself in the definition.
-Give the Russian translation of the word in this sense: 1 to 3 comma-separated equivalents, lowercase.
 Stay with the given sense; do not describe other meanings of the word.
 """
 
@@ -213,9 +214,6 @@ func senseWritingPrompt(word: String, sense: WordNetSense) -> String {
 struct SenseWriting {
     @Guide(description: "Learner-friendly definition of this sense in simple English, one short sentence, in your own words rather than the gloss.")
     var learnerDefinition: String
-
-    @Guide(description: "Russian translation of the word in this sense: 1 to 3 comma-separated equivalents, lowercase.")
-    var translation: String
 }
 
 // MARK: - Split path, calls 2…N: one example per (sense, topic)
@@ -363,7 +361,7 @@ func verifySense(word: String, sense: GeneratedSenseCore) async throws -> ModelC
     )
 }
 
-/// WordNet path: learner definition + translation for one WordNet sense. One fresh session per sense.
+/// WordNet path: learner definition for one WordNet sense. One fresh session per sense.
 func writeSense(word: String, sense: WordNetSense) async throws -> ModelCallResult<SenseWriting> {
     try await respond(
         instructions: senseWritingInstructions,

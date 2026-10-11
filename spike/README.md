@@ -17,6 +17,8 @@ Nothing here is meant to survive into the real app except the lessons.
 - `WordhoardSpike/ContentView.swift` — the screen.
 - `WordhoardSpike/WordNetLookup.swift` — loads the bundled WordNet once and answers "which senses
   does this headword have" without the model. No `FoundationModels` import.
+- `WordhoardSpike/SpikeTranslator.swift` — English → Russian through Apple's Translation framework
+  (WordNet mode only). No `FoundationModels` import.
 - `WordhoardSpike/Resources/oewn-2024.json` — the WordNet bundle (14.8 MB) and `OEWN-LICENSE.txt`.
 - `WordhoardSpike/Resources/function-words.txt` — the closed-class stoplist; these words are always
   model-only.
@@ -83,21 +85,35 @@ model only writes.
    decision 2).
 2. *One writing call per sense.* Prompt: the word, part of speech, gloss, synonyms and the WordNet
    example sentence of the synset (it may use a synonym rather than the headword); the model returns
-   `SenseWriting { learnerDefinition, translation }` — a one-sentence learner-friendly rewrite of the
-   gloss and the Russian translation of the word in that sense. The example and synonyms are there
-   because the gloss alone was misread on the first device run ("engage for a performance" became
-   *rehearse*). Synonyms and antonyms on the card come from WordNet, never from this call. A failed
+   `SenseWriting { learnerDefinition }` — a one-sentence learner-friendly rewrite of the gloss. The
+   example and synonyms are there because the gloss alone was misread on the first device run
+   ("engage for a performance" became *rehearse*). Synonyms and antonyms on the card come from
+   WordNet, never from this call, and **the model does not translate in this mode** (see 3). A failed
    writing call (including a guardrail refusal, seen for *gaslight*) keeps the sense with the raw
    gloss as its definition.
-3. *One neutral example per sense*, with the learner definition in the prompt — the card is on screen
+3. *Translation, no model call.* The first device run showed the model's Russian is unreliable to
+   the point of non-words ("ночальница" for *however*), which settled issue #3 early. In WordNet mode
+   the learner definition of every sense and every WordNet synonym go through Apple's on-device
+   **Translation framework** instead (`SpikeTranslator`): `LanguageAvailability().status(from: en,
+   to: ru)` is checked first; only `.installed` proceeds, with a `TranslationSession(installedSource:
+   target:)` (iOS 26) created and used inside one nonisolated function — `TranslationSession` is not
+   `Sendable`, so it never crosses an isolation boundary. One `translations(from:)` batch per sense
+   (definition + synonyms); a failed batch is logged and skipped. Translated synonyms appear next to
+   the originals on the card (`volume → том`). If the pack is missing the log and the screen say
+   `Translation: en→ru language pack not installed → no translation` and the card shows `—`; the
+   model is **never** used as a fallback for translation. The split and single modes keep the
+   model's translation, which the readable card marks `[model]`; only the WordNet mode uses the
+   framework in the spike.
+4. *One neutral example per sense*, with the learner definition in the prompt — the card is on screen
    from this point ("time to first card").
-4. *One example per (sense, topic)* in the background, as in split mode ("time to full card").
+5. *One example per (sense, topic)* in the background, as in split mode ("time to full card").
 
-Calls for a word with 2 WordNet senses and 3 topics: 2 writing + 2 neutral = 4 calls to the first
-card, then up to 2 × 3 = 6 topic calls, 10 in total. With 3 senses: 6 to the first card, then up
-to 9. The timings line adds **Lookup** (the bundle lookup alone; the first one includes decoding the
+Model calls for a word with 2 WordNet senses and 3 topics: 2 writing + 2 neutral = 4 calls to the
+first card, then up to 2 × 3 = 6 topic calls, 10 in total. With 4 senses (*book*): 8 to the first
+card, then up to 12. Translation framework calls are not model calls and are not in the call count.
+The timings line adds **Lookup** (the bundle lookup alone; the first one includes decoding the
 bundle unless the launch-time warm-up has finished — 0.4 s on the iPhone 17 simulator, Debug build;
-the console prints `WordNet: loaded …` with the time).
+the console prints `WordNet: loaded …` with the time) and **Translation** (the framework calls alone).
 
 *Fallback, two triggers (issue #11, decision 3).* **Function words:** before the lookup, the headword
 is checked against `Resources/function-words.txt`, a closed-class stoplist of about 385 lemmas —
@@ -159,9 +175,11 @@ the card shows, with the same selection policy as `WordNetLookup`.
 
 - **Lookup** — WordNet mode only: the bundle lookup.
 - **Senses** — split mode: the senses call alone. WordNet mode: lookup plus the writing calls, i.e.
-  the moment every sense has a definition and translation.
-- **First card** — senses, verification (when on) and one neutral example per sense; what a user
-  would wait for.
+  the moment every sense has its learner definition.
+- **Translation** — WordNet mode only: the Translation framework calls for the definitions and
+  synonyms (en→ru). Absent when the language pack is not installed.
+- **First card** — senses, verification (when on), translation (WordNet mode) and one neutral example
+  per sense; what a user would wait for.
 - **Full card** — every topic example has arrived. In single-call mode first and full are the same.
 
 The raw JSON of every call, with its own duration, is listed under the card and printed. The call
@@ -180,6 +198,10 @@ The simulator usually reports the model as unavailable (`deviceNotEligible` or
 
 1. On the phone: Settings → Apple Intelligence & Siri → turn on Apple Intelligence, wait for the
    model download to finish. Device language should be English.
+   For translations in WordNet mode, also download **English** and **Russian** in the Translate app
+   (or Settings → Apps → Translate → Downloaded Languages); otherwise the app logs
+   `Translation: en→ru language pack not installed → no translation` and shows the card without
+   Russian. The simulator normally has no language packs.
 2. `open spike/WordhoardSpike.xcodeproj`.
 3. Select the `WordhoardSpike` target → Signing & Capabilities → Team: pick your personal
    (free) team. The team is intentionally not committed in `project.yml`; do not commit the

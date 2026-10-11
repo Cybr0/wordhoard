@@ -99,6 +99,13 @@ struct ContentView: View {
                         .textSelection(.enabled)
                 }
 
+                if let translationNote = model.translationNote {
+                    Text(translationNote)
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                        .textSelection(.enabled)
+                }
+
                 if let verificationNote = model.verificationNote {
                     Text(verificationNote)
                         .font(.footnote)
