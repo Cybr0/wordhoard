@@ -7,7 +7,7 @@ struct WordhoardApp: App {
     private let logger = Logger(subsystem: "Wordhoard", category: "app")
 
     init() {
-        logger.info("Launching with WordhoardCore \(WordhoardCore.version, privacy: .public)")
+        logger.info("Launching with WordhoardCore \(CoreInfo.version, privacy: .public)")
     }
 
     var body: some Scene {
