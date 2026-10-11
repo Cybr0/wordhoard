@@ -1,0 +1,33 @@
+# SwiftLint 0.65.1. CI runs `swiftlint --strict`, so warnings fail the build. Disable a rule here with a
+# one-line reason rather than downgrading the step.
+excluded:
+  - spike
+  - .build
+  - WordhoardCore/.build
+  - Wordhoard.xcodeproj
+  - DerivedData
+
+opt_in_rules:
+  - closure_spacing
+  - contains_over_first_not_nil
+  - empty_count
+  - explicit_init
+  - first_where
+  # CLAUDE.md "No force unwraps outside tests". Test directories opt out in their own .swiftlint.yml.
+  - force_unwrapping
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+  - vertical_whitespace_closing_braces
+
+force_unwrapping:
+  severity: error
+
+line_length:
+  warning: 120
+  error: 160
+
+# Matches SwiftFormat's `trailingCommas` rule, which adds the comma; the SwiftLint default removes it.
+trailing_comma:
+  mandatory_comma: true

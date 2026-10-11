@@ -1,0 +1,11 @@
+# SwiftFormat 0.63.1. Run `swiftformat .` before a PR; CI runs `swiftformat --lint .` and fails on any diff.
+--swiftversion 6.0
+--exclude spike,.build,WordhoardCore/.build,Wordhoard.xcodeproj,DerivedData
+
+--indent 4
+--maxwidth 120
+--self remove
+--stripunusedargs closure-only
+--wraparguments before-first
+--wrapparameters before-first
+--wrapcollections before-first

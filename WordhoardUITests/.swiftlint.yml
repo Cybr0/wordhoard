@@ -1,0 +1,4 @@
+# Nested SwiftLint config, merged with the root one. Tests may force-unwrap (CLAUDE.md "No force unwraps
+# outside tests").
+disabled_rules:
+  - force_unwrapping
