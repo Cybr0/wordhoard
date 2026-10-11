@@ -19,12 +19,15 @@ Nothing here is meant to survive into the real app except the lessons.
   does this headword have" without the model. No `FoundationModels` import.
 - `WordhoardSpike/SpikeTranslator.swift` — English → Russian through Apple's Translation framework
   (WordNet mode only). No `FoundationModels` import.
+- `WordhoardSpike/PCCStatus.swift` — issue #15: `ModelBackend`, the launch-time Private Cloud
+  Compute probe (availability, context size, languages, quota), the PCC request counter and the
+  error describer that names PCC / iOS 27 `LanguageModelError` cases.
 - `WordhoardSpike/Resources/oewn-2024.json` — the WordNet bundle (14.8 MB) and `OEWN-LICENSE.txt`.
 - `WordhoardSpike/Resources/function-words.txt` — the closed-class stoplist; these words are always
   model-only.
 - `tools/convert_oewn.py` — builds that bundle from the Open English WordNet release.
 
-## Three modes (issues #4 and #11)
+## Four modes (issues #4, #11 and #15)
 
 **Split calls** (default, the one to measure):
 
@@ -145,6 +148,89 @@ own list (*by the book*, *break the ice* are missing); and the sense order is Wo
 *book* → "engage for a performance" before "reserve" (SemCor counts 3 vs 1) — *reserve* is verb
 sense 2, which is why the cut is two per part of speech rather than three in total.
 
+**PCC + model** (issue #15, a probe — no prompt tuning): the same prompts and `@Generable` types
+sent to Apple's server model, `PrivateCloudComputeLanguageModel` (iOS 27; 32K context; reasoning
+levels). Every model call in the spike goes through one `respond(backend:…)` helper in
+`CardGeneration.swift`; with `ModelBackend.privateCloudCompute` it creates the session as
+`LanguageModelSession(model: PrivateCloudComputeLanguageModel(), instructions:)` and passes
+`ContextOptions(reasoningLevel: .light)` (the constant `pccReasoningLevel`; the launch log and each
+`[pcc, reasoning: light]` console line say which level ran). The on-device backend is untouched: it
+still uses the iOS 26 `respond` overload with no context options. The mode is guarded by
+`#available(iOS 27, *)`; the deployment target stays iOS 26.0, where the "PCC" segment can be
+selected but shows `PCC: requires iOS 27 — this mode is disabled` and Generate stays disabled.
+Two variants, chosen by the **"PCC alone (single call, no WordNet)"** toggle that appears only in
+this mode:
+
+- *(a) WordNet + PCC* (toggle off, default): exactly the WordNet + model pipeline above — bundle
+  lookup → one PCC writing call per sense → Translation framework → one neutral PCC example per
+  sense → one PCC example per (sense, topic). Same stoplist and not-found fallback, with the
+  fallback senses call and its verifier also on PCC (the log says `→ PCC-only senses call`).
+- *(b) PCC alone* (toggle on): the "Single call" `GeneratedCard` on PCC — one request for the whole
+  card including the model's own senses, Russian and examples; no WordNet, no Translation
+  framework. The on-device single call overflowed the 4K context on *however*; PCC has 32K. The
+  guides on `GeneratedCard` were already `senses` 1…4 and `examples` 1…4 per sense (one neutral
+  plus one per active topic), which equals the limits the issue suggests for the larger context,
+  so nothing was widened and the on-device single call is unchanged. The *only* differences from
+  "Single call" are the backend and the reasoning level.
+
+The card marks the provenance: `Backend: pcc` on the first line; model senses that came from PCC
+are `[pcc]` (translation tag `[pcc]` too); WordNet senses written by PCC read
+`[wordnet, definition by pcc]`. Timings (`First card`, `Full card`), the call count and the raw
+JSON log work as in the other modes, plus a line `PCC requests this run: N · since launch: M`
+(requests are counted *before* each call, so failed ones count) and a purple
+`PCC: quota after <stage> …` line with `quotaUsage` after every batch (senses call, verification,
+writing calls, neutral examples, topic examples, end of run); the same lines go to the raw log and
+the console.
+
+*Launch log* (console and the collapsible **PCC status** section at the top of the screen; tap the
+cloud line to expand). On iOS 27 the lines to look for are:
+
+```
+PCC: availability = available | unavailable(deviceNotEligible) | unavailable(systemNotReady) | unavailable(unknown case: …)
+PCC: isAvailable = true|false
+PCC: capabilities: guidedGeneration=…, reasoning=…, toolCalling=…, vision=…
+PCC: contextSize = 32768 tokens              (or "contextSize failed: <error case>")
+PCC: supportedLanguages = 24: da, de, en, …  (count + the first eight identifiers)
+PCC: supportsLocale(en_US) = true
+PCC: quotaUsage at launch: status=belowLimit(isApproachingLimit: false) | status=limitReached, isLimitReached=…, resetDate=…, limitIncreaseSuggestion=nil|present
+PCC: generation uses ContextOptions(reasoningLevel: .light); …
+PCC: quota sheet API: PrivateCloudComputeLanguageModel.QuotaUsage.LimitIncreaseSuggestion.show() (not wired in the spike)
+```
+
+On iOS 26 the only line is `PCC: requires iOS 27`. "Re-read availability and quota" in the status
+section re-reads both without relaunching. The system upgrade sheet is
+`quotaUsage.limitIncreaseSuggestion?.show()` — it is logged as nil/present but no button is wired.
+
+*Errors.* A failing PCC call is logged by case name in the raw log and the console:
+`PCC Error.networkFailure | .quotaLimitReached (resetDate, limitIncreaseSuggestion) | .serviceUnavailable`,
+and the iOS 27 `LanguageModelError` cases `contextSizeExceeded (contextSize, tokenCount) |
+rateLimited (resetDate) | guardrailViolation | refusal | unsupportedCapability |
+unsupportedTranscriptContent | unsupportedGenerationGuide | unsupportedLanguageOrLocale | timeout`.
+Anything else prints its Swift type and `NSError` domain/code. On-device calls keep their previous
+handling (`GenerationError` text unchanged). A failed writing call keeps the gloss, a failed example
+shows `⚠︎ failed`, exactly as in WordNet mode.
+
+*Headless probe.* `-pccProbeWord <word>` (plus `-pccProbeVariant a|b`, default `a`) as launch
+arguments make the app select PCC mode and generate that word right after the launch probe,
+printing everything; useful from `xcrun simctl launch --console-pty <udid> dev.wordhoard.spike
+-pccProbeWord book -pccProbeVariant b` or an Xcode scheme. It is skipped (with a log line) when
+PCC is unavailable.
+
+*What the iOS 27.0 simulator does* (Xcode 27.0, iPhone 17, host macOS 26): it reports
+`availability = available`, `contextSize = 32768`, 24 languages and `belowLimit`, but every request
+fails instantly with `SystemLanguageModel.Error.assetsUnavailable: Host is not running macOS 27.`
+(the on-device error type, thrown from a PCC session) — the simulator proxies PCC through the Mac
+and needs a macOS 27 host. So availability on the simulator says nothing about a real device, and a
+run there shows the failure path only (gloss kept, `⚠︎ failed` examples, request count still
+incremented).
+
+*Entitlement.* The iOS 27.0 SDK has no public entitlement key for PCC: nothing in the
+`FoundationModels` swiftinterface, the cross-import overlays, the SDK `Entitlements.plist`, or
+Xcode's capability specs mentions private cloud compute; the only entitlement-related symbol in
+`FoundationModels.tbd` is the SPI `AgentDefinition_V1.entitlementsRequired`, not in the public
+interface. The spike deliberately ships no entitlements file: the device run is the test of what
+happens on a free personal team without the managed entitlement.
+
 ### The WordNet bundle
 
 `WordhoardSpike/Resources/oewn-2024.json`, 14.8 MB (15 492 477 bytes), plain JSON with no
@@ -224,6 +310,39 @@ model" and compare the learner definitions, translations and timings with split 
 **look up** and **give up** (multi-word entries), **gaslight** (noun only in WordNet),
 **however** and **despite** (function words → model-only, check the log line) and **by the book**
 (not in WordNet → fallback, check the log line).
+
+### PCC probe on a device (issue #15)
+
+Prerequisites: an iPhone with Apple Intelligence running **iOS 27** (the author's iPhone 15 Pro
+Max), Apple Intelligence on, a network connection (Wi-Fi), the app signed with the **free personal
+team** as in step 3 above and **no** PCC entitlement (none is in the project). For variant (a)
+translations, the en/ru Translate packs as in step 1.
+
+1. Build and run on the phone; expand **PCC status** at the top (or read the Xcode console).
+   Record every `PCC:` launch line: the availability case, `contextSize`, the
+   `supportedLanguages` count, and `quotaUsage at launch`.
+2. If availability is `unavailable(…)`: record the case (`deviceNotEligible` / `systemNotReady` /
+   other) and stop — that is the answer to the issue's third criterion. Try once more after
+   toggling Wi-Fi and after a few minutes (`Re-read availability and quota`) in case it is
+   `systemNotReady`.
+3. If `available`: select **PCC**, leave "PCC alone" **off** (variant a) and run the 22 words of
+   `docs/regression-words.md` in order. Per word note: `First card` / `Full card` seconds, the
+   number of senses, any `FAILED` / error-case line, and the pass/fail of the four key checks —
+   **book** shows a verb sense meaning *reserve* with a definition about reserving; **look up**
+   shows one sense (*seek information*); **however** goes `is a function word → PCC-only senses
+   call` and ends with exactly one adverb sense; **asdfgh** ends in `Not found. Add senses
+   manually.` with no sense displayed. After the run note `PCC requests … since launch` and the
+   last `PCC: quota after run` line.
+4. Switch "PCC alone" **on** (variant b) and repeat the 22 words. Same per-word notes; here the
+   senses and the Russian come from PCC, so also note whether the Russian is real (the on-device
+   model produced non-words) and whether *however* still overflows (it should not with 32K).
+5. Paste the two tables, the launch lines, the total request count and the final quota status into
+   issue #15 in the scorecard shape of #14. The first `PCC Error.quotaLimitReached` or
+   `isApproachingLimit: true` is worth noting with the request number it appeared at.
+
+The whole regression list is about 22 × (≈10–20 calls) ≈ 300 requests for (a) plus 22 for (b);
+if the daily quota is hit, the log says so (`quotaLimitReached`, `resetDate`) and the remaining
+words can wait for the reset.
 
 ## Build check without a device
 

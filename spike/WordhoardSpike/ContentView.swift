@@ -4,12 +4,19 @@ import SwiftUI
 struct ContentView: View {
     @State private var word = ""
     @State private var model = CardGenerationModel()
+    @State private var showPCCStatus = false
 
     private let languageModel = SystemLanguageModel.default
+    private var pcc: PCCStatus { PCCStatus.shared }
 
     private var isAvailable: Bool {
         if case .available = languageModel.availability { return true }
         return false
+    }
+
+    /// PCC mode is gated on the server model's availability, the others on the on-device one.
+    private var canGenerate: Bool {
+        model.mode == .pcc ? pcc.isAvailable : isAvailable
     }
 
     private var availabilityText: String {
@@ -37,17 +44,36 @@ struct ContentView: View {
                     .foregroundStyle(isAvailable ? .green : .red)
                     .font(.footnote)
 
+                pccStatusSection
+
                 Picker("Mode", selection: $model.mode) {
                     ForEach(CardGenerationModel.Mode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
+                        Text(mode.shortTitle).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
                 .disabled(model.isGenerating)
 
-                if model.mode != .single {
+                Text(model.mode.rawValue)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                if model.mode == .pcc {
+                    if !pcc.isSupported {
+                        // The segment is selectable but nothing can run: iOS 26 has no PCC API.
+                        Text("PCC: requires iOS 27 — this mode is disabled on this device.")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    } else {
+                        Toggle("PCC alone (single call, no WordNet)", isOn: $model.pccSingleCall)
+                            .font(.footnote)
+                            .disabled(model.isGenerating)
+                    }
+                }
+
+                if model.mode != .single, !(model.mode == .pcc && (model.pccSingleCall || !pcc.isSupported)) {
                     Toggle(
-                        model.mode == .wordNet
+                        model.mode == .wordNet || model.mode == .pcc
                             ? "Verify model senses (fallback only; WordNet senses are not verified)"
                             : "Verify each sense (one yes/no call per sense)",
                         isOn: $model.verifySenses
@@ -71,7 +97,7 @@ struct ContentView: View {
                     } else {
                         Button("Generate", action: generate)
                             .buttonStyle(.borderedProminent)
-                            .disabled(!isAvailable || trimmedWord.isEmpty)
+                            .disabled(!canGenerate || trimmedWord.isEmpty)
                     }
                 }
 
@@ -86,6 +112,9 @@ struct ContentView: View {
                         if !model.timingText.isEmpty {
                             Text(model.timingText)
                                 .fontWeight(.semibold)
+                        }
+                        if let pccRequests = model.pccRequestsThisRun {
+                            Text("PCC requests this run: \(pccRequests) · since launch: \(pcc.requestsThisLaunch)")
                         }
                     }
                     .font(.footnote)
@@ -110,6 +139,13 @@ struct ContentView: View {
                     Text(verificationNote)
                         .font(.footnote)
                         .foregroundStyle(.orange)
+                }
+
+                if let pccQuotaNote = model.pccQuotaNote {
+                    Text(pccQuotaNote)
+                        .font(.caption2)
+                        .foregroundStyle(.purple)
+                        .textSelection(.enabled)
                 }
 
                 if let errorText = model.errorText {
@@ -149,6 +185,61 @@ struct ContentView: View {
             // in "WordNet + model" mode does not pay for it; the load time is printed.
             await WordNetLookup.shared.warmUp()
         }
+        .task {
+            // Issue #15: log PCC availability, context size, languages and quota at launch.
+            await PCCStatus.shared.probeAtLaunch()
+            runLaunchArgumentProbe()
+        }
+    }
+
+    /// Headless probe for `simctl launch` / Xcode scheme arguments (issue #15):
+    /// `-pccProbeWord book` generates that word in PCC mode at launch; `-pccProbeVariant b`
+    /// selects "PCC alone" (default `a`, WordNet + PCC). Everything is printed as usual.
+    private func runLaunchArgumentProbe() {
+        let defaults = UserDefaults.standard
+        guard let probeWord = defaults.string(forKey: "pccProbeWord")?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !probeWord.isEmpty else { return }
+        let variant = defaults.string(forKey: "pccProbeVariant") ?? "a"
+        guard pcc.isAvailable else {
+            print("PCC: probe word \"\(probeWord)\" skipped — \(pcc.availabilityText)")
+            return
+        }
+        model.mode = .pcc
+        model.pccSingleCall = variant.lowercased() == "b"
+        word = probeWord
+        print("PCC: launch-argument probe: \"\(probeWord)\", variant \(model.pccSingleCall ? "b (PCC alone)" : "a (WordNet + PCC)")")
+        model.generate(word: probeWord)
+    }
+
+    /// Collapsible "PCC status": the one-line availability as the label, the launch log inside.
+    private var pccStatusSection: some View {
+        DisclosureGroup(isExpanded: $showPCCStatus) {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(pcc.launchLines.enumerated()), id: \.offset) { _, line in
+                    Text(line)
+                }
+                if pcc.isSupported {
+                    Text("PCC requests since launch: \(pcc.requestsThisLaunch)")
+                    if let last = pcc.lastRequestLabel {
+                        Text("Last request: \(last)")
+                    }
+                    Button("Re-read availability and quota") {
+                        pcc.refreshAvailability()
+                        showPCCStatus = true
+                    }
+                    .buttonStyle(.bordered)
+                    .padding(.top, 4)
+                }
+            }
+            .font(.system(.caption2, design: .monospaced))
+            .foregroundStyle(.secondary)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Label(pcc.availabilityText, systemImage: pcc.isAvailable ? "cloud.fill" : "cloud.slash")
+                .foregroundStyle(pcc.isAvailable ? .green : (pcc.isSupported ? .red : .secondary))
+                .font(.footnote)
+        }
     }
 
     private var trimmedWord: String {
@@ -157,7 +248,7 @@ struct ContentView: View {
 
     private func generate() {
         let target = trimmedWord
-        guard isAvailable, !target.isEmpty else { return }
+        guard canGenerate, !target.isEmpty else { return }
         model.generate(word: target)
     }
 }
