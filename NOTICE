@@ -1,0 +1,21 @@
+Wordhoard
+Copyright 2026 Timur Yusupov
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+The name "Wordhoard", the app icon and other brand assets are not covered by
+the Apache License and may not be used to identify derived works.
+
+This product bundles third-party data and code under their own licenses.
+Each must be credited in the app's About screen and kept with the files:
+
+Open English WordNet (2024 edition)
+  https://en-word.net · https://github.com/globalwordnet/english-wordnet
+  License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+  Derived from Princeton WordNet (WordNet License). Attribution to both is
+  required. Full text: spike/WordhoardSpike/Resources/OEWN-LICENSE.txt
+  (will move to the app's Resources in Phase 1).
+
+Apple frameworks (Foundation Models, Translation, Image Playground, SwiftData,
+App Intents) are used under the Apple Developer Program License Agreement and
+are not redistributed.

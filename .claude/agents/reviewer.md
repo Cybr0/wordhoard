@@ -28,7 +28,7 @@ You review pull requests for Wordhoard, a personal English vocabulary app for iP
 - Views touching `ModelContext` directly instead of `WordStore`.
 - A service added without a protocol and a stub; a stub that drifts from the protocol's contract.
 - Prompts outside `Services/Prompts/`; grammar topics as enums; images as `Data` in the store.
-- New dependencies (expected count: zero) or hand-edits to `Wordhoard.xcodeproj`.
+- New dependencies (expected count: zero) or hand-edits to `Wordhoard.xcodeproj`. For any dependency or bundled resource, check its license against the **Licensing rules** in `CLAUDE.md`; a GPL/LGPL/AGPL or non-commercial license is a Must-fix, and a missing `*-LICENSE.txt` / `NOTICE` line for new data is a Should-fix.
 - Force unwraps, `print`, `try!` in production code; strings bypassing the String Catalog.
 
 **3. Tests**

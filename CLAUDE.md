@@ -64,6 +64,16 @@ Rule of thumb: if it can be unit-tested without a simulator, it belongs in `Word
 - `main` always builds and passes `swift test`.
 - Do not commit: `xcuserdata`, provisioning profiles, API keys (there should be none), screenshots of the author's own word list.
 
+## Licensing rules
+
+The code is Apache 2.0 (`LICENSE`); bundled data is credited in `NOTICE`. Before adding any dependency, dataset, font, icon set or snippet:
+
+- **Allowed without discussion:** MIT, BSD-2/3, Apache 2.0, ISC, Unlicense, CC0, CC BY 4.0 (data; add attribution to `NOTICE` and the About screen).
+- **Allowed with care:** CC BY-SA 4.0 for *data files* only (Wiktionary, NGSL, FrequencyWords). The data file stays CC BY-SA, is shipped unmodified or with its modifications also under CC BY-SA, and is credited in `NOTICE`. Never mix CC BY-SA text into source files.
+- **Not allowed:** GPL, LGPL, AGPL, SSPL, any "non-commercial" or "research only" license (CC BY-NC, SUBTLEX-style terms), proprietary lists (Oxford 3000/5000, English Vocabulary Profile), scraped content of unclear provenance, and any Swift package without a license file.
+- Every new entry in `project.yml` dependencies or `Package.swift` must name its license in the PR description. Every new file under `Resources/` that is not ours must have a sibling `*-LICENSE.txt` and a line in `NOTICE`.
+- When unsure, `docs/resources.md` §7 has the cheat sheet; if it does not answer, ask before adding.
+
 ## Working with the agents
 
 Five agents are defined in `.claude/agents/`:

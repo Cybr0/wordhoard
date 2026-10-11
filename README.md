@@ -42,4 +42,4 @@ Free, with no locked features. If it helps you, there will be a tip jar.
 
 ## License
 
-To be decided at first release. The code will be under a permissive open-source license; the name *Wordhoard*, the app icon and other brand assets are not part of that license.
+Code: [Apache License 2.0](LICENSE). Bundled third-party data is listed in [NOTICE](NOTICE) with its own license (Open English WordNet, CC BY 4.0). The name *Wordhoard*, the app icon and other brand assets are not covered by the license.

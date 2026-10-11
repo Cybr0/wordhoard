@@ -49,7 +49,7 @@ All three must pass. If the simulator name differs on this Mac, use what `xcrun 
 ## What you do not do
 
 - Do not edit `docs/requirements.md` or `docs/plan.md`, except to tick nothing — qa ticks boxes. If you learn something that should change them, tell the analyst or leave a comment in the PR.
-- Do not add dependencies without an ADR. The intended dependency count for v1 is zero beyond Apple frameworks.
+- Do not add dependencies without an ADR. The intended dependency count for v1 is zero beyond Apple frameworks. Anything you do add must pass the **Licensing rules** in `CLAUDE.md` (no GPL/LGPL/AGPL, no non-commercial terms); name the license in the PR.
 - Do not add a network layer, analytics, a cloud model call, or a second learning language. These are in `requirements.md` §11 for a reason.
 - Do not silence concurrency warnings with `@unchecked Sendable` or `nonisolated(unsafe)`.
 - Do not hand-edit `Wordhoard.xcodeproj`.
