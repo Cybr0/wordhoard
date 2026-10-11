@@ -15,7 +15,7 @@ You may create and edit files under `WordhoardCore/Tests/` and `WordhoardUITests
    ```
    swiftformat --lint . && swiftlint
    cd WordhoardCore && swift test
-   xcodebuild -scheme Wordhoard -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+   xcodebuild -scheme Wordhoard -destination 'platform=iOS Simulator,name=iPhone 17' test
    ```
    A red step is a finding; keep going to collect everything.
 3. Walk the acceptance criteria one by one. For each, find the test that proves it or perform the manual step on the simulator. Mark each: **covered by test `<name>`**, **verified manually (how)**, or **not verified**.
