@@ -1,0 +1,409 @@
+# Closed-class English function words: always model-only in "WordNet + model" mode
+# (issue #11, decision 3). WordNet is useless or misleading for these (no prepositions
+# or conjunctions at all; "despite" is only an archaic noun; "however" has adverb senses
+# with unusable glosses), while the model-only senses call handled "however" perfectly.
+#
+# One lemma per line, lowercase; multi-word lemmas with single spaces; "#" starts a
+# comment. Matched against the normalised headword (trimmed, lowercased, single spaces),
+# so "May" the month also lands here — accepted.
+#
+# Not on the list on purpose: content words with a minor function use (like, past,
+# round, well, need, little, half, one) and numerals. "gaslight" is not a function word:
+# it stays on the WordNet path with its noun sense (known gap, see README).
+
+# Articles and determiners
+a
+an
+the
+this
+that
+these
+those
+my
+your
+his
+her
+its
+our
+their
+whose
+which
+what
+whatever
+whichever
+some
+any
+no
+every
+each
+either
+neither
+all
+both
+several
+many
+much
+more
+most
+few
+fewer
+fewest
+less
+least
+enough
+such
+another
+other
+others
+same
+
+# Pronouns
+i
+me
+myself
+you
+yourself
+yourselves
+he
+him
+himself
+she
+herself
+it
+itself
+we
+us
+ourselves
+they
+them
+themselves
+oneself
+mine
+yours
+hers
+ours
+theirs
+who
+whom
+whoever
+whomever
+someone
+somebody
+something
+somewhere
+anyone
+anybody
+anything
+anywhere
+everyone
+everybody
+everything
+everywhere
+no one
+nobody
+nothing
+nowhere
+none
+one another
+each other
+
+# Prepositions
+about
+above
+across
+after
+against
+along
+alongside
+amid
+amidst
+among
+amongst
+around
+as
+at
+atop
+before
+behind
+below
+beneath
+beside
+besides
+between
+beyond
+by
+despite
+down
+during
+except
+excepting
+for
+from
+in
+inside
+into
+near
+of
+off
+on
+onto
+out
+outside
+over
+per
+regarding
+concerning
+since
+than
+through
+throughout
+till
+to
+toward
+towards
+under
+underneath
+unlike
+until
+unto
+up
+upon
+versus
+via
+with
+within
+without
+according to
+ahead of
+along with
+apart from
+aside from
+as for
+as of
+as to
+as well as
+because of
+by means of
+due to
+except for
+in addition to
+in front of
+in spite of
+in terms of
+instead of
+irrespective of
+next to
+on behalf of
+on top of
+out of
+owing to
+prior to
+regardless of
+thanks to
+together with
+up to
+
+# Conjunctions
+and
+or
+nor
+but
+yet
+so
+because
+although
+though
+even though
+even if
+whereas
+while
+whilst
+whether
+if
+unless
+lest
+once
+provided
+whenever
+wherever
+whereby
+wherein
+whereupon
+albeit
+as if
+as though
+as long as
+as soon as
+in case
+in order that
+now that
+rather than
+so that
+not only
+but also
+
+# Auxiliaries and modals
+be
+am
+is
+are
+was
+were
+been
+being
+have
+has
+had
+having
+do
+does
+did
+done
+doing
+will
+would
+shall
+should
+can
+could
+may
+might
+must
+ought
+cannot
+can't
+couldn't
+won't
+wouldn't
+shan't
+shouldn't
+mustn't
+don't
+doesn't
+didn't
+isn't
+aren't
+wasn't
+weren't
+haven't
+hasn't
+hadn't
+ain't
+let's
+used to
+had better
+would rather
+be able to
+have to
+going to
+gonna
+wanna
+
+# Discourse adverbs and connectives
+however
+nevertheless
+nonetheless
+notwithstanding
+regardless
+moreover
+furthermore
+additionally
+therefore
+thus
+hence
+consequently
+accordingly
+thereby
+otherwise
+instead
+alternatively
+conversely
+likewise
+similarly
+namely
+meanwhile
+anyway
+anyhow
+indeed
+also
+too
+else
+then
+thereafter
+therein
+thereof
+hereby
+hereafter
+henceforth
+whence
+thence
+firstly
+secondly
+thirdly
+lastly
+finally
+afterwards
+afterward
+beforehand
+nowadays
+overall
+altogether
+somehow
+somewhat
+anymore
+whatsoever
+elsewhere
+perhaps
+maybe
+probably
+possibly
+presumably
+apparently
+surely
+certainly
+definitely
+actually
+really
+even
+just
+only
+quite
+rather
+very
+almost
+nearly
+still
+already
+always
+never
+ever
+often
+sometimes
+seldom
+rarely
+usually
+frequently
+occasionally
+again
+soon
+now
+ago
+here
+there
+where
+when
+why
+how
+not
+yes
+okay
+ok
+please
+hello
+hi
+bye
+goodbye
+oh
+ah
+hey
+wow

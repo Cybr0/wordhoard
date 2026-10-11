@@ -10,6 +10,11 @@
 //     The grammar topic is assigned by the caller, never classified by the model.
 //   - "Single call": the PR #9 shape, one big call returning the whole card.
 //     Kept for comparison; it overflowed the 4096-token context on "however".
+//   - "WordNet + model" (issue #11): the senses come from the bundled WordNet
+//     (WordNetLookup.swift); the model only writes — one call per sense for the
+//     learner definition, then the same example calls as split mode. Translation in
+//     that mode is the Translation framework (SpikeTranslator.swift), not the model.
+//     Falls back to the split path for function words and words WordNet lacks.
 //
 // Throwaway code. Not held to the root CLAUDE.md conventions (print is fine here).
 
@@ -70,6 +75,17 @@ enum PartOfSpeech: String {
     case adverb
     case phrase
     case other
+}
+
+extension PartOfSpeech {
+    init(_ wordNet: WordNetPartOfSpeech) {
+        switch wordNet {
+        case .noun: self = .noun
+        case .verb: self = .verb
+        case .adjective: self = .adjective
+        case .adverb: self = .adverb
+        }
+    }
 }
 
 let generationOptions = GenerationOptions(temperature: 0.3)
@@ -162,6 +178,44 @@ struct SenseVerdict {
     var isCommonlyUsed: Bool
 }
 
+// MARK: - WordNet path: one writing call per WordNet sense
+
+// WordNet supplies the sense (part of speech, gloss, synonyms, antonyms, example); the model
+// is only asked to rewrite the terse gloss for a learner. Synonyms and antonyms on the card
+// come from WordNet, never from this call; the Russian comes from the Translation framework
+// (the model's translations were not Russian words on the device run). The WordNet example
+// sentence and synonyms are in the prompt because the gloss alone was misread on that run
+// ("engage for a performance" → *rehearse*).
+
+let senseWritingInstructions = """
+You write entries for a learner's dictionary of English. The learner's native language is Russian.
+You are given one sense of an English word: the word, its part of speech, the dictionary gloss, its synonyms and an example sentence from the dictionary that shows this sense (the example may use a synonym instead of the word).
+Use the gloss, the synonyms and the example together to understand exactly which meaning is intended.
+Write a learner-friendly definition of this sense: exactly one short English sentence in simple everyday words that explains the meaning. Rewrite the gloss in your own words; do not copy it and do not use the word itself in the definition.
+Stay with the given sense; do not describe other meanings of the word.
+"""
+
+func senseWritingPrompt(word: String, sense: WordNetSense) -> String {
+    var lines = [
+        "Word: \"\(word)\"",
+        "Part of speech: \(sense.partOfSpeech.name)",
+        "Dictionary gloss: \(sense.gloss)",
+    ]
+    if !sense.synonyms.isEmpty {
+        lines.append("Synonyms: \(sense.synonyms.joined(separator: ", "))")
+    }
+    for example in sense.examples {
+        lines.append("Example of this sense: \(example)")
+    }
+    return lines.joined(separator: "\n")
+}
+
+@Generable(description: "Learner-facing text for one dictionary sense of an English word.")
+struct SenseWriting {
+    @Guide(description: "Learner-friendly definition of this sense in simple English, one short sentence, in your own words rather than the gloss.")
+    var learnerDefinition: String
+}
+
 // MARK: - Split path, calls 2…N: one example per (sense, topic)
 
 let exampleInstructions = """
@@ -174,8 +228,10 @@ Do not explain, do not add quotes, do not write more than one sentence.
 """
 
 /// Prompt for one example. The topic is chosen by the caller; `nil` means a neutral example.
-func examplePrompt(word: String, sense: GeneratedSenseCore, topic: GrammarTopic?) -> String {
-    var prompt = "Write one natural English sentence (6–14 words) using \"\(word)\" as a \(sense.partOfSpeech.rawValue) in the sense \"\(sense.definition)\""
+/// The sense is passed as part of speech + definition so model-generated and WordNet
+/// senses (with the model's learner definition) share one prompt.
+func examplePrompt(word: String, partOfSpeech: PartOfSpeech, definition: String, topic: GrammarTopic?) -> String {
+    var prompt = "Write one natural English sentence (6–14 words) using \"\(word)\" as a \(partOfSpeech.rawValue) in the sense \"\(definition)\""
     if let topic {
         prompt += " in the \(topic.name) (\(topic.description))."
         prompt += " If this sense cannot be used naturally in this grammar, return an empty string."
@@ -305,17 +361,28 @@ func verifySense(word: String, sense: GeneratedSenseCore) async throws -> ModelC
     )
 }
 
-/// Split path, calls 2…N. One fresh session per example.
+/// WordNet path: learner definition for one WordNet sense. One fresh session per sense.
+func writeSense(word: String, sense: WordNetSense) async throws -> ModelCallResult<SenseWriting> {
+    try await respond(
+        instructions: senseWritingInstructions,
+        prompt: senseWritingPrompt(word: word, sense: sense),
+        generating: SenseWriting.self,
+        label: "write \"\(word)\" as \(sense.partOfSpeech.name): \(sense.gloss)"
+    )
+}
+
+/// Split and WordNet paths: one example. One fresh session per example.
 func generateExample(
     word: String,
-    sense: GeneratedSenseCore,
+    partOfSpeech: PartOfSpeech,
+    definition: String,
     topic: GrammarTopic?
 ) async throws -> ModelCallResult<GeneratedExampleText> {
     try await respond(
         instructions: exampleInstructions,
-        prompt: examplePrompt(word: word, sense: sense, topic: topic),
+        prompt: examplePrompt(word: word, partOfSpeech: partOfSpeech, definition: definition, topic: topic),
         generating: GeneratedExampleText.self,
-        label: "example for \"\(word)\" (\(sense.partOfSpeech.rawValue)) / \(topic?.key ?? GrammarTopic.neutral.key)"
+        label: "example for \"\(word)\" (\(partOfSpeech.rawValue)) / \(topic?.key ?? GrammarTopic.neutral.key)"
     )
 }
 
