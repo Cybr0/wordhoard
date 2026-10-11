@@ -1,6 +1,6 @@
 # Wordhoard — Requirements
 
-*Status: draft, pre-development. Last updated: 2026-10-08.*
+*Status: draft, pre-development; Phase 0 spike closed by ADR 0001 (verdict: adjust). Last updated: 2026-10-11.*
 
 Wordhoard is a personal English vocabulary app for iOS. You capture a word, the app fills in the rest (definition, translation, synonyms, examples tied to grammar topics, a picture), and later helps you remember it. Everything runs on the device; there is no backend.
 
@@ -32,7 +32,7 @@ These were considered and deliberately deferred. See §11 for the full list and 
 
 - **Primary user:** the author, learning English with Russian as the native language.
 - **Secondary users:** anyone learning English who wants a private, offline word list with smart autofill. Native language is configurable.
-- **Platform:** iPhone, **iOS 27+**, SwiftUI. iPad and Mac may work "for free" via SwiftUI but are not a target. Rationale for 27 rather than 26: AI features already require iPhone 15 Pro or newer, and every such device runs iOS 27; the author has no iOS 26 device to test on; iOS 27 adds the `LanguageModel` protocol and Private Cloud Compute (§7), which would otherwise need `#available` branches.
+- **Platform:** iPhone, **iOS 27+**, SwiftUI. iPad and Mac may work "for free" via SwiftUI but are not a target. Rationale for 27 rather than 26: AI features already require iPhone 15 Pro or newer, and every such device runs iOS 27; the author has no iOS 26 device to test on; iOS 27 adds the `LanguageModel` protocol and Private Cloud Compute (§7), which would otherwise need `#available` branches. Confirmed by ADR 0001.
 - **Hardware for AI features:** Apple Intelligence-capable device (iPhone 15 Pro or newer) with Apple Intelligence enabled. On other devices the app works fully, but cards are filled in manually.
 
 ---
@@ -70,24 +70,26 @@ Priorities: **M** = must have for v1, **S** = should have, **L** = later.
 
 | # | Requirement | Pri |
 |---|---|---|
-| A1 | Use the Foundation Models framework (on-device model) with guided generation (`@Generable`) to produce a structured card: senses, each with part of speech, definition, translation, synonyms, antonyms, examples. | M |
-| A2 | Generate examples for the grammar topics the user has selected as "currently learning" (see 4.5). At least one example per selected topic per sense, plus one neutral example. | M |
-| A3 | Pronunciation (IPA) if the model can produce it reliably; otherwise skip. To be validated in the prototype. | S |
+| A1 | **Senses come from the bundled Open English WordNet 2024, prose from the model** (ADR 0001). For a headword: (a) if it is on the function-word stoplist (~385 closed-class lemmas) or WordNet does not have the lemma, one model call proposes senses (part of speech, definition) and a yes/no verifier call checks each; if every sense is rejected the card shows "Not found. Add senses manually." and nothing invented. (b) Otherwise WordNet supplies the senses — up to 2 per part of speech, 4 in all, in WordNet order — with part of speech, synonyms, antonyms and a source example; the model never adds a sense when WordNet knows the lemma (gaps are closed by hand, W2). Each sense is marked with its source (WordNet / model). Per sense, separate guided-generation calls (`@Generable`, one fresh session each) write the learner definition from the gloss, synonyms and example, then the examples (A2). There is no single call that produces a whole card. Sense selection within WordNet's list is being improved in plan 2.6 (#18). | M |
+| A2 | Examples per sense: one neutral example (required; the card is shown once every sense has one) plus one example per grammar topic the user is learning (4.5). The topic is assigned by the caller, never classified by the model. Topic examples are optional — the model may answer "does not fit" for a sense that cannot use that grammar naturally (plan 2.9, #21) — and are generated in the background after the card is shown, appended as they arrive (plan 2.8, #20). Every example must contain the headword or an inflection of it; one that does not is regenerated once, then dropped (#21). | M |
+| A3 | ~~Pronunciation (IPA) from the model~~ **Dropped** (ADR 0001): the model's IPA was wrong (`/ˈhʌvər/` for *however*). No IPA field is generated or shown in v1; pronunciation is text-to-speech only (W5). | — |
 | A4 | Every generated field is marked `source = auto`. When the user edits a field it becomes `source = user` and is never overwritten by a later re-generation. | M |
 | A5 | "Regenerate" action per card and per field. | S |
-| A6 | If the model is unavailable (unsupported device, Apple Intelligence off, region restriction), the card opens empty for manual entry, with a one-line explanation. No crash, no dead end. | M |
+| A6 | If the model is unavailable (unsupported device, Apple Intelligence off, region restriction), the card opens empty for manual entry, with a one-line explanation. No crash, no dead end. A failure or guardrail refusal of a single call (seen on *gaslight*, *run*, *Tashkent*) degrades only that field: a refused definition keeps the WordNet gloss, a refused example is skipped; the card is still saved and shown. | M |
 | A7 | Generated content is shown as editable draft. The small on-device model will sometimes be wrong, especially for rare words, idioms and translations; the UI should not present it as authoritative. | M |
-| A8 | Pluggable model layer: the autofill code talks to a small internal protocol, so a cloud model (Claude, OpenAI, …) or the iOS 27 third-party provider API can be plugged in later without rewriting the feature. | S |
+| A8 | Pluggable model layer: the autofill code talks to a small internal protocol (`CardGenerator`), so the Private Cloud Compute tier (A10), a cloud model (Claude, OpenAI, …) or the iOS 27 third-party provider API can be plugged in later without rewriting the feature. | S |
+| A9 | **Translations come from Apple's Translation framework, never from the model** (ADR 0001; the model's Russian contained non-words). Target shape (plan 2.10, #22): per sense, a 1–3-word equivalent in the native language (book → книга / бронировать) that the model proposes and the framework confirms by back-translation; a rejected proposal falls back to the framework's translation of the learner definition and is flagged as a fallback. Until #22 lands, the per-sense learner definition is translated by the framework. Synonyms and antonyms are not translated; there is no card-level headword translation (wrong for phrasal verbs and idioms). If the language pack is not installed, the field stays empty with a one-line note — the model is never the fallback. | M |
+| A10 | **Private Cloud Compute tier** (`PrivateCloudComputeLanguageModel`, 32K context): used for the model calls of A1/A2/A9 when the build carries the `com.apple.developer.private-cloud-compute` entitlement, the device is online and the Settings toggle "Use Apple's server model when online" is on. Gated by a build-time flag tied to the provisioning profile, never by `availability` alone — without the entitlement the first request crashes (ADR 0001, #15). Degradation order: PCC → on-device + WordNet → manual. Compiled out until the entitlement is granted. | S |
 
 ### 4.3 Word card
 
 | # | Requirement | Pri |
 |---|---|---|
-| W1 | Card shows: word, image, pronunciation, and a list of senses. Each sense: part of speech, definition, translation, synonyms, antonyms, examples (with grammar-topic badges). | M |
+| W1 | Card shows: word, image, a play-pronunciation control (W5; no IPA text, see A3), and a list of senses. Each sense: part of speech, source badge (WordNet / model), definition, translation, synonyms, antonyms, examples (with grammar-topic badges). | M |
 | W2 | Every field is editable inline. Senses and examples can be added, removed, reordered. | M |
 | W3 | Delete word (with undo or confirmation). | M |
 | W4 | User note and tags/collections (e.g. "IELTS", "work", "The Expanse"). | S |
-| W5 | Text-to-speech pronunciation via `AVSpeechSynthesizer` (works offline, no extra assets). | S |
+| W5 | Text-to-speech pronunciation via `AVSpeechSynthesizer` (works offline, no extra assets). The only pronunciation feature in v1 (ADR 0001). | S |
 | W6 | Word forms (book → books, booked, booking) shown on the card. | L |
 
 ### 4.4 Images
@@ -127,6 +129,7 @@ Priorities: **M** = must have for v1, **S** = should have, **L** = later.
 | S3 | Export all data as JSON (and import). This is the user's safety net since there is no cloud. | M |
 | S4 | "Support the developer" screen with tip-jar in-app purchases (consumables). | S |
 | S5 | Toggle for automatic image generation. | S |
+| S6 | About screen credits the bundled data: "Open English WordNet 2024, CC BY 4.0, derived from Princeton WordNet", with a link to the full license text shipped in the bundle. Required by the CC BY 4.0 license (ADR 0001, `NOTICE`, `CLAUDE.md` licensing rules). | M |
 
 ### 4.8 Learning (post-v1)
 
@@ -163,7 +166,10 @@ Word
 Sense
   id: UUID
   word: Word
-  partOfSpeech: enum (noun, verb, adjective, adverb, phrase, other)
+  partOfSpeech: enum (noun, verb, adjective, adverb, preposition, conjunction,
+                      phrase, other)   (preposition/conjunction added by #19, ADR 0001)
+  senseSource: .wordnet | .model      (where the sense itself came from)
+  gloss: String?                       (WordNet gloss the definition was written from)
   definition: String
   translation: String?
   synonyms: [String]
@@ -214,6 +220,7 @@ Design notes:
 - **Grammar topics are a static catalog**, referenced by string key, so the catalog can grow with app updates without data migration. Keys are namespaced by learning language (`en.present_perfect`) because grammar catalogs are language-specific.
 - **`learningLanguage` is stored but fixed to `"en"` in v1.** It costs nothing now and means that adding another learning language later is a content task (a new grammar catalog, prompts, a test word list), not a data migration.
 - **Review events are a log**, so two devices reviewing offline merge cleanly once sync exists.
+- **Sense provenance and gloss are kept** (`senseSource`, `gloss`) so the card can show the WordNet / model badge (W1), regeneration can rewrite a definition from the same gloss, and a refused writing call can fall back to the gloss (A6).
 
 ---
 
@@ -224,11 +231,11 @@ Design notes:
 | **Privacy** | No third-party network calls. The only network use is Apple's Private Cloud Compute for autofill (Apple-operated, requests not retained, no account data from the app), and only when the PCC entitlement is present; a Settings toggle ("Use Apple's server model when online", default on) lets the user keep everything on device. No analytics, no crash-reporting SDKs from third parties. Privacy policy can honestly say "we collect nothing". |
 | **Offline** | Everything works offline, including autofill and image generation (both on device). |
 | **Availability fallback** | Every AI feature checks availability at runtime (`SystemLanguageModel.default.availability`, Image Playground availability) and degrades to manual entry. The app must be fully usable on an iPhone without Apple Intelligence. |
-| **Performance** | Saving a word is instant (< 100 ms perceived). Autofill target: under ~10 s on supported devices, run as a background task with visible progress. Image generation may take longer; it never blocks the UI. |
+| **Performance** | Saving a word is instant (< 100 ms perceived). Autofill target: **first card** (senses, definitions, translations, one neutral example per sense) median ≤ 10 s on supported devices; the measured median is 7.6–9.9 s on an iPhone 15 Pro Max (ADR 0001). Topic examples arrive afterwards in the background; a 4-sense word currently takes 35–43 s for the full card (≈ 20 model calls at 1.6–1.8 s each), target ≤ 25 s or documented as the device floor (plan 2.8). Image generation may take longer; it never blocks the UI. |
 | **Data safety** | JSON export/import from day one. Data lives in the app container and is included in iCloud device backups by default. |
 | **Accessibility** | Dynamic Type and VoiceOver labels on the card and list. |
 | **Localization** | UI in English first; Russian UI later. The *content* language (translations) is independent of the UI language. |
-| **Model drift** | Apple may update the on-device model with any iOS release; output can change. Prompts are kept in one place and covered by a small set of manual regression checks (a list of ~20 words with expected shape of output). |
+| **Model drift** | Apple may update the on-device model with any iOS release; output can change. Prompts are kept in one place and every prompt change is measured with the on-device regression runner (`spike/WordhoardSpikeRegression`) over `docs/regression-words.md`: mechanical checks plus the 12 judged rows of issue #14. Baseline and thresholds are in ADR 0001 and plan Phase 2 exit criteria. |
 
 ---
 
@@ -238,17 +245,18 @@ Design notes:
 |---|---|---|
 | UI | SwiftUI, iOS 27+ | Target platform; modern APIs. |
 | Persistence | SwiftData | Native, simple, CloudKit-ready. No server, so no need for GRDB-level control. |
-| Autofill | Foundation Models framework, guided generation | Two tiers behind one `CardGenerator`: **on-device** `SystemLanguageModel` (4K context, offline, always available — the floor) and **Private Cloud Compute** `PrivateCloudComputeLanguageModel` (32K context, reasoning, network, per-user daily quota, no developer cost). PCC requires the managed entitlement `com.apple.developer.private-cloud-compute`; without it the first request **crashes**, so the PCC backend is gated by a build flag tied to the provisioning profile, never by `availability` alone. Degradation order: PCC → on-device + WordNet → manual. |
-| Sense inventory | Open English WordNet bundle (CC BY 4.0) + function-word stoplist | The on-device model invents or duplicates senses (spike, #4/#11); WordNet supplies senses, POS, synonyms, antonyms and one example per synset; the model only writes learner prose for a given sense. Model-only fallback for lemmas WordNet lacks. |
-| Translation | Apple Translation framework (`TranslationSession`, on device) | Model translation produced non-words (spike, #11). Covers the native languages in S1; no Uzbek. |
+| Autofill | Foundation Models framework, guided generation, **one small call per field group per sense** (ADR 0001) | Two tiers behind one `CardGenerator`: **on-device** `SystemLanguageModel` (4K context, offline, always available — the floor) and **Private Cloud Compute** `PrivateCloudComputeLanguageModel` (32K context, reasoning, network, per-user daily quota, no developer cost; A10). A single call for the whole card overflowed the 4K context and mis-tagged grammar (#4), so each call is small and uses a fresh session; the caller assigns grammar topics. PCC requires the managed entitlement `com.apple.developer.private-cloud-compute`; without it the first request **crashes**, so the PCC backend is gated by a build flag tied to the provisioning profile, never by `availability` alone. Degradation order: PCC → on-device + WordNet → manual. |
+| Sense inventory | Open English WordNet **2024** bundle (CC BY 4.0; JSON, 15 492 477 bytes; up to 2 senses per part of speech, 4 in all; one example per synset) + function-word stoplist (385 lemmas) | The on-device model invents or duplicates senses (spike, #4/#11); WordNet supplies senses, POS, synonyms, antonyms and one example per synset; the model only writes learner prose for a given sense. Model-only fallback with a verifier for stoplist words and lemmas WordNet lacks (A1). Converter: `spike/tools/convert_oewn.py`. Attribution: `NOTICE`, `OEWN-LICENSE.txt` in the bundle, About screen (S6). |
+| Translation | Apple Translation framework (`TranslationSession`, on device); the model only *proposes* per-sense equivalents that the framework verifies (A9, #22) | Model translation produced non-words (spike, #11); bare-word framework translation of synonyms produced the wrong part of speech (#14), so synonyms are not translated. Covers the native languages in S1; no Uzbek. |
+| Prompt QA | On-device regression runner in `spike/WordhoardSpikeRegression` over `docs/regression-words.md` | Spike code kept as a tool, not a product codebase (ADR 0001). Every prompt change ships with a run; thresholds in plan Phase 2 exit criteria. |
 | Images | Image Playground framework (`ImageCreator`) + PhotosPicker + camera | On device, free. |
 | Siri | App Intents / App Shortcuts | The only supported way to add Siri phrases. |
-| Speech | AVSpeechSynthesizer | Offline pronunciation without audio assets. |
+| Speech | AVSpeechSynthesizer | Offline pronunciation without audio assets. The model's IPA is not used (wrong on the spike, ADR 0001). |
 | Payments | StoreKit 2, consumable tip products, `ProductView` | Tip jar. |
 | Sync (later) | SwiftData + CloudKit | Free, no backend, same Apple ID across devices. |
 | Spaced repetition (later) | FSRS (Swift port) | Modern algorithm, open source. |
 
-Architecture: plain MVVM-ish SwiftUI with a thin service layer (`AutofillService`, `ImageService`, `WordStore`). The autofill service is behind a protocol (`CardGenerator`) with the Foundation Models implementation as the first and only one in v1.
+Architecture: plain MVVM-ish SwiftUI with a thin service layer (`AutofillService`, `ImageService`, `WordStore`). The autofill service is behind a protocol (`CardGenerator`); v1 ships the on-device Foundation Models implementation (WordNet lookup + per-sense model calls + Translation framework); the PCC implementation is compiled in only with the entitlement (A10).
 
 ---
 
@@ -256,13 +264,13 @@ Architecture: plain MVVM-ish SwiftUI with a thin service layer (`AutofillService
 
 ### v1 — "It fills itself in"
 
-Capture (C1, C2, C4, C5) · Autofill (A1, A2, A4, A6, A7) · Card (W1–W3) · Images (I1–I4, I6) · Grammar topics (G1, G2, G4) · List & search (B1) · Settings (S1–S3).
+Capture (C1, C2, C4, C5) · Autofill (A1, A2, A4, A6, A7, A9) · Card (W1–W3) · Images (I1–I4, I6; still unvalidated — see §10 Q4) · Grammar topics (G1, G2, G4) · List & search (B1) · Settings (S1–S3, S6).
 
 Done when: the author uses it daily for a month and prefers it to a spreadsheet.
 
 ### v1.1 — Polish
 
-Share sheet (C3), capture note (C6), tags (W4), TTS (W5), regenerate (A5), browse by topic (G3, B2), tip jar (S4), image toggle (S5), App Store release, landing page.
+Share sheet (C3), capture note (C6), tags (W4), TTS (W5), regenerate (A5), browse by topic (G3, B2), tip jar (S4), image toggle (S5), Private Cloud Compute tier (A10, once the entitlement is granted), App Store release, landing page.
 
 ### v2 — Learning
 
@@ -286,15 +294,22 @@ Widget (C7), word forms (W6), full-text search (B3), Russian UI, iOS 27 third-pa
 
 ## 10. Open questions and things to validate early
 
-These decide whether the plan holds. Each should be answered by a throwaway prototype before building the real app.
+These decide whether the plan holds. Each was to be answered by the Phase 0 spike; the answers are in `docs/decisions/0001-spike-results.md`.
 
 1. **Autofill quality.** Does the on-device model produce usable definitions, synonyms and grammar-tagged examples for common words? For idioms and rare words? Test with ~20 words of varying difficulty.
+   → Answer: not for senses — it invents, duplicates and pads them; yes for prose once a sense is given. Senses come from bundled WordNet, the model writes definitions and examples per sense; 10 of 12 judged words pass, 86 % of mechanical checks (ADR 0001, A1).
 2. **Translation quality.** Russian is not an officially supported Apple Intelligence language. If translations are poor, options are: skip translation in autofill (manual only), use Apple's Translation framework (on device, supports Russian), or a cloud model later.
+   → Answer: the model produced non-words; Apple's Translation framework is the only translation path, with the model limited to proposing per-sense equivalents that the framework verifies (ADR 0001, A9, #22).
 3. **Siri recognition.** Does Siri reliably capture an English word when the device/Siri language is Russian, and vice versa? Also: does the two-step "add a word → which word?" dialog feel acceptable?
+   → Answer: not tested in Phase 0 (#6 was not run). Open; becomes the first step of plan 5.1 (ADR 0001).
 4. **Image Playground.** Is it available in the author's region and on the author's device? How often does it refuse prompts? Are the available styles acceptable for vocabulary cards?
+   → Answer: not tested in Phase 0 (#5 was not run). Open; becomes the first step of plan 4.2, which may still end in "images opt-in or dropped" (ADR 0001).
 5. **Latency.** How long does a full card (multiple senses, several examples) take to generate on an iPhone 15 Pro vs 17 Pro? Does it need to be split into several smaller generations (senses first, then examples per sense) to show progress?
+   → Answer: it must be split — one call overflowed the 4K context. On an iPhone 15 Pro Max the first card takes a median 7.6–9.9 s, the full card a median 12.5–14.3 s and 35–43 s for 3–4-sense words (≈ 1.6–1.8 s per call); topic examples therefore run in the background (ADR 0001, §6 Performance, #20). Not measured on a 17 Pro.
 6. **IPA.** Can the model produce correct IPA, or should pronunciation be text-to-speech only?
+   → Answer: text-to-speech only; the model's IPA was wrong (`/ˈhʌvər/`) (ADR 0001, A3, W5).
 7. **Free vs paid developer account.** Confirm that Foundation Models, Image Playground and App Intents all work when the app is signed with a free personal team (no CloudKit, no push).
+   → Answer: the on-device Foundation Models model works with a free personal team (every spike run); Private Cloud Compute does not — it needs a managed entitlement and therefore a paid account (ADR 0001, #15). Image Playground and App Intents were not tested; checked in plan 4.2 and 5.1.
 
 ---
 
@@ -317,6 +332,14 @@ Kept so that future-us remembers why.
 | GPL license | Rejected | Incompatible with App Store distribution in practice. |
 | Other learning languages (German, Spanish, Japanese, …) | Deferred; schema is ready | The on-device model supports a dozen or so languages, but English is where it is strongest, and the author cannot judge output quality in languages they do not speak. The bigger cost is the grammar-topic catalog: it is language-specific (English tenses vs German cases vs Japanese particles) and must be written by someone who knows the language. `learningLanguage` and namespaced topic keys are stored from day one so this can be added later without migration. |
 | Native languages outside the Translation framework (Uzbek, Kazakh, …) | Deferred | Translations come from Apple's on-device Translation framework, which does not support these. Options later: static EN→xx translations from Wiktionary (CC BY-SA) or an online service behind a consent screen. Until then such users pick "No translation" and type translations by hand. |
+| One guided-generation call for the whole card | Rejected (ADR 0001) | Overflowed the on-device 4 096-token context on *however* and mis-tagged grammar topics (#4). Cards are built from small per-sense calls with the topic assigned by the caller. |
+| Model-generated senses when WordNet knows the lemma | Rejected (ADR 0001) | Three prompt iterations never produced *book → reserve* and padded the list to the allowed count; the yes/no verifier falsely rejected real senses (#4, #11). Senses come only from WordNet for known lemmas; the model-only path with verifier is kept for stoplist words and unknown lemmas. |
+| Model translation (direct or as fallback) | Rejected (ADR 0001) | Produced non-words ("ночальница") and wrong-POS translations (#11). Translation framework only; the model may propose a per-sense equivalent that the framework verifies (#22). |
+| Translating synonyms/antonyms and the bare headword | Rejected (ADR 0001) | Context-free bare-word translation gives the wrong POS (*reserve → резервуйте*) and literal phrasal verbs (*look up → посмотреть вверх*) (#14). |
+| Model-generated IPA | Rejected (ADR 0001) | Wrong on the first device run (`/ˈhʌvər/`). Pronunciation is text-to-speech (W5); IPA text could come from ipa-dict en_US later (`docs/resources.md` §2.3). |
+| SemCor tag-count ranking of WordNet senses (cap 4 across parts of speech) | Rejected for now (ADR 0001) | Counts cover only 21 290 of 152 286 lemmas and demote *book → reserve* (count 1), drop *light*'s verb and *lead*'s nouns (#14 run 6, reverted in `0b16922`). Code and data kept at `d2dfc41`; model-assisted selection is tried instead (#18). |
+| Gating Private Cloud Compute on `availability` | Rejected (ADR 0001) | `availability` reports `available` without the entitlement and the first request crashes the process (#15). PCC is compiled in only when the build carries the entitlement. |
+| Princeton WordNet 3.1 / SQLite build | Not chosen (ADR 0001) | Open English WordNet 2024 is newer, maintained and CC BY 4.0; a plain JSON bundle loads in under a second, so SQLite was not needed (PR #13). Revisit if memory becomes a problem (`docs/resources.md` §4.2). |
 
 ---
 

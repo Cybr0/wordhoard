@@ -1,5 +1,14 @@
 # Wordhoard spike (Phase 0)
 
+> **Status (ADR 0001, 2026-10-11).** Phase 0 is closed with the verdict *adjust*; see
+> `docs/decisions/0001-spike-results.md`. This directory is **kept on purpose** as the on-device
+> regression runner (`WordhoardSpikeRegression`, below) — the acceptance tool for every prompt change
+> in the real app, per `docs/plan.md` working agreements and `docs/regression-words.md`. It is **not a
+> product codebase**: it stays outside the root `CLAUDE.md` conventions (no `WordhoardCore`, XCTest,
+> `print`, free signing), gets no reviews or qa, and nothing in it is maintained beyond what the runner
+> needs. Do not import from it; the WordNet bundle, stoplist, license file and converter move into
+> `WordhoardCore` in plan task 2.2. The single-call and split modes are kept for comparison only.
+
 Throwaway app that answers `docs/requirements.md` §10 Q1: can the on-device Foundation Models
 language model produce a usable vocabulary card? One screen: a text field, a Generate button,
 the model availability line, a mode picker, timings, the decoded card and the raw output.
