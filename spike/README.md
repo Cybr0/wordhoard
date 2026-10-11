@@ -75,8 +75,10 @@ model only writes.
 
 1. *Lookup, no model call.* `WordNetLookup` returns the headword's senses from the bundled Open
    English WordNet 2024: part of speech, gloss, synonyms (other members of the synset), antonyms and
-   the synset's example sentence, in WordNet sense order. The card shows **up to 2 senses per part of speech**, nouns first, then
-   verbs, adjectives, adverbs (for *book*: noun, noun, verb *engage for a performance*, verb *reserve*).
+   the synset's example sentence, in WordNet sense order. The card shows **up to 2 senses per part of speech and 4 in all** — the first sense of every
+   part of speech before any second sense (issue #14: ≤ 4 senses, five model calls per sense) —
+   grouped nouns first, then verbs, adjectives, adverbs (for *book*: noun, noun, verb *engage for a
+   performance*, verb *reserve*; for *light*: one noun, one verb, one adjective, one adverb).
    Missing a real sense costs more than showing a spare one — the user can delete a sense but will
    not know to add one (issue #11, decision 1). The log line says how many senses the bundle has for
    the word and which were kept. No verification call — WordNet is authoritative. When WordNet knows
