@@ -31,3 +31,18 @@ line_length:
 # Matches SwiftFormat's `trailingCommas` rule, which adds the comma; the SwiftLint default removes it.
 trailing_comma:
   mandatory_comma: true
+
+custom_rules:
+  # CLAUDE.md "No `print` in production code; use `os.Logger`". Test targets are excluded by path.
+  no_print:
+    name: "No print"
+    regex: '\bprint\('
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+    message: "Use os.Logger (subsystem Wordhoard) instead of print; tests are exempt."
+    severity: error
+    excluded:
+      - ".*/WordhoardCore/Tests/.*"
+      - ".*/WordhoardUITests/.*"
