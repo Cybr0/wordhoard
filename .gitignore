@@ -1,7 +1,10 @@
 # Xcode
 build/
 # Written by XcodeGen and Xcode; only project.pbxproj and the shared scheme are committed.
-*.xcodeproj/project.xcworkspace/
+# Deliberately not the whole project.xcworkspace/ directory, so a future
+# xcshareddata/swiftpm/Package.resolved stays tracked (see the SwiftPM section below).
+*.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+*.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
 DerivedData/
 *.xcuserstate
 xcuserdata/
