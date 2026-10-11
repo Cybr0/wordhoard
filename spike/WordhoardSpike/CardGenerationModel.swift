@@ -91,9 +91,9 @@ struct SpikeSense: Sendable {
     /// Model senses: the model's Russian (marked `[model]` on the card). WordNet senses: the
     /// Translation framework's Russian for `definition`, or empty when there is none.
     var translation: String
+    /// English only: synonyms and antonyms are not translated (issue #14, decision A — bare-word
+    /// translation is context-free and often the wrong part of speech).
     var synonyms: [String]
-    /// WordNet senses only: synonym → its Translation framework Russian, shown as `volume → том`.
-    var synonymTranslations: [String: String]
     var antonyms: [String]
     var examples: [SpikeExample]
 
@@ -104,7 +104,6 @@ struct SpikeSense: Sendable {
         definition = core.definition
         translation = core.translation
         synonyms = core.synonyms
-        synonymTranslations = [:]
         antonyms = core.antonyms
         examples = []
     }
@@ -116,7 +115,6 @@ struct SpikeSense: Sendable {
         definition = generated.definition
         translation = generated.translation
         synonyms = generated.synonyms
-        synonymTranslations = [:]
         antonyms = generated.antonyms
         examples = generated.examples.map { SpikeExample(topicKey: $0.grammarTopic, text: $0.text) }
     }
@@ -131,7 +129,6 @@ struct SpikeSense: Sendable {
         definition = writing?.learnerDefinition ?? sense.gloss
         translation = "…"
         synonyms = sense.synonyms
-        synonymTranslations = [:]
         antonyms = sense.antonyms
         examples = []
     }
@@ -139,6 +136,9 @@ struct SpikeSense: Sendable {
 
 struct SpikeCard: Sendable {
     var headword: String
+    /// WordNet mode: the Translation framework's Russian for the headword itself, shown next to
+    /// the word as the quick-glance meaning (issue #14, decision A). Empty when not translated.
+    var headwordTranslation = ""
     /// Only the model paths produce one; WordNet mode has no image prompt (yet).
     var imagePrompt: String?
     var senses: [SpikeSense]
@@ -164,7 +164,7 @@ struct SpikeCard: Sendable {
     /// Shape of requirements.md Appendix B.
     var readableDescription: String {
         var lines: [String] = []
-        lines.append("Word: \(headword)")
+        lines.append("Word: \(headword)\(headwordTranslation.isEmpty ? "" : " — \(headwordTranslation)")")
         for (index, sense) in senses.enumerated() {
             lines.append("")
             lines.append("Sense \(index + 1) — \(sense.partOfSpeech.rawValue) [\(sense.source.rawValue)]")
@@ -174,10 +174,7 @@ struct SpikeCard: Sendable {
             lines.append("  definition:  \(sense.definition)")
             let translationTag = sense.source == .model ? " [model]" : ""
             lines.append("  translation: \(sense.translation.isEmpty ? "—" : sense.translation)\(translationTag)")
-            let synonyms = sense.synonyms.map { synonym in
-                sense.synonymTranslations[synonym].map { "\(synonym) → \($0)" } ?? synonym
-            }
-            lines.append("  synonyms:    \(synonyms.isEmpty ? "—" : synonyms.joined(separator: ", "))")
+            lines.append("  synonyms:    \(sense.synonyms.isEmpty ? "—" : sense.synonyms.joined(separator: ", "))")
             lines.append("  antonyms:    \(sense.antonyms.isEmpty ? "—" : sense.antonyms.joined(separator: ", "))")
             lines.append("  examples:")
             for example in sense.examples {
@@ -254,8 +251,11 @@ final class CardGenerationModel {
     /// Split mode: the senses call. WordNet mode: lookup plus the writing calls, i.e. when the
     /// senses are on screen with their learner definitions.
     private(set) var sensesElapsed: Duration?
-    /// WordNet mode: the Translation framework calls alone (definitions and synonyms, en→ru).
+    /// WordNet mode: the Translation framework calls alone (headword and definitions, en→ru).
     private(set) var translationElapsed: Duration?
+    /// WordNet mode: how many `translations(from:)` calls were made and how many strings they carried.
+    private(set) var translationCalls = 0
+    private(set) var translationStrings = 0
     /// Senses + one neutral example per sense are on screen.
     private(set) var firstCardElapsed: Duration?
     /// Every (sense, topic) example is on screen.
@@ -323,6 +323,8 @@ final class CardGenerationModel {
         lookupElapsed = nil
         sensesElapsed = nil
         translationElapsed = nil
+        translationCalls = 0
+        translationStrings = 0
         firstCardElapsed = nil
         fullCardElapsed = nil
         callCount = 0
@@ -419,6 +421,9 @@ final class CardGenerationModel {
             }
             card?.senses = senses.map(SpikeSense.init)
         }
+        if asWordNetFallback {
+            try await translateCard(headwordOnly: true)
+        }
 
         try await runAllExamples(word: word, senses: senses.map(SpikeSense.init), since: start)
     }
@@ -488,36 +493,41 @@ final class CardGenerationModel {
         try await runAllExamples(word: word, senses: senses, since: start)
     }
 
-    /// Translation framework, en→ru: one batch per sense (its definition and synonyms). Without the
+    /// Translation framework, en→ru, one `translations(from:)` call: the headword (card-level
+    /// quick-glance meaning) and every sense's learner definition. Synonyms and antonyms are not
+    /// translated (issue #14, decision A). In the model-only fallback only the headword goes
+    /// through the framework (`headwordOnly`); the model's per-sense Russian stays. Without the
     /// language pack the card stays untranslated and the screen and log say so; the model is never
     /// asked to translate in this mode.
-    private func translateCard() async throws {
-        guard let senses = card?.senses else { return }
-        let batches = senses.map { [$0.definition] + $0.synonyms }
-        phase = .translating(count: batches.reduce(0) { $0 + $1.count })
+    private func translateCard(headwordOnly: Bool = false) async throws {
+        guard let card else { return }
+        let strings = [card.headword] + (headwordOnly ? [] : card.senses.map(\.definition))
+        phase = .translating(count: strings.count)
 
-        let outcome = await SpikeTranslator.translate(batches: batches)
+        let outcome = await SpikeTranslator.translate(batches: [strings])
         try Task.checkCancellation()
         switch outcome {
         case let .unavailable(note):
             translationNote = note
             rawLog += "--- \(note) ---\n\n"
             print(note)
-            for index in senses.indices {
-                card?.senses[index].translation = ""
+            if !headwordOnly {
+                for index in card.senses.indices {
+                    self.card?.senses[index].translation = ""
+                }
             }
         case let .translated(translations, elapsed, log):
             translationElapsed = elapsed
+            translationCalls = 1
+            translationStrings = strings.count
             rawLog += log
-            for (index, sense) in senses.enumerated() {
-                card?.senses[index].translation = translations[sense.definition] ?? ""
-                card?.senses[index].synonymTranslations = Dictionary(
-                    uniqueKeysWithValues: sense.synonyms.compactMap { synonym in
-                        translations[synonym].map { (synonym, $0) }
-                    }
-                )
+            self.card?.headwordTranslation = translations[card.headword] ?? ""
+            if !headwordOnly {
+                for (index, sense) in card.senses.enumerated() {
+                    self.card?.senses[index].translation = translations[sense.definition] ?? ""
+                }
             }
-            print("translation: \(translations.count) strings in \(elapsed.spikeFormatted)")
+            print("translation: \(translations.count) strings in 1 call, \(elapsed.spikeFormatted)")
         }
     }
 

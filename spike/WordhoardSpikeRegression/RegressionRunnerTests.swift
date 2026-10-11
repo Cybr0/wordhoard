@@ -67,7 +67,6 @@ struct SenseRecord: Codable, Sendable {
     let definition: String
     let translation: String
     let synonyms: [String]
-    let synonymTranslations: [String: String]
     let antonyms: [String]
     let examples: [ExampleRecord]
 }
@@ -88,6 +87,7 @@ struct CheckRecord: Codable, Sendable {
 struct WordRecord: Codable, Sendable {
     let number: Int
     let word: String
+    let headwordTranslation: String
     let path: String
     let wordNetNote: String?
     let verificationNote: String?
@@ -99,6 +99,8 @@ struct WordRecord: Codable, Sendable {
     let lookupSeconds: Double?
     let sensesSeconds: Double?
     let translationSeconds: Double?
+    let translationCalls: Int
+    let translationStrings: Int
     let firstCardSeconds: Double?
     let fullCardSeconds: Double?
     let wallSeconds: Double
@@ -384,7 +386,6 @@ final class RegressionRunnerTests: XCTestCase {
                 definition: sense.definition,
                 translation: sense.translation,
                 synonyms: sense.synonyms,
-                synonymTranslations: sense.synonymTranslations,
                 antonyms: sense.antonyms,
                 examples: sense.examples.map { ExampleRecord(topic: $0.topicKey, text: $0.text) }
             )
@@ -396,6 +397,7 @@ final class RegressionRunnerTests: XCTestCase {
 
         let checks = checks(
             word: entry.word,
+            headwordTranslation: model.card?.headwordTranslation ?? "",
             path: model.path,
             error: model.errorText,
             callFailures: model.callFailures,
@@ -407,6 +409,7 @@ final class RegressionRunnerTests: XCTestCase {
         return WordRecord(
             number: entry.number,
             word: entry.word,
+            headwordTranslation: model.card?.headwordTranslation ?? "",
             path: path,
             wordNetNote: model.wordNetNote,
             verificationNote: model.verificationNote,
@@ -418,6 +421,8 @@ final class RegressionRunnerTests: XCTestCase {
             lookupSeconds: model.lookupElapsed?.seconds,
             sensesSeconds: model.sensesElapsed?.seconds,
             translationSeconds: model.translationElapsed?.seconds,
+            translationCalls: model.translationCalls,
+            translationStrings: model.translationStrings,
             firstCardSeconds: model.firstCardElapsed?.seconds,
             fullCardSeconds: fullCard,
             wallSeconds: wall.seconds,
@@ -429,6 +434,7 @@ final class RegressionRunnerTests: XCTestCase {
     // swiftlint:disable:next function_parameter_count
     private static func checks(
         word: String,
+        headwordTranslation: String,
         path: GenerationPath?,
         error: String?,
         callFailures: [CallFailure],
@@ -472,6 +478,12 @@ final class RegressionRunnerTests: XCTestCase {
             checks.append(CheckRecord(name: names[2], passed: nil, detail: "no senses", flagged: false))
         } else {
             var problems: [String] = []
+            let headword = headwordTranslation.trimmingCharacters(in: .whitespacesAndNewlines)
+            if headword.isEmpty {
+                problems.append("headword: empty")
+            } else if !MechanicalChecks.containsCyrillic(headword) {
+                problems.append("headword: no Cyrillic (\(headword))")
+            }
             for (index, sense) in senses.enumerated() {
                 let translation = sense.translation.trimmingCharacters(in: .whitespacesAndNewlines)
                 if translation.isEmpty || translation == "…" {
@@ -634,7 +646,8 @@ enum ReportWriter {
                         "\(index + 1). \(sense.partOfSpeech) [\(sense.source)] \(sense.definition) — \(sense.translation)"
                     }.joined(separator: "<br>")
                 }
-                out.append("| \(word) | \(expected) | \(record.path): \(actual) | |")
+                let headword = record.headwordTranslation.isEmpty ? "" : " (\(record.headwordTranslation))"
+                out.append("| \(word)\(headword) | \(expected) | \(record.path): \(actual) | |")
             } else {
                 out.append("| \(word) | \(expected) | (not in this run) | |")
             }
@@ -647,7 +660,7 @@ enum ReportWriter {
         out.append("## Words")
         for word in report.words {
             out.append("")
-            out.append("### \(word.number). \(word.word)")
+            out.append("### \(word.number). \(word.word)\(word.headwordTranslation.isEmpty ? "" : " — \(word.headwordTranslation)")")
             out.append("")
             out.append("- Path: `\(word.path)`" + (word.wordNetNote.map { " — \($0)" } ?? ""))
             if let note = word.verificationNote { out.append("- Verifier: \(note)") }
@@ -655,16 +668,13 @@ enum ReportWriter {
             if let error = word.error { out.append("- **Error:** \(error)") }
             if !word.refusals.isEmpty { out.append("- **Refusals:** \(word.refusals.joined(separator: " · "))") }
             if !word.failures.isEmpty { out.append("- **Failed calls:** \(word.failures.joined(separator: " · "))") }
-            out.append("- Calls: \(word.callCount) · lookup \(seconds(word.lookupSeconds)) · senses \(seconds(word.sensesSeconds)) · translation \(seconds(word.translationSeconds)) · first card \(seconds(word.firstCardSeconds)) · full card \(seconds(word.fullCardSeconds)) · wall \(seconds(word.wallSeconds))")
+            out.append("- Calls: \(word.callCount) · lookup \(seconds(word.lookupSeconds)) · senses \(seconds(word.sensesSeconds)) · translation \(seconds(word.translationSeconds)) (\(word.translationCalls) call\(word.translationCalls == 1 ? "" : "s"), \(word.translationStrings) strings) · first card \(seconds(word.firstCardSeconds)) · full card \(seconds(word.fullCardSeconds)) · wall \(seconds(word.wallSeconds))")
             for (index, sense) in word.senses.enumerated() {
                 out.append("- Sense \(index + 1) — \(sense.partOfSpeech) [\(sense.source)]")
                 if let gloss = sense.gloss { out.append("  - gloss: \(gloss)") }
                 out.append("  - definition: \(sense.definition)")
                 out.append("  - translation: \(sense.translation.isEmpty ? "—" : sense.translation)")
-                let synonyms = sense.synonyms.map { synonym in
-                    sense.synonymTranslations[synonym].map { "\(synonym) → \($0)" } ?? synonym
-                }
-                out.append("  - synonyms: \(synonyms.isEmpty ? "—" : synonyms.joined(separator: ", "))")
+                out.append("  - synonyms: \(sense.synonyms.isEmpty ? "—" : sense.synonyms.joined(separator: ", "))")
                 out.append("  - antonyms: \(sense.antonyms.isEmpty ? "—" : sense.antonyms.joined(separator: ", "))")
                 for example in sense.examples {
                     out.append("  - [\(example.topic.replacingOccurrences(of: "en.", with: ""))] \(example.text)")
