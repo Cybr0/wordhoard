@@ -73,7 +73,12 @@ model only writes.
    verbs, adjectives, adverbs (for *book*: noun, noun, verb *engage for a performance*, verb *reserve*).
    Missing a real sense costs more than showing a spare one — the user can delete a sense but will
    not know to add one (issue #11, decision 1). The log line says how many senses the bundle has for
-   the word and which were kept. No verification call — WordNet is authoritative.
+   the word and which were kept. No verification call — WordNet is authoritative. When WordNet knows
+   the lemma, the senses come **only** from WordNet: the model-only senses call never runs for it and
+   the model never adds a sense (that would reopen hallucination). Gaps are filled by manual sense
+   editing in the real app (requirements W2) — e.g. *look up* has one WordNet sense, "seek information
+   from"; the compositional "raise one's eyes" is not a lexical entry and is not added (issue #11,
+   decision 2).
 2. *One writing call per sense.* Prompt: the word, part of speech, gloss and synonyms; the model
    returns `SenseWriting { learnerDefinition, translation }` — a one-sentence learner-friendly
    rewrite of the gloss and the Russian translation of the word in that sense. Synonyms and antonyms
@@ -98,7 +103,8 @@ the definition was written from. There is no image prompt in WordNet mode.
 *Known limits of the bundle* (for ADR 0001): WordNet has no prepositions or other function words
 (*despite* is found, but only as an archaic noun, "contemptuous disregard" — the model-only path
 would be right here); no recent senses (*gaslight* is a noun only, the lamp); only one sense of *look
-up* ("seek information from" — the literal "raise one's eyes" is not an entry); no idioms beyond its
+up* ("seek information from" — the literal "raise one's eyes" is compositional, not an entry, and
+that one sense is the accepted result); no idioms beyond its
 own list (*by the book*, *break the ice* are missing); and the sense order is WordNet's, which puts
 *book* → "engage for a performance" before "reserve" (SemCor counts 3 vs 1) — *reserve* is verb
 sense 2, which is why the cut is two per part of speech rather than three in total.
