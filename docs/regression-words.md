@@ -29,6 +29,16 @@ The list is chosen to probe specific weaknesses, not to be representative. Each 
 | 21 | asdfgh | not a word | model says so (empty senses / error) rather than inventing a meaning |
 | 22 | Tashkent | proper noun | handled gracefully — either refused as not a vocabulary word or one sense, no invented etymology |
 
+Expected results changed by decision (ADR 0001; the "What to check" column above is kept as written so the runner's table parsing is untouched):
+
+- **look up** — one sense, *seek information from*, is the correct result. "Raise one's eyes" is compositional, not a WordNet entry, and the model never adds senses to a lemma WordNet knows (#11 decision 2).
+- **gaslight** — WordNet has the noun (lamp) only; the verb is an accepted WordNet gap in v1, shown as a flagged pass. The writing call for this word is also refused by the guardrail in every run; the gloss is kept (A6).
+- **despite** — expected one `preposition` sense, *in spite of*, once plan 2.7 (#19) adds the case; until then it fails (`adverb` in 6/6 runs).
+- **however**, **despite** — reach the model via the function-word stoplist, never WordNet; the path must say so.
+- **by the book**, **break the ice**, **asdfgh** — not in the bundle; model-only fallback with verifier. **asdfgh** must end in "Not found", not an invented sense.
+- **Tashkent** — WordNet has it as a proper noun ("the capital of Uzbekistan"); one sense, nothing invented, counts as a pass.
+- Judged target per run: the 12 key words of issue #14 (book, run, light, look up, give up, by the book, however, despite, lead, gaslight, asdfgh, Tashkent).
+
 ## What to record per run
 
 For each word: number of senses, whether each requested topic got an example, obvious errors (wrong tense, wrong meaning, wrong translation), latency. A short table is enough; verbatim output only for words that misbehaved.
@@ -37,4 +47,4 @@ For each word: number of senses, whether each requested topic got an example, ob
 
 | Date | iOS | Device | Prompt version | Summary | Where |
 |---|---|---|---|---|---|
-| — | — | — | — | not run yet | — |
+| 2026-10-11 | 27.0.1 | iPhone 15 Pro Max (iPhone16,2) | `665d06d` (= merged state after PR #17; WordNet + model, 2 senses per POS, 4 total, decision A) | mechanical 141/164 = 86.0 %; judged 10/12 — failing: run (→ *manage* not in the top-4), despite (→ `adverb`); first card median ≈ 8–10 s (7.6–9.9 s across the six runs); full card median ≈ 14 s, max ≈ 42 s, 7 words over 30 s; guardrail refusals on run, gaslight, Tashkent | issue #14 final scorecard (run 5) · ADR 0001 appendix A/B |
