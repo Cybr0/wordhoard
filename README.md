@@ -19,7 +19,7 @@ Pre-development. The requirements are being written down before any code; see [`
 
 ## Requirements
 
-- iPhone running iOS 26 or later.
+- iPhone running iOS 27 or later.
 - AI features (autofill, image generation) need an Apple Intelligence-capable device with Apple Intelligence enabled. Without it the app still works; you fill the cards in yourself.
 
 ## Tech

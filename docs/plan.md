@@ -25,7 +25,7 @@ Throwaway code in a separate Xcode project (`spike/`), not held to project conve
 
 ## Phase 1 — Skeleton: a dictionary you can keep by hand
 
-- [ ] **1.1 Project setup.** `project.yml` (app target + `WordhoardCore` package + test targets), `.swiftformat`, `.swiftlint.yml`, CI workflow running `swift test` and a simulator build on PRs. App launches to an empty list.
+- [ ] **1.1 Project setup.** `project.yml` (app target, deployment target iOS 27, + `WordhoardCore` package + test targets), `.swiftformat`, `.swiftlint.yml`, CI workflow running `swift test` and a simulator build on PRs. App launches to an empty list.
   *AC:* `xcodegen generate && xcodebuild build` succeeds on a clean clone; CI is green on the PR.
 - [ ] **1.2 Data model.** SwiftData models per `requirements.md` §5: `Word`, `Sense`, `Example`, `Tag`, `ImageAsset`, `UserSettings`. `ReviewEvent` defined but unused. CloudKit-compatible shape (optional/defaulted properties, inverse relationships).
   *AC:* in-memory container creates all models; a `Word` with two senses and three examples round-trips; soft delete hides the word from the default fetch; `learningLanguage` defaults to `"en"`.

@@ -32,7 +32,7 @@ These were considered and deliberately deferred. See §11 for the full list and 
 
 - **Primary user:** the author, learning English with Russian as the native language.
 - **Secondary users:** anyone learning English who wants a private, offline word list with smart autofill. Native language is configurable.
-- **Platform:** iPhone, iOS 26+, SwiftUI. iPad and Mac may work "for free" via SwiftUI but are not a target.
+- **Platform:** iPhone, **iOS 27+**, SwiftUI. iPad and Mac may work "for free" via SwiftUI but are not a target. Rationale for 27 rather than 26: AI features already require iPhone 15 Pro or newer, and every such device runs iOS 27; the author has no iOS 26 device to test on; iOS 27 adds the `LanguageModel` protocol and Private Cloud Compute (§7), which would otherwise need `#available` branches.
 - **Hardware for AI features:** Apple Intelligence-capable device (iPhone 15 Pro or newer) with Apple Intelligence enabled. On other devices the app works fully, but cards are filled in manually.
 
 ---
@@ -221,7 +221,7 @@ Design notes:
 
 | Area | Requirement |
 |---|---|
-| **Privacy** | No network calls in v1. No analytics, no crash reporting SDKs from third parties. Privacy policy can honestly say "we collect nothing". |
+| **Privacy** | No third-party network calls. The only network use is Apple's Private Cloud Compute for autofill (Apple-operated, requests not retained, no account data from the app), and only when the PCC entitlement is present; a Settings toggle ("Use Apple's server model when online", default on) lets the user keep everything on device. No analytics, no crash-reporting SDKs from third parties. Privacy policy can honestly say "we collect nothing". |
 | **Offline** | Everything works offline, including autofill and image generation (both on device). |
 | **Availability fallback** | Every AI feature checks availability at runtime (`SystemLanguageModel.default.availability`, Image Playground availability) and degrades to manual entry. The app must be fully usable on an iPhone without Apple Intelligence. |
 | **Performance** | Saving a word is instant (< 100 ms perceived). Autofill target: under ~10 s on supported devices, run as a background task with visible progress. Image generation may take longer; it never blocks the UI. |
@@ -236,9 +236,11 @@ Design notes:
 
 | Layer | Choice | Why |
 |---|---|---|
-| UI | SwiftUI, iOS 26+ | Target platform; modern APIs. |
+| UI | SwiftUI, iOS 27+ | Target platform; modern APIs. |
 | Persistence | SwiftData | Native, simple, CloudKit-ready. No server, so no need for GRDB-level control. |
-| Autofill | Foundation Models framework, guided generation | On device, free, offline, structured output. |
+| Autofill | Foundation Models framework, guided generation | Two tiers behind one `CardGenerator`: **on-device** `SystemLanguageModel` (4K context, offline, always available — the floor) and **Private Cloud Compute** `PrivateCloudComputeLanguageModel` (32K context, reasoning, network, per-user daily quota, no developer cost). PCC requires the managed entitlement `com.apple.developer.private-cloud-compute`; without it the first request **crashes**, so the PCC backend is gated by a build flag tied to the provisioning profile, never by `availability` alone. Degradation order: PCC → on-device + WordNet → manual. |
+| Sense inventory | Open English WordNet bundle (CC BY 4.0) + function-word stoplist | The on-device model invents or duplicates senses (spike, #4/#11); WordNet supplies senses, POS, synonyms, antonyms and one example per synset; the model only writes learner prose for a given sense. Model-only fallback for lemmas WordNet lacks. |
+| Translation | Apple Translation framework (`TranslationSession`, on device) | Model translation produced non-words (spike, #11). Covers the native languages in S1; no Uzbek. |
 | Images | Image Playground framework (`ImageCreator`) + PhotosPicker + camera | On device, free. |
 | Siri | App Intents / App Shortcuts | The only supported way to add Siri phrases. |
 | Speech | AVSpeechSynthesizer | Offline pronunciation without audio assets. |
@@ -305,7 +307,8 @@ Kept so that future-us remembers why.
 | NestJS backend + PostgreSQL | Deferred | Not needed when AI runs on device. Adds hosting cost, auth, sync, and ops for a one-person project. Revisit only if a feature truly needs a server. |
 | Web app (React/Vite, offline via IndexedDB) | Deferred | Browser storage is unreliable (Safari evicts data); a web client without a backend would be two unsynced dictionaries. |
 | Telegram bot | Deferred | Requires a server. Could return as a paid feature if a backend ever exists. |
-| Cloud LLM autofill (Claude/OpenAI) | Deferred | Costs money per word; would force a subscription. On-device model is free. Kept behind a protocol so it can be added. |
+| Cloud LLM autofill (Claude/OpenAI) | Deferred | Costs money per word; would force a subscription. On-device model is free. Kept behind a protocol so it can be added. **Superseded for the common case by Apple's Private Cloud Compute** (§7): same API, no developer cost, user-side quota. Third-party clouds remain deferred. |
+| Private Cloud Compute as the *only* autofill path | Rejected | Needs network, Apple Intelligence region support and a per-user daily quota; the on-device model + WordNet stays the floor so every card can be filled offline. |
 | Subscription | Rejected for now | No recurring costs to justify it; users dislike subscriptions for simple tools. |
 | Shared global lexicon vs personal words | Personal words | No server, so no sharing. Each user's cards are fully their own. |
 | Own sync protocol (delta sync, cursors, LWW) | Replaced by CloudKit | Only Apple devices are targeted; CloudKit is free and needs no server. |

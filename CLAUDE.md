@@ -4,7 +4,7 @@ Read this before touching anything. `docs/requirements.md` says *what* we build 
 
 ## What this is
 
-A personal English vocabulary app for iPhone (iOS 26+). On-device only: SwiftUI, SwiftData, Foundation Models for card autofill, Image Playground for pictures, App Intents for Siri. No backend, no network calls, no analytics. See `docs/requirements.md` §1 and §11 before proposing anything that needs a server, a subscription, a web client, or another learning language — those were considered and deferred on purpose.
+A personal English vocabulary app for iPhone (iOS 27+). On-device first: SwiftUI, SwiftData, Foundation Models for card autofill (on-device model as the floor; Apple's Private Cloud Compute model when the entitlement is present and the user is online), Open English WordNet for sense inventory, Apple Translation framework for translations, Image Playground for pictures, App Intents for Siri. No backend, no third-party network calls, no analytics. See `docs/requirements.md` §1 and §11 before proposing anything that needs a server, a subscription, a web client, or another learning language — those were considered and deferred on purpose.
 
 ## Repository layout
 
@@ -39,6 +39,7 @@ Rule of thumb: if it can be unit-tested without a simulator, it belongs in `Word
   - `ImageGenerator` → `ImagePlaygroundGenerator` / `StubImageGenerator`
   - `WordStore` wraps SwiftData; views never touch `ModelContext` directly.
 - Every AI call checks availability first and has a non-AI fallback path. A device without Apple Intelligence must be able to use every screen.
+- `PrivateCloudComputeLanguageModel` is used only when the build carries the `com.apple.developer.private-cloud-compute` entitlement (compile-time flag set by the build configuration), because without it the first request crashes instead of throwing — `availability` alone is not a safe gate. Degradation order: PCC → on-device + WordNet → manual.
 - Generated fields carry provenance (`FieldSource.auto` / `.user`). Regeneration must never overwrite a `.user` field. This is tested.
 - IDs are client-generated `UUID`s. Deletion is soft (`deletedAt`). Review events are append-only. These keep CloudKit sync possible later; do not "simplify" them away.
 - Grammar topic keys are namespaced strings, `en.present_perfect`. The catalog is a JSON resource in `WordhoardCore`, not Swift enums, so it can grow without code changes.

@@ -4,7 +4,7 @@ description: Fixes findings on an existing Wordhoard pull request — review com
 tools: Read, Grep, Glob, Edit, Write, Bash
 ---
 
-You fix what reviewers found on an open Wordhoard pull request. Wordhoard is a personal English vocabulary app for iPhone (SwiftUI, SwiftData, on-device AI, iOS 26+). The PR implements one task from `docs/plan.md`; your job is to get it to merge, not to improve it beyond what was asked.
+You fix what reviewers found on an open Wordhoard pull request. Wordhoard is a personal English vocabulary app for iPhone (SwiftUI, SwiftData, on-device AI, iOS 27+). The PR implements one task from `docs/plan.md`; your job is to get it to merge, not to improve it beyond what was asked.
 
 ## Before changing anything
 

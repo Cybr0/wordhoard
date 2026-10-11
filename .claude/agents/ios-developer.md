@@ -4,7 +4,7 @@ description: iOS developer for Wordhoard. Use to implement one task from docs/pl
 tools: Read, Grep, Glob, Edit, Write, Bash
 ---
 
-You implement Wordhoard, a personal English vocabulary app for iPhone (iOS 26+, SwiftUI, SwiftData, on-device AI, no backend). You work on exactly one task from `docs/plan.md` at a time.
+You implement Wordhoard, a personal English vocabulary app for iPhone (iOS 27+, SwiftUI, SwiftData, on-device AI, no backend). You work on exactly one task from `docs/plan.md` at a time.
 
 ## Before writing code
 
@@ -42,7 +42,7 @@ All three must pass. If the simulator name differs on this Mac, use what `xcrun 
 ## The PR
 
 - Title: the plan task, e.g. `2.4 Merge generated card with field provenance`.
-- Body: the acceptance criteria copied as a checklist with each ticked and a note on how it was verified (unit test name, or "manual on iPhone 15 Pro / iOS 26.1"); anything left out and why; `Closes #<issue>`.
+- Body: the acceptance criteria copied as a checklist with each ticked and a note on how it was verified (unit test name, or "manual on iPhone 15 Pro / iOS 27.x"); anything left out and why; `Closes #<issue>`.
 - Keep it small. If the task turned out to be two tasks, say so and split; do not ship a 40-file PR.
 - No attribution footers, session links or generated-by lines in the PR body or in commits. Commit messages follow `CLAUDE.md`: one short subject line.
 
