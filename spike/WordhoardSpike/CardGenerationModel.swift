@@ -20,6 +20,11 @@
 // if the verifier is on and rejects every model sense, the card says "Not found. Add senses
 // manually." rather than showing an invented sense (unknown-word policy, issue #11).
 //
+// PCC + model mode (issue #15) is the WordNet + model flow above with every model call on
+// `ModelBackend.privateCloudCompute` — variant (a) — or, with the "PCC alone" toggle, the single
+// call on PCC — variant (b). After each batch of PCC calls the quota is read and logged; the
+// run's PCC request count is shown next to the call count. iOS 27 only; see PCCStatus.swift.
+//
 // Throwaway code. Not held to the root CLAUDE.md conventions (print is fine here).
 
 import Foundation
@@ -37,6 +42,18 @@ struct SpikeExample: Sendable {
 enum SenseSource: String, Sendable {
     case model
     case wordNet = "wordnet"
+    /// The server model (issue #15): the senses call or the single call ran on PCC.
+    case pcc
+
+    /// Model-sourced senses carry the backend that produced them.
+    init(backend: ModelBackend) {
+        switch backend {
+        case .onDevice: self = .model
+        case .privateCloudCompute: self = .pcc
+        }
+    }
+
+    var isModel: Bool { self != .wordNet }
 }
 
 struct SpikeSense: Sendable {
@@ -45,8 +62,10 @@ struct SpikeSense: Sendable {
     /// The WordNet gloss the learner definition was written from; `nil` for model senses.
     var gloss: String?
     var definition: String
-    /// Model senses: the model's Russian (marked `[model]` on the card). WordNet senses: the
-    /// Translation framework's Russian for `definition`, or empty when there is none.
+    /// WordNet senses: which backend wrote the learner definition (`nil` while the gloss stands in).
+    var writer: ModelBackend?
+    /// Model senses: the model's Russian (marked `[model]` / `[pcc]` on the card). WordNet senses:
+    /// the Translation framework's Russian for `definition`, or empty when there is none.
     var translation: String
     var synonyms: [String]
     /// WordNet senses only: synonym → its Translation framework Russian, shown as `volume → том`.
@@ -54,11 +73,12 @@ struct SpikeSense: Sendable {
     var antonyms: [String]
     var examples: [SpikeExample]
 
-    init(_ core: GeneratedSenseCore) {
-        source = .model
+    init(_ core: GeneratedSenseCore, backend: ModelBackend) {
+        source = SenseSource(backend: backend)
         partOfSpeech = core.partOfSpeech
         gloss = nil
         definition = core.definition
+        writer = nil
         translation = core.translation
         synonyms = core.synonyms
         synonymTranslations = [:]
@@ -66,11 +86,12 @@ struct SpikeSense: Sendable {
         examples = []
     }
 
-    init(_ generated: GeneratedSense) {
-        source = .model
+    init(_ generated: GeneratedSense, backend: ModelBackend) {
+        source = SenseSource(backend: backend)
         partOfSpeech = generated.partOfSpeech
         gloss = nil
         definition = generated.definition
+        writer = nil
         translation = generated.translation
         synonyms = generated.synonyms
         synonymTranslations = [:]
@@ -81,11 +102,12 @@ struct SpikeSense: Sendable {
     /// A WordNet sense before or after the model has written for it. Until `writing` arrives
     /// the gloss stands in as the definition so the card can be shown immediately; the
     /// translations stay pending ("…") until the Translation framework step has run.
-    init(wordNet sense: WordNetSense, writing: SenseWriting?) {
+    init(wordNet sense: WordNetSense, writing: SenseWriting?, writer: ModelBackend?) {
         source = .wordNet
         partOfSpeech = PartOfSpeech(sense.partOfSpeech)
         gloss = sense.gloss
         definition = writing?.learnerDefinition ?? sense.gloss
+        self.writer = writing == nil ? nil : writer
         translation = "…"
         synonyms = sense.synonyms
         synonymTranslations = [:]
@@ -96,40 +118,50 @@ struct SpikeSense: Sendable {
 
 struct SpikeCard: Sendable {
     var headword: String
+    /// Which model wrote this card's definitions and examples.
+    var backend: ModelBackend
     /// Only the model paths produce one; WordNet mode has no image prompt (yet).
     var imagePrompt: String?
     var senses: [SpikeSense]
 
-    init(senses generated: GeneratedSenses) {
+    init(senses generated: GeneratedSenses, backend: ModelBackend) {
         headword = generated.headword
+        self.backend = backend
         imagePrompt = generated.imagePrompt
-        senses = generated.senses.map(SpikeSense.init)
+        senses = generated.senses.map { SpikeSense($0, backend: backend) }
     }
 
-    init(card generated: GeneratedCard) {
+    init(card generated: GeneratedCard, backend: ModelBackend) {
         headword = generated.headword
+        self.backend = backend
         imagePrompt = generated.imagePrompt
-        senses = generated.senses.map(SpikeSense.init)
+        senses = generated.senses.map { SpikeSense($0, backend: backend) }
     }
 
-    init(headword: String, wordNet senses: [WordNetSense]) {
+    init(headword: String, wordNet senses: [WordNetSense], backend: ModelBackend) {
         self.headword = headword
+        self.backend = backend
         imagePrompt = nil
-        self.senses = senses.map { SpikeSense(wordNet: $0, writing: nil) }
+        self.senses = senses.map { SpikeSense(wordNet: $0, writing: nil, writer: nil) }
     }
 
     /// Shape of requirements.md Appendix B.
     var readableDescription: String {
         var lines: [String] = []
         lines.append("Word: \(headword)")
+        lines.append("Backend: \(backend.rawValue)")
         for (index, sense) in senses.enumerated() {
             lines.append("")
-            lines.append("Sense \(index + 1) — \(sense.partOfSpeech.rawValue) [\(sense.source.rawValue)]")
+            var sourceTag = sense.source.rawValue
+            if let writer = sense.writer {
+                sourceTag += ", definition by \(writer.rawValue)"
+            }
+            lines.append("Sense \(index + 1) — \(sense.partOfSpeech.rawValue) [\(sourceTag)]")
             if let gloss = sense.gloss {
                 lines.append("  gloss:       \(gloss)")
             }
             lines.append("  definition:  \(sense.definition)")
-            let translationTag = sense.source == .model ? " [model]" : ""
+            let translationTag = sense.source.isModel ? " [\(sense.source.rawValue)]" : ""
             lines.append("  translation: \(sense.translation.isEmpty ? "—" : sense.translation)\(translationTag)")
             let synonyms = sense.synonyms.map { synonym in
                 sense.synonymTranslations[synonym].map { "\(synonym) → \($0)" } ?? synonym
@@ -161,8 +193,24 @@ final class CardGenerationModel {
         case split = "Split calls"
         case single = "Single call"
         case wordNet = "WordNet + model"
+        /// Issue #15: the WordNet flow (or, with `pccSingleCall`, the single call) on the server model.
+        case pcc = "PCC + model"
 
         var id: String { rawValue }
+
+        /// Fits four segments on an iPhone-width segmented picker.
+        var shortTitle: String {
+            switch self {
+            case .split: "Split"
+            case .single: "Single"
+            case .wordNet: "WordNet"
+            case .pcc: "PCC"
+            }
+        }
+
+        var backend: ModelBackend {
+            self == .pcc ? .privateCloudCompute : .onDevice
+        }
     }
 
     enum Phase: Equatable {
@@ -188,6 +236,10 @@ final class CardGenerationModel {
     /// After the senses call, ask the model one yes/no question per sense and drop the senses it
     /// rejects. On by default; switch it off to measure what it costs in time and what it buys.
     var verifySenses = true
+    /// PCC mode only (issue #15). Off: variant (a), WordNet senses + PCC writing + Translation
+    /// framework + PCC examples. On: variant (b), "PCC alone" — the single-call `GeneratedCard`
+    /// on the server model, no WordNet, no Translation framework.
+    var pccSingleCall = false
 
     private(set) var phase: Phase = .idle
     private(set) var card: SpikeCard?
@@ -214,8 +266,14 @@ final class CardGenerationModel {
     /// Every (sense, topic) example is on screen.
     private(set) var fullCardElapsed: Duration?
     private(set) var callCount = 0
+    /// PCC mode: requests attempted in this run (`PCCStatus.shared.requestsThisLaunch` delta;
+    /// failed calls count). `nil` outside PCC mode.
+    private(set) var pccRequestsThisRun: Int?
+    /// PCC mode: the last `quotaUsage` line logged for this run.
+    private(set) var pccQuotaNote: String?
 
     private var task: Task<Void, Never>?
+    private var pccRequestsAtStart = 0
 
     var isGenerating: Bool { task != nil }
 
@@ -260,10 +318,14 @@ final class CardGenerationModel {
 
     func generate(word: String) {
         cancel()
+        let mode = mode
+        let backend = mode.backend
+        let pccSingleCall = pccSingleCall
         switch mode {
         case .split: phase = .generatingSenses
         case .single: phase = .generatingCard
         case .wordNet: phase = .lookingUp
+        case .pcc: phase = pccSingleCall ? .generatingCard : .lookingUp
         }
         card = nil
         verificationNote = nil
@@ -277,18 +339,34 @@ final class CardGenerationModel {
         firstCardElapsed = nil
         fullCardElapsed = nil
         callCount = 0
+        pccRequestsThisRun = nil
+        pccQuotaNote = nil
+        pccRequestsAtStart = PCCStatus.shared.requestsThisLaunch
+        if backend == .privateCloudCompute {
+            pccRequestsThisRun = 0
+            let line = "PCC: quota before run: \(PCCStatus.shared.quotaLine())"
+            rawLog += "--- \(line) ---\n\n"
+            print(line)
+        }
 
         task = Task {
             do {
                 switch mode {
                 case .split:
-                    try await runSplit(word: word)
+                    try await runSplit(word: word, backend: backend)
                 case .single:
-                    try await runSingle(word: word)
+                    try await runSingle(word: word, backend: backend)
                 case .wordNet:
-                    try await runWordNet(word: word)
+                    try await runWordNet(word: word, backend: backend)
+                case .pcc:
+                    if pccSingleCall {
+                        try await runSingle(word: word, backend: backend)
+                    } else {
+                        try await runWordNet(word: word, backend: backend)
+                    }
                 }
                 phase = .finished
+                logPCCQuota(after: "run", backend: backend)
             } catch is CancellationError {
                 // A newer run owns the screen now; leave its state alone.
                 return
@@ -296,14 +374,35 @@ final class CardGenerationModel {
                 errorText = "GenerationError: \(error.errorDescription ?? String(describing: error))"
                 print("GenerationError: \(error)")
                 phase = .failed
+                logPCCQuota(after: "failure", backend: backend)
             } catch {
-                errorText = "Error: \(error.localizedDescription)"
-                print("Error: \(error)")
+                // PCC and iOS 27 LanguageModelError cases are named by PCCStatus.describe; anything
+                // else reads as before.
+                let described = PCCStatus.describe(error)
+                errorText = "Error: \(described)"
+                print("Error: \(described)")
                 phase = .failed
+                logPCCQuota(after: "failure", backend: backend)
             }
             guard !Task.isCancelled else { return }
             task = nil
         }
+    }
+
+    /// PCC mode: `quotaUsage` after a batch of calls, in the log and on screen, so a run shows
+    /// its consumption. No-op for the on-device backend.
+    private func logPCCQuota(after stage: String, backend: ModelBackend) {
+        guard backend == .privateCloudCompute else { return }
+        updatePCCRequestCount(backend: backend)
+        let line = "PCC: quota after \(stage) (\(pccRequestsThisRun ?? 0) requests this run, \(PCCStatus.shared.requestsThisLaunch) since launch): \(PCCStatus.shared.quotaLine())"
+        pccQuotaNote = line
+        rawLog += "--- \(line) ---\n\n"
+        print(line)
+    }
+
+    private func updatePCCRequestCount(backend: ModelBackend) {
+        guard backend == .privateCloudCompute else { return }
+        pccRequestsThisRun = PCCStatus.shared.requestsThisLaunch - pccRequestsAtStart
     }
 
     func cancel() {
@@ -315,11 +414,11 @@ final class CardGenerationModel {
 
     // MARK: Single call
 
-    private func runSingle(word: String) async throws {
-        let result = try await generateCard(for: word)
+    private func runSingle(word: String, backend: ModelBackend) async throws {
+        let result = try await generateCard(for: word, backend: backend)
         try Task.checkCancellation()
         appendLog(label: "single-call card", result: result)
-        card = SpikeCard(card: result.content)
+        card = SpikeCard(card: result.content, backend: backend)
         firstCardElapsed = result.elapsed
         fullCardElapsed = result.elapsed
         print("time to first card = time to full card: \(result.elapsed.spikeFormatted) (1 call)")
@@ -329,20 +428,22 @@ final class CardGenerationModel {
 
     /// `asWordNetFallback` is set when WordNet mode handed the word over (function word or not in the
     /// bundle): then a verifier that rejects every sense means "not found", not "show sense 1 anyway".
-    private func runSplit(word: String, asWordNetFallback: Bool = false) async throws {
+    private func runSplit(word: String, backend: ModelBackend, asWordNetFallback: Bool = false) async throws {
         let clock = ContinuousClock()
         let start = clock.now
 
-        let sensesResult = try await generateSenses(for: word)
+        let sensesResult = try await generateSenses(for: word, backend: backend)
         try Task.checkCancellation()
         appendLog(label: "senses", result: sensesResult)
-        card = SpikeCard(senses: sensesResult.content)
+        card = SpikeCard(senses: sensesResult.content, backend: backend)
         sensesElapsed = clock.now - start
+        logPCCQuota(after: "senses call", backend: backend)
 
         var senses = sensesResult.content.senses
         if verifySenses {
-            senses = try await verify(word: word, senses: senses)
+            senses = try await verify(word: word, senses: senses, backend: backend)
             try Task.checkCancellation()
+            logPCCQuota(after: "verification", backend: backend)
             if senses.isEmpty {
                 let total = sensesResult.content.senses.count
                 let rejected = "the verifier rejected all \(total) model sense\(total == 1 ? "" : "s")"
@@ -359,24 +460,25 @@ final class CardGenerationModel {
                 print(verificationNote ?? "")
                 senses = Array(sensesResult.content.senses.prefix(1))
             }
-            card?.senses = senses.map(SpikeSense.init)
+            card?.senses = senses.map { SpikeSense($0, backend: backend) }
         }
 
-        try await runAllExamples(word: word, senses: senses.map(SpikeSense.init), since: start)
+        try await runAllExamples(word: word, senses: senses.map { SpikeSense($0, backend: backend) }, backend: backend, since: start)
     }
 
     // MARK: WordNet + model
 
-    private func runWordNet(word: String) async throws {
+    private func runWordNet(word: String, backend: ModelBackend) async throws {
         let clock = ContinuousClock()
         let start = clock.now
+        let fallbackName = backend == .privateCloudCompute ? "PCC-only senses call" : "model-only senses call"
 
         // Closed-class words never reach the bundle (issue #11, decision 3).
         let isFunctionWord = await WordNetLookup.shared.isFunctionWord(word)
         try Task.checkCancellation()
         if isFunctionWord {
             lookupElapsed = clock.now - start
-            try await fallBackToModel(word: word, note: "WordNet: \"\(word)\" is a function word → model-only senses call")
+            try await fallBackToModel(word: word, backend: backend, note: "WordNet: \"\(word)\" is a function word → \(fallbackName)")
             return
         }
 
@@ -385,7 +487,7 @@ final class CardGenerationModel {
         lookupElapsed = clock.now - start
 
         guard let entry, !entry.top.isEmpty else {
-            try await fallBackToModel(word: word, note: "WordNet: \"\(word)\" not found → model-only senses call")
+            try await fallBackToModel(word: word, backend: backend, note: "WordNet: \"\(word)\" not found → \(fallbackName)")
             return
         }
 
@@ -398,32 +500,34 @@ final class CardGenerationModel {
         rawLog += "--- \(note) (\(lookupElapsed?.spikeFormatted ?? "?")) ---\n\(kept)\n\n"
         print("\(note)\n\(kept)")
 
-        card = SpikeCard(headword: word, wordNet: entry.top)
+        card = SpikeCard(headword: word, wordNet: entry.top, backend: backend)
 
         // One writing call per sense, one after another (few and cheap). A failed call keeps the
         // sense with the raw gloss as its definition rather than dropping a sense WordNet vouches for.
         phase = .writingSenses(done: 0, total: entry.top.count)
         for (index, sense) in entry.top.enumerated() {
             let label = "write: sense \(index + 1) (\(sense.partOfSpeech.name)) \"\(sense.gloss)\""
-            let outcome = await Self.runWriting(word: word, sense: sense)
+            let outcome = await Self.runWriting(word: word, sense: sense, backend: backend)
             try Task.checkCancellation()
             switch outcome {
             case let .success(result):
                 appendLog(label: label, result: result)
-                card?.senses[index] = SpikeSense(wordNet: sense, writing: result.content)
+                card?.senses[index] = SpikeSense(wordNet: sense, writing: result.content, writer: backend)
             case let .failure(error):
                 callCount += 1
-                rawLog += "--- \(label) FAILED, gloss kept as definition ---\n\(error)\n\n"
-                print("\(label) failed, gloss kept: \(error)")
+                let described = PCCStatus.describe(error)
+                rawLog += "--- \(label) FAILED, gloss kept as definition ---\n\(described)\n\n"
+                print("\(label) failed, gloss kept: \(described)")
             }
             phase = .writingSenses(done: index + 1, total: entry.top.count)
         }
         sensesElapsed = clock.now - start
+        logPCCQuota(after: "writing calls", backend: backend)
 
         try await translateCard()
 
         guard let senses = card?.senses else { return }
-        try await runAllExamples(word: word, senses: senses, since: start)
+        try await runAllExamples(word: word, senses: senses, backend: backend, since: start)
     }
 
     /// Translation framework, en→ru: one batch per sense (its definition and synonyms). Without the
@@ -460,21 +564,22 @@ final class CardGenerationModel {
     }
 
     /// The model-only (split) flow for a word WordNet cannot serve, with the reason on screen and in the log.
-    private func fallBackToModel(word: String, note: String) async throws {
+    private func fallBackToModel(word: String, backend: ModelBackend, note: String) async throws {
         wordNetNote = note
         rawLog += "--- \(note) (\(lookupElapsed?.spikeFormatted ?? "?")) ---\n\n"
         print(note)
         phase = .generatingSenses
-        try await runSplit(word: word, asWordNetFallback: true)
+        try await runSplit(word: word, backend: backend, asWordNetFallback: true)
     }
 
     /// Nonisolated so the call runs off the main actor, like the example calls.
     private nonisolated static func runWriting(
         word: String,
-        sense: WordNetSense
+        sense: WordNetSense,
+        backend: ModelBackend
     ) async -> Result<ModelCallResult<SenseWriting>, any Error> {
         do {
-            return try .success(await writeSense(word: word, sense: sense))
+            return try .success(await writeSense(word: word, sense: sense, backend: backend))
         } catch {
             return .failure(error)
         }
@@ -484,18 +589,19 @@ final class CardGenerationModel {
 
     /// Neutral example per sense (then "time to first card"), then one example per
     /// (sense, topic) ("time to full card"). `senses` are the card's senses in order.
-    private func runAllExamples(word: String, senses: [SpikeSense], since start: ContinuousClock.Instant) async throws {
+    private func runAllExamples(word: String, senses: [SpikeSense], backend: ModelBackend, since start: ContinuousClock.Instant) async throws {
         let clock = ContinuousClock()
         let neutralJobs = senses.indices.map {
             ExampleJob(senseIndex: $0, partOfSpeech: senses[$0].partOfSpeech, definition: senses[$0].definition, topic: nil)
         }
         phase = .generatingNeutralExamples(done: 0, total: neutralJobs.count)
-        try await runExamples(word: word, jobs: neutralJobs) { done, total in
+        try await runExamples(word: word, jobs: neutralJobs, backend: backend) { done, total in
             .generatingNeutralExamples(done: done, total: total)
         }
         try Task.checkCancellation()
         firstCardElapsed = clock.now - start
         print("time to first card: \((clock.now - start).spikeFormatted) (\(callCount) calls)")
+        logPCCQuota(after: "neutral examples (first card)", backend: backend)
 
         let topicJobs = senses.indices.flatMap { index in
             GrammarTopic.active.map {
@@ -503,12 +609,13 @@ final class CardGenerationModel {
             }
         }
         phase = .generatingTopicExamples(done: 0, total: topicJobs.count)
-        try await runExamples(word: word, jobs: topicJobs) { done, total in
+        try await runExamples(word: word, jobs: topicJobs, backend: backend) { done, total in
             .generatingTopicExamples(done: done, total: total)
         }
         try Task.checkCancellation()
         fullCardElapsed = clock.now - start
         print("time to full card: \((clock.now - start).spikeFormatted) (\(callCount) calls)")
+        logPCCQuota(after: "topic examples (full card)", backend: backend)
     }
 
     // MARK: Verification
@@ -517,14 +624,14 @@ final class CardGenerationModel {
     /// to keep, in their original order — possibly none; the caller decides what an empty list
     /// means. A verification call that *fails* keeps its sense, so a flaky model never empties the
     /// card; only an explicit "no" drops one.
-    private func verify(word: String, senses: [GeneratedSenseCore]) async throws -> [GeneratedSenseCore] {
+    private func verify(word: String, senses: [GeneratedSenseCore], backend: ModelBackend) async throws -> [GeneratedSenseCore] {
         phase = .verifyingSenses(done: 0, total: senses.count)
         var kept: [GeneratedSenseCore] = []
         var rejected: [Int] = []
 
         for (index, sense) in senses.enumerated() {
             let label = "verify: sense \(index + 1) (\(sense.partOfSpeech.rawValue)) \"\(sense.definition)\""
-            let outcome = await Self.runVerification(word: word, sense: sense)
+            let outcome = await Self.runVerification(word: word, sense: sense, backend: backend)
             try Task.checkCancellation()
             switch outcome {
             case let .success(result):
@@ -538,8 +645,9 @@ final class CardGenerationModel {
                 }
             case let .failure(error):
                 callCount += 1
-                rawLog += "--- \(label) FAILED, sense kept ---\n\(error)\n\n"
-                print("\(label) failed, sense kept: \(error)")
+                let described = PCCStatus.describe(error)
+                rawLog += "--- \(label) FAILED, sense kept ---\n\(described)\n\n"
+                print("\(label) failed, sense kept: \(described)")
                 kept.append(sense)
             }
             phase = .verifyingSenses(done: index + 1, total: senses.count)
@@ -555,10 +663,11 @@ final class CardGenerationModel {
     /// Nonisolated so the call runs off the main actor, like the example calls.
     private nonisolated static func runVerification(
         word: String,
-        sense: GeneratedSenseCore
+        sense: GeneratedSenseCore,
+        backend: ModelBackend
     ) async -> Result<ModelCallResult<SenseVerdict>, any Error> {
         do {
-            return try .success(await verifySense(word: word, sense: sense))
+            return try .success(await verifySense(word: word, sense: sense, backend: backend))
         } catch {
             return .failure(error)
         }
@@ -587,6 +696,7 @@ final class CardGenerationModel {
     private func runExamples(
         word: String,
         jobs: [ExampleJob],
+        backend: ModelBackend,
         phaseFor: (_ done: Int, _ total: Int) -> Phase
     ) async throws {
         let limit = parallelExamples ? 3 : 1
@@ -596,7 +706,7 @@ final class CardGenerationModel {
             var pending = jobs.makeIterator()
             for _ in 0..<limit {
                 guard let job = pending.next() else { break }
-                group.addTask { await Self.runExample(word: word, job: job) }
+                group.addTask { await Self.runExample(word: word, job: job, backend: backend) }
             }
             for try await outcome in group {
                 try Task.checkCancellation()
@@ -604,20 +714,21 @@ final class CardGenerationModel {
                 done += 1
                 phase = phaseFor(done, jobs.count)
                 if let job = pending.next() {
-                    group.addTask { await Self.runExample(word: word, job: job) }
+                    group.addTask { await Self.runExample(word: word, job: job, backend: backend) }
                 }
             }
         }
     }
 
     /// Nonisolated so a task-group child can run it off the main actor.
-    private nonisolated static func runExample(word: String, job: ExampleJob) async -> ExampleOutcome {
+    private nonisolated static func runExample(word: String, job: ExampleJob, backend: ModelBackend) async -> ExampleOutcome {
         do {
             let result = try await generateExample(
                 word: word,
                 partOfSpeech: job.partOfSpeech,
                 definition: job.definition,
-                topic: job.topic
+                topic: job.topic,
+                backend: backend
             )
             return ExampleOutcome(job: job, result: .success(result))
         } catch {
@@ -641,8 +752,9 @@ final class CardGenerationModel {
             text = trimmed.isEmpty ? "⚠︎ empty (neutral example is mandatory)" : trimmed
         case let .failure(error):
             callCount += 1
-            rawLog += "--- \(outcome.job.label) FAILED ---\n\(error)\n\n"
-            print("\(outcome.job.label) failed: \(error)")
+            let described = PCCStatus.describe(error)
+            rawLog += "--- \(outcome.job.label) FAILED ---\n\(described)\n\n"
+            print("\(outcome.job.label) failed: \(described)")
             text = "⚠︎ failed: \(error.localizedDescription)"
         }
         card?.senses[outcome.job.senseIndex].examples.append(

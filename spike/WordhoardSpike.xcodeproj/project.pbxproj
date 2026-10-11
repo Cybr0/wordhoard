@@ -16,12 +16,14 @@
 		8216C7FE1D3BD5A6D00F0588 /* OEWN-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D4AE6EF0CAC8E7642BA63CA1 /* OEWN-LICENSE.txt */; };
 		A823071433FDF410E0155072 /* WordNetLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED1209E9448D1237D16A5C5C /* WordNetLookup.swift */; };
 		C511E21D3761B5A7C1FC2574 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC3C3A43961F6215DF9F98D /* ContentView.swift */; };
+		F58BB10EBA02B29F72FB7877 /* PCCStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F2947B1A08BE953D170A604 /* PCCStatus.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		02665B3F1B6E94FFB545279C /* WordhoardSpike.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WordhoardSpike.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0CF6FA18178B9ADE94DEEA92 /* CardGenerationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardGenerationModel.swift; sourceTree = "<group>"; };
 		47738B4C2DC73C27160F877F /* WordhoardSpikeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordhoardSpikeApp.swift; sourceTree = "<group>"; };
+		5F2947B1A08BE953D170A604 /* PCCStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PCCStatus.swift; sourceTree = "<group>"; };
 		6B786C8470EA43BC7FDAA7BC /* CardGeneration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardGeneration.swift; sourceTree = "<group>"; };
 		7FC3C3A43961F6215DF9F98D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		D4AE6EF0CAC8E7642BA63CA1 /* OEWN-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OEWN-LICENSE.txt"; sourceTree = "<group>"; };
@@ -64,6 +66,7 @@
 				6B786C8470EA43BC7FDAA7BC /* CardGeneration.swift */,
 				0CF6FA18178B9ADE94DEEA92 /* CardGenerationModel.swift */,
 				7FC3C3A43961F6215DF9F98D /* ContentView.swift */,
+				5F2947B1A08BE953D170A604 /* PCCStatus.swift */,
 				F52D6B33B6D8AC9DC5C4F3D5 /* SpikeTranslator.swift */,
 				47738B4C2DC73C27160F877F /* WordhoardSpikeApp.swift */,
 				ED1209E9448D1237D16A5C5C /* WordNetLookup.swift */,
@@ -148,6 +151,7 @@
 				0D86ED4B5A728C97C6396C8E /* CardGeneration.swift in Sources */,
 				298195004003EDF0B76CE7EF /* CardGenerationModel.swift in Sources */,
 				C511E21D3761B5A7C1FC2574 /* ContentView.swift in Sources */,
+				F58BB10EBA02B29F72FB7877 /* PCCStatus.swift in Sources */,
 				1CFFCD3AAFFA5EA9DFC4EE5A /* SpikeTranslator.swift in Sources */,
 				A823071433FDF410E0155072 /* WordNetLookup.swift in Sources */,
 				1098EFA05BABCDF1664BBF6E /* WordhoardSpikeApp.swift in Sources */,

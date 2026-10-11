@@ -15,6 +15,12 @@
 //     learner definition, then the same example calls as split mode. Translation in
 //     that mode is the Translation framework (SpikeTranslator.swift), not the model.
 //     Falls back to the split path for function words and words WordNet lacks.
+//   - "PCC + model" (issue #15): the WordNet path above, or the single call, with every
+//     model call sent to Apple's server model instead (`ModelBackend.privateCloudCompute`,
+//     iOS 27). Same prompts, same @Generable types — this is a probe, not a tuning pass.
+//
+// Every model call goes through `respond(...)` below, which is the one place a
+// `LanguageModelSession` is created and the one place the backend is chosen.
 //
 // Throwaway code. Not held to the root CLAUDE.md conventions (print is fine here).
 
@@ -89,6 +95,28 @@ extension PartOfSpeech {
 }
 
 let generationOptions = GenerationOptions(temperature: 0.3)
+
+/// Reasoning level for every PCC call (issue #15). `.light` is the cheapest level the server
+/// model offers; the launch log and every `[pcc]` log line say which level was used. On-device
+/// calls do not take context options (the iOS 26 `respond` overload has none).
+@available(iOS 27, *)
+let pccReasoningLevel: ContextOptions.ReasoningLevel = .light
+
+@available(iOS 27, *)
+var pccContextOptions: ContextOptions {
+    ContextOptions(includeSchemaInPrompt: true, reasoningLevel: pccReasoningLevel)
+}
+
+@available(iOS 27, *)
+var pccReasoningLevelName: String {
+    switch pccReasoningLevel {
+    case .light: return "light"
+    case .moderate: return "moderate"
+    case .deep: return "deep"
+    case let .custom(name): return "custom(\(name))"
+    @unknown default: return String(describing: pccReasoningLevel)
+    }
+}
 
 // MARK: - Split path, call 1: senses only
 
@@ -320,30 +348,56 @@ struct ModelCallResult<Content: Sendable>: Sendable {
 }
 
 /// Runs one structured generation in a fresh `LanguageModelSession`, so no transcript
-/// accumulates between calls and the context never grows. Caller must check
-/// `SystemLanguageModel.default.availability` first; this does not.
+/// accumulates between calls and the context never grows. Caller must check availability
+/// first (`SystemLanguageModel.default.availability`, or `PCCStatus.shared.isAvailable` for
+/// the PCC backend); this does not.
+///
+/// `.privateCloudCompute` (issue #15) creates the session with
+/// `LanguageModelSession(model: PrivateCloudComputeLanguageModel(), …)` and passes
+/// `pccContextOptions` (reasoning level); it is only reachable on iOS 27 — on older systems it
+/// throws `PCCUnsupportedError` without touching the framework. Every PCC attempt is counted in
+/// `PCCStatus.shared` before the call, so failed requests count too.
 private func respond<Content: Generable & Sendable>(
+    backend: ModelBackend,
     instructions: String,
     prompt: String,
     generating type: Content.Type,
     label: String
 ) async throws -> ModelCallResult<Content> {
-    let session = LanguageModelSession(instructions: instructions)
     let clock = ContinuousClock()
     let start = clock.now
+    let response: LanguageModelSession.Response<Content>
+    let tag: String
 
-    let response = try await session.respond(to: prompt, generating: type, options: generationOptions)
+    switch backend {
+    case .onDevice:
+        tag = ""
+        let session = LanguageModelSession(instructions: instructions)
+        response = try await session.respond(to: prompt, generating: type, options: generationOptions)
+    case .privateCloudCompute:
+        guard #available(iOS 27, *) else { throw PCCUnsupportedError() }
+        tag = " [pcc, reasoning: \(pccReasoningLevelName)]"
+        await PCCStatus.shared.noteRequest(label: label)
+        let session = LanguageModelSession(model: PrivateCloudComputeLanguageModel(), instructions: instructions)
+        response = try await session.respond(
+            to: prompt,
+            generating: type,
+            options: generationOptions,
+            contextOptions: pccContextOptions
+        )
+    }
 
     let elapsed = clock.now - start
     let rawJSON = response.rawContent.jsonString
-    print("=== \(label) (\(elapsed.spikeFormatted)) ===")
+    print("=== \(label)\(tag) (\(elapsed.spikeFormatted)) ===")
     print(rawJSON)
     return ModelCallResult(content: response.content, rawJSON: rawJSON, elapsed: elapsed)
 }
 
 /// Split path, call 1.
-func generateSenses(for word: String) async throws -> ModelCallResult<GeneratedSenses> {
+func generateSenses(for word: String, backend: ModelBackend) async throws -> ModelCallResult<GeneratedSenses> {
     try await respond(
+        backend: backend,
         instructions: sensesInstructions,
         prompt: sensesPrompt(for: word),
         generating: GeneratedSenses.self,
@@ -352,8 +406,9 @@ func generateSenses(for word: String) async throws -> ModelCallResult<GeneratedS
 }
 
 /// Split path, verification. One fresh session per sense.
-func verifySense(word: String, sense: GeneratedSenseCore) async throws -> ModelCallResult<SenseVerdict> {
+func verifySense(word: String, sense: GeneratedSenseCore, backend: ModelBackend) async throws -> ModelCallResult<SenseVerdict> {
     try await respond(
+        backend: backend,
         instructions: verificationInstructions,
         prompt: verificationPrompt(word: word, sense: sense),
         generating: SenseVerdict.self,
@@ -362,8 +417,9 @@ func verifySense(word: String, sense: GeneratedSenseCore) async throws -> ModelC
 }
 
 /// WordNet path: learner definition for one WordNet sense. One fresh session per sense.
-func writeSense(word: String, sense: WordNetSense) async throws -> ModelCallResult<SenseWriting> {
+func writeSense(word: String, sense: WordNetSense, backend: ModelBackend) async throws -> ModelCallResult<SenseWriting> {
     try await respond(
+        backend: backend,
         instructions: senseWritingInstructions,
         prompt: senseWritingPrompt(word: word, sense: sense),
         generating: SenseWriting.self,
@@ -376,9 +432,11 @@ func generateExample(
     word: String,
     partOfSpeech: PartOfSpeech,
     definition: String,
-    topic: GrammarTopic?
+    topic: GrammarTopic?,
+    backend: ModelBackend
 ) async throws -> ModelCallResult<GeneratedExampleText> {
     try await respond(
+        backend: backend,
         instructions: exampleInstructions,
         prompt: examplePrompt(word: word, partOfSpeech: partOfSpeech, definition: definition, topic: topic),
         generating: GeneratedExampleText.self,
@@ -386,9 +444,13 @@ func generateExample(
     )
 }
 
-/// Single path: the whole card in one call.
-func generateCard(for word: String) async throws -> ModelCallResult<GeneratedCard> {
+/// Single path: the whole card in one call. On PCC this is issue #15 variant (b), "PCC alone":
+/// the same `GeneratedCard` and guides (`senses` 1…4, `examples` 1…4 per sense = one neutral
+/// plus one per active topic) — those already equal the limits the issue suggests for the
+/// larger context, so nothing is widened for PCC and the on-device limits are untouched.
+func generateCard(for word: String, backend: ModelBackend) async throws -> ModelCallResult<GeneratedCard> {
     try await respond(
+        backend: backend,
         instructions: cardInstructions,
         prompt: cardPrompt(for: word),
         generating: GeneratedCard.self,
