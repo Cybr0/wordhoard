@@ -61,14 +61,24 @@ struct CallFailure: Sendable {
     init(label: String, error: any Error) {
         self.label = label
         description = String(describing: error)
+        isRefusal = Self.isRefusal(error)
+    }
+
+    /// iOS 27 throws the top-level `LanguageModelError`; iOS 26 the session's `GenerationError`.
+    private static func isRefusal(_ error: any Error) -> Bool {
         if let generationError = error as? LanguageModelSession.GenerationError {
             switch generationError {
-            case .guardrailViolation, .refusal: isRefusal = true
-            default: isRefusal = false
+            case .guardrailViolation, .refusal: return true
+            default: return false
             }
-        } else {
-            isRefusal = false
         }
+        if #available(iOS 27, *), let modelError = error as? LanguageModelError {
+            switch modelError {
+            case .guardrailViolation, .refusal: return true
+            default: return false
+            }
+        }
+        return false
     }
 }
 
