@@ -35,7 +35,7 @@ Before pushing:
 ```
 swiftformat . && swiftlint
 cd WordhoardCore && swift test
-xcodebuild -scheme Wordhoard -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+xcodebuild -scheme Wordhoard -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
 All green, or you say exactly what is still red and why.

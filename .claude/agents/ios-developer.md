@@ -34,7 +34,7 @@ Before pushing:
 ```
 swiftformat . && swiftlint
 cd WordhoardCore && swift test
-xcodebuild -scheme Wordhoard -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+xcodebuild -scheme Wordhoard -destination 'platform=iOS Simulator,name=iPhone 17' build
 ```
 
 All three must pass. If the simulator name differs on this Mac, use what `xcrun simctl list devices available` shows.

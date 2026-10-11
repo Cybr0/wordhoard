@@ -24,9 +24,9 @@ Rule of thumb: if it can be unit-tested without a simulator, it belongs in `Word
 ## Tooling
 
 - Xcode project is generated: `xcodegen generate`. Never edit `Wordhoard.xcodeproj` by hand; edit `project.yml`. The `.xcodeproj` is committed so the project opens without XcodeGen installed, but regenerate after any `project.yml` change.
-- Build: `xcodebuild -scheme Wordhoard -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`
+- Build: `xcodebuild -scheme Wordhoard -destination 'platform=iOS Simulator,name=iPhone 17' build`
 - Core tests (fast, no simulator): `cd WordhoardCore && swift test`
-- All tests: `xcodebuild -scheme Wordhoard -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test`
+- All tests: `xcodebuild -scheme Wordhoard -destination 'platform=iOS Simulator,name=iPhone 17' test`
 - Format: `swiftformat .` (config in `.swiftformat`), lint: `swiftlint`. Run both before opening a PR.
 - Adjust the simulator name to whatever `xcrun simctl list devices available` shows if the above is missing.
 
