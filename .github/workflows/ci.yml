@@ -63,13 +63,16 @@ jobs:
         run: swift test
         working-directory: WordhoardCore
 
+      # First iPhone on an iOS 27 runtime only: an iOS 26 runtime on the image would be rejected by
+      # xcodebuild because the deployment target is 27.0.
       - name: Pick simulator
         id: sim
         run: |
           SIM=$(xcrun simctl list devices available -j \
-            | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].name')
+            | jq -r '[.devices | to_entries[] | select(.key | test("iOS-27")) | .value[]
+                      | select(.name | startswith("iPhone"))][0].name')
           if [ -z "$SIM" ] || [ "$SIM" = "null" ]; then
-            echo "No iPhone simulator available"; xcrun simctl list devices available; exit 1
+            echo "No iPhone simulator on an iOS 27 runtime"; xcrun simctl list devices available; exit 1
           fi
           echo "Using simulator: $SIM"
           echo "name=$SIM" >> "$GITHUB_OUTPUT"
