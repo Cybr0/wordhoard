@@ -125,7 +125,12 @@ bundle: the log and the screen say `WordNet: "<word>" is a function word → mod
 The file is one lowercase lemma per line, `#` comments allowed, matched against the normalised
 headword; `--check` applies it too when it sits next to the bundle. **Not in the bundle:** `by the
 book`, `break the ice`, `asdfgh` from the regression list give `WordNet: "<word>" not found →
-model-only senses call`. In both cases the split flow above runs, including its verification toggle.
+model-only senses call`. In both cases the split flow above runs, including its verification toggle,
+with one difference — the **unknown-word policy** (issue #11, decision 6): when the verifier is on
+and rejects *every* model sense, the card is not shown at all; the screen and log say `Not found. Add
+senses manually.` instead of displaying the invented sense (the first device run showed *asdfgh*
+with an invented sense the verifier had already said no to). With the verifier off the model's
+senses are shown as they are, as before. WordNet-sourced senses are never verified.
 Recent senses missing from WordNet (*gaslight* as a verb) are **not** a trigger: the noun sense is
 shown and the user adds the verb manually — accepted limitation for v1. The card marks every
 sense with its source: `Sense 1 — verb [wordnet]` or `[model]`; WordNet senses also show the gloss

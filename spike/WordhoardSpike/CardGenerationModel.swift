@@ -16,7 +16,9 @@
 //   4. one neutral example per sense         → "time to first card"
 //   5. one example per (sense, topic)        → "time to full card"
 // When the word is on the function-word stoplist (however, despite, …) or WordNet has
-// no entry for it, the split flow above runs instead and the log says so.
+// no entry for it, the split flow above runs instead and the log says so. In that fallback,
+// if the verifier is on and rejects every model sense, the card says "Not found. Add senses
+// manually." rather than showing an invented sense (unknown-word policy, issue #11).
 //
 // Throwaway code. Not held to the root CLAUDE.md conventions (print is fine here).
 
@@ -189,8 +191,9 @@ final class CardGenerationModel {
 
     private(set) var phase: Phase = .idle
     private(set) var card: SpikeCard?
-    /// What verification did to the sense list, when it changed anything. Set to a warning when
-    /// every sense was rejected and the first one was kept unverified rather than showing nothing.
+    /// What verification did to the sense list, when it changed anything. When every sense was
+    /// rejected: in split mode the first one is kept unverified and this says so; in the WordNet
+    /// fallback the card is dropped and this reads "Not found. Add senses manually."
     private(set) var verificationNote: String?
     /// WordNet mode: what the lookup found, or why the model took over (function word, not found).
     private(set) var wordNetNote: String?
@@ -324,7 +327,9 @@ final class CardGenerationModel {
 
     // MARK: Split calls
 
-    private func runSplit(word: String) async throws {
+    /// `asWordNetFallback` is set when WordNet mode handed the word over (function word or not in the
+    /// bundle): then a verifier that rejects every sense means "not found", not "show sense 1 anyway".
+    private func runSplit(word: String, asWordNetFallback: Bool = false) async throws {
         let clock = ContinuousClock()
         let start = clock.now
 
@@ -338,6 +343,22 @@ final class CardGenerationModel {
         if verifySenses {
             senses = try await verify(word: word, senses: senses)
             try Task.checkCancellation()
+            if senses.isEmpty {
+                let total = sensesResult.content.senses.count
+                let rejected = "the verifier rejected all \(total) model sense\(total == 1 ? "" : "s")"
+                if asWordNetFallback {
+                    // Unknown-word policy (issue #11, decision 6): nothing vouches for this word, so
+                    // do not show the invented sense.
+                    verificationNote = "Not found. Add senses manually. (WordNet has no usable entry and \(rejected).)"
+                    rawLog += "--- \"\(word)\": not found — WordNet has no usable entry and \(rejected) ---\n\n"
+                    print("\"\(word)\": not found — WordNet has no usable entry and \(rejected)")
+                    card = nil
+                    return
+                }
+                verificationNote = "⚠︎ Verification rejected all \(total) sense\(total == 1 ? "" : "s"); showing sense 1 unverified."
+                print(verificationNote ?? "")
+                senses = Array(sensesResult.content.senses.prefix(1))
+            }
             card?.senses = senses.map(SpikeSense.init)
         }
 
@@ -444,7 +465,7 @@ final class CardGenerationModel {
         rawLog += "--- \(note) (\(lookupElapsed?.spikeFormatted ?? "?")) ---\n\n"
         print(note)
         phase = .generatingSenses
-        try await runSplit(word: word)
+        try await runSplit(word: word, asWordNetFallback: true)
     }
 
     /// Nonisolated so the call runs off the main actor, like the example calls.
@@ -493,9 +514,9 @@ final class CardGenerationModel {
     // MARK: Verification
 
     /// One yes/no call per sense, one after another (they are cheap and few). Returns the senses
-    /// to keep, in their original order. A verification call that *fails* keeps its sense, so a
-    /// flaky model never empties the card; only an explicit "no" drops one. If every sense is
-    /// rejected the first one is kept and `verificationNote` says so.
+    /// to keep, in their original order — possibly none; the caller decides what an empty list
+    /// means. A verification call that *fails* keeps its sense, so a flaky model never empties the
+    /// card; only an explicit "no" drops one.
     private func verify(word: String, senses: [GeneratedSenseCore]) async throws -> [GeneratedSenseCore] {
         phase = .verifyingSenses(done: 0, total: senses.count)
         var kept: [GeneratedSenseCore] = []
@@ -524,13 +545,10 @@ final class CardGenerationModel {
             phase = .verifyingSenses(done: index + 1, total: senses.count)
         }
 
-        if kept.isEmpty, let first = senses.first {
-            verificationNote = "⚠︎ Verification rejected all \(senses.count) sense\(senses.count == 1 ? "" : "s"); showing sense 1 unverified."
-            kept = [first]
-        } else if !rejected.isEmpty {
+        if !kept.isEmpty, !rejected.isEmpty {
             verificationNote = "Verification dropped sense\(rejected.count == 1 ? "" : "s") \(rejected.map(String.init).joined(separator: ", ")) of \(senses.count)."
+            print(verificationNote ?? "")
         }
-        if let verificationNote { print(verificationNote) }
         return kept
     }
 
