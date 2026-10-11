@@ -6,7 +6,28 @@ A personal English vocabulary app for iPhone. Add a word — by typing, by askin
 
 ## Status
 
-Pre-development. The requirements are being written down before any code; see [`docs/requirements.md`](docs/requirements.md).
+Phase 1 of [`docs/plan.md`](docs/plan.md): the project skeleton builds, tests and lints; the app launches to an empty word list. Requirements are in [`docs/requirements.md`](docs/requirements.md); conventions in [`CLAUDE.md`](CLAUDE.md).
+
+## Building
+
+Xcode 27.0 with the iOS 27 SDK, plus `brew install xcodegen swiftformat swiftlint`. The Xcode project is generated from `project.yml` and committed; never edit it by hand.
+
+```sh
+xcodegen generate                                   # after any change to project.yml
+xcodebuild -scheme Wordhoard -destination 'platform=iOS Simulator,name=iPhone 17' build
+```
+
+Testing and linting:
+
+```sh
+cd WordhoardCore && swift test                      # unit tests, no simulator needed
+xcodebuild -scheme Wordhoard -destination 'platform=iOS Simulator,name=iPhone 17' test   # Core tests + UI smoke test
+swiftformat --lint . && swiftlint --strict          # what CI runs; `swiftformat .` fixes formatting
+```
+
+Use whatever iPhone `xcrun simctl list devices available` shows if `iPhone 17` is missing. CI (`.github/workflows/ci.yml`) runs lint, regenerates the project and fails on a diff, runs `swift test` and builds for a simulator on every PR and push to `main`.
+
+`spike/` is the Phase 0 spike, kept as the on-device prompt regression runner; it is a separate Xcode project outside lint and CI. See [`spike/README.md`](spike/README.md).
 
 ## What it will do
 
