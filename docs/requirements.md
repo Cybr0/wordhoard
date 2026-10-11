@@ -24,7 +24,7 @@ These were considered and deliberately deferred. See §11 for the full list and 
 
 - Backend, web app, Telegram bot, cross-platform sync via own server.
 - Subscriptions or paid tiers.
-- Languages other than English as the learning language.
+- Languages other than English as the learning language (the schema allows it; the content work does not fit v1 — see §11).
 
 ---
 
@@ -312,12 +312,14 @@ Kept so that future-us remembers why.
 | GRDB instead of SwiftData | SwiftData | GRDB was suggested for custom sync with an own server. With CloudKit, SwiftData is the simpler fit. |
 | Next.js | Not applicable | No web app. |
 | GPL license | Rejected | Incompatible with App Store distribution in practice. |
+| Other learning languages (German, Spanish, Japanese, …) | Deferred; schema is ready | The on-device model supports a dozen or so languages, but English is where it is strongest, and the author cannot judge output quality in languages they do not speak. The bigger cost is the grammar-topic catalog: it is language-specific (English tenses vs German cases vs Japanese particles) and must be written by someone who knows the language. `learningLanguage` and namespaced topic keys are stored from day one so this can be added later without migration. |
+| Native languages outside the Translation framework (Uzbek, Kazakh, …) | Deferred | Translations come from Apple's on-device Translation framework, which does not support these. Options later: static EN→xx translations from Wiktionary (CC BY-SA) or an online service behind a consent screen. Until then such users pick "No translation" and type translations by hand. |
 
 ---
 
-## Appendix A — Grammar topic catalog (initial)
+## Appendix A — Grammar topic catalog (initial, English)
 
-Keys are stable identifiers; display names may be localized later.
+Keys are stable identifiers, prefixed with the learning language in storage (`en.present_perfect`); the prefix is omitted below. Display names may be localized later.
 
 **Tenses**
 - `present_simple`, `present_continuous`, `present_perfect`, `present_perfect_continuous`
