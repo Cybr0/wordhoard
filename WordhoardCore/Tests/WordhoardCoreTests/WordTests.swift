@@ -1,0 +1,99 @@
+import Foundation
+import SwiftData
+import Testing
+import WordhoardCore
+
+@Test("a soft-deleted word is hidden from the default fetch but still stored")
+func softDeletedWordIsHiddenFromTheDefaultFetchButStillStored() throws {
+    let container = try WordhoardContainer.makeInMemory()
+    let context = ModelContext(container)
+    let kept = Word(headword: "keep")
+    let deleted = Word(headword: "drop")
+    context.insert(kept)
+    context.insert(deleted)
+    deleted.deletedAt = .now
+    try context.save()
+
+    let fresh = ModelContext(container)
+    let active = try fresh.fetch(Word.activeDescriptor())
+    #expect(active.map(\.headword) == ["keep"])
+    #expect(try fresh.fetchCount(FetchDescriptor<Word>()) == 2)
+}
+
+@Test("the default fetch is newest first")
+func defaultFetchIsNewestFirst() throws {
+    let container = try WordhoardContainer.makeInMemory()
+    let context = ModelContext(container)
+    let older = Word(headword: "older")
+    let newer = Word(headword: "newer")
+    older.createdAt = Date(timeIntervalSince1970: 1000)
+    newer.createdAt = Date(timeIntervalSince1970: 1001)
+    context.insert(older)
+    context.insert(newer)
+    try context.save()
+
+    let words = try ModelContext(container).fetch(Word.activeDescriptor())
+    #expect(words.map(\.headword) == ["newer", "older"])
+}
+
+@Test("normalized headword is lowercased, trimmed and whitespace-collapsed")
+func normalizedHeadwordIsLowercasedTrimmedAndWhitespaceCollapsed() {
+    #expect(Word.normalize("Book ") == "book")
+    #expect(Word.normalize("  look   up\n") == "look up")
+    #expect(Word.normalize("BY THE BOOK") == "by the book")
+    #expect(Word.normalize("café") == "café")
+
+    let word = Word(headword: "Book ")
+    #expect(word.headword == "Book ")
+    #expect(word.normalized == "book")
+}
+
+@Test("a new word has English as learning language and no deletion")
+func newWordHasEnglishAsLearningLanguageAndNoDeletion() {
+    let word = Word(headword: "book")
+    let other = Word(headword: "book")
+    #expect(word.learningLanguage == "en")
+    #expect(word.deletedAt == nil)
+    #expect(word.pronunciation == nil)
+    #expect(word.note == nil)
+    #expect(word.createdAt == word.updatedAt)
+    #expect(word.id != other.id)
+}
+
+@Test("normalize gives canonically equivalent headwords byte-identical keys but keeps café and cafe apart")
+func normalizeCanonicalisesUnicodeFormWithoutFoldingDiacritics() throws {
+    let decomposed = "cafe\u{301}"
+    let precomposed = "caf\u{E9}"
+    #expect(Array(decomposed.utf8) != Array(precomposed.utf8))
+    #expect(Array(Word.normalize(decomposed).utf8) == Array(Word.normalize(precomposed).utf8))
+    #expect(Word.normalize(decomposed) != Word.normalize("cafe"))
+    #expect(Word.normalize("CAFE\u{301}") == "café")
+
+    let container = try WordhoardContainer.makeInMemory()
+    let context = ModelContext(container)
+    context.insert(Word(headword: decomposed))
+    try context.save()
+
+    let key = Word.normalize(precomposed)
+    let fresh = ModelContext(container)
+    let descriptor = FetchDescriptor<Word>(predicate: #Predicate { $0.normalized == key })
+    #expect(try fresh.fetchCount(descriptor) == 1)
+    #expect(try fresh.fetch(descriptor).first?.headword == decomposed)
+}
+
+@Test("words created at the same instant come back in a stable order")
+func defaultFetchBreaksCreatedAtTiesByID() throws {
+    let container = try WordhoardContainer.makeInMemory()
+    let context = ModelContext(container)
+    let sameInstant = Date(timeIntervalSince1970: 1000)
+    let words = ["one", "two", "three", "four"].map(Word.init(headword:))
+    for word in words {
+        word.createdAt = sameInstant
+        context.insert(word)
+    }
+    try context.save()
+
+    let expected = words.sorted { $0.id < $1.id }.map(\.headword)
+    #expect(try ModelContext(container).fetch(Word.activeDescriptor()).map(\.headword) == expected)
+    #expect(try ModelContext(container).fetch(Word.activeDescriptor()).map(\.headword) == expected)
+}
