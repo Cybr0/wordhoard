@@ -26,6 +26,9 @@ public final class Word {
     @Relationship(deleteRule: .nullify, inverse: \Tag.words)
     public var tags: [Tag] = []
 
+    /// The cascade fires only when the `Word` is deleted. Assigning a new asset here does not delete
+    /// the previous one; it is left with `word == nil`, and the caller (plan task 4.1) must delete the
+    /// old record and its file explicitly.
     @Relationship(deleteRule: .cascade, inverse: \ImageAsset.word)
     public var image: ImageAsset?
 
