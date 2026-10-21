@@ -10,7 +10,7 @@ import WordhoardCore
 /// `@MainActor` closure rather than the store itself; the exporter runs on the main actor when the sheet
 /// pulls the file. An export error is logged and rethrown: the only possible failure is the SwiftData
 /// fetch the list already reports as "Couldn't load your words", so there is no second alert.
-struct ExportFile: Transferable {
+struct ExportFile: Transferable, Sendable {
     let fileName: String
     let makeData: @MainActor () throws -> Data
 
