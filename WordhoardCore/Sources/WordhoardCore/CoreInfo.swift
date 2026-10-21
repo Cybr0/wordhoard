@@ -1,3 +1,5 @@
+import Foundation
+
 /// Namespace for package-level facts about `WordhoardCore`.
 ///
 /// Models, services and the grammar catalog are added by later plan tasks; this type exists so the
@@ -7,4 +9,9 @@
 public enum CoreInfo {
     /// Semantic version of the core package.
     public static let version = "0.1.0"
+
+    /// The package's resource bundle (`GrammarCatalog/`, `WordNet/`), for tests and the About screen.
+    public static var resourceBundle: Bundle {
+        .module
+    }
 }
