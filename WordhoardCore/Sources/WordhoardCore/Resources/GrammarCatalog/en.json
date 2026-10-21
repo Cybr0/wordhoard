@@ -1,0 +1,74 @@
+{
+  "language": "en",
+  "defaultActive": [
+    "en.present_perfect",
+    "en.past_simple",
+    "en.first_conditional",
+    "en.second_conditional",
+    "en.passive_voice"
+  ],
+  "groups": [
+    {
+      "name": "Tenses",
+      "topics": [
+        { "key": "en.present_simple", "name": "Present Simple", "description": "base verb (+s), for habits, facts and routines" },
+        { "key": "en.present_continuous", "name": "Present Continuous", "description": "am/is/are + -ing, for actions in progress now or temporary situations" },
+        { "key": "en.present_perfect", "name": "Present Perfect", "description": "have/has + past participle, for actions with a result or relevance now" },
+        { "key": "en.present_perfect_continuous", "name": "Present Perfect Continuous", "description": "have/has been + -ing, for actions continuing up to now" },
+        { "key": "en.past_simple", "name": "Past Simple", "description": "past form of the verb, for finished actions at a known time" },
+        { "key": "en.past_continuous", "name": "Past Continuous", "description": "was/were + -ing, for actions in progress at a moment in the past" },
+        { "key": "en.past_perfect", "name": "Past Perfect", "description": "had + past participle, for an action completed before another past action" },
+        { "key": "en.past_perfect_continuous", "name": "Past Perfect Continuous", "description": "had been + -ing, for an action continuing up to a moment in the past" },
+        { "key": "en.future_simple", "name": "Future Simple", "description": "will + base verb, for predictions, promises and spontaneous decisions" },
+        { "key": "en.future_continuous", "name": "Future Continuous", "description": "will be + -ing, for actions in progress at a moment in the future" },
+        { "key": "en.future_perfect", "name": "Future Perfect", "description": "will have + past participle, for actions completed before a moment in the future" },
+        { "key": "en.going_to", "name": "Going to", "description": "be going to + base verb, for plans and intentions or predictions from evidence" }
+      ]
+    },
+    {
+      "name": "Conditionals",
+      "topics": [
+        { "key": "en.zero_conditional", "name": "Zero Conditional", "description": "if + present simple, present simple, for general truths and rules" },
+        { "key": "en.first_conditional", "name": "First Conditional", "description": "if + present simple, will + base verb, for real future possibilities" },
+        { "key": "en.second_conditional", "name": "Second Conditional", "description": "if + past simple, would + base verb, for hypothetical or unlikely situations" },
+        { "key": "en.third_conditional", "name": "Third Conditional", "description": "if + past perfect, would have + past participle, for imagined past outcomes" },
+        { "key": "en.mixed_conditional", "name": "Mixed Conditional", "description": "a past condition with a present result or the reverse, e.g. if I had studied, I would be a doctor" }
+      ]
+    },
+    {
+      "name": "Voice and reporting",
+      "topics": [
+        { "key": "en.passive_voice", "name": "Passive Voice", "description": "be + past participle, the subject receives the action" },
+        { "key": "en.reported_speech", "name": "Reported Speech", "description": "said/told that + shifted tense, reporting what someone said without quoting" }
+      ]
+    },
+    {
+      "name": "Modals",
+      "topics": [
+        { "key": "en.modals_ability", "name": "Modals of Ability", "description": "can/could/be able to, for being able to do something" },
+        { "key": "en.modals_obligation", "name": "Modals of Obligation", "description": "must/have to/should, for obligation, necessity and advice" },
+        { "key": "en.modals_possibility", "name": "Modals of Possibility", "description": "may/might/could, for things that are possible but not certain" },
+        { "key": "en.modals_deduction", "name": "Modals of Deduction", "description": "must be/can't be, for conclusions drawn from evidence" }
+      ]
+    },
+    {
+      "name": "Verb patterns",
+      "topics": [
+        { "key": "en.gerund_vs_infinitive", "name": "Gerund vs Infinitive", "description": "verb + -ing or verb + to-infinitive, e.g. enjoy reading, want to read" },
+        { "key": "en.phrasal_verbs", "name": "Phrasal Verbs", "description": "verb + particle with its own meaning, e.g. give up, look after" },
+        { "key": "en.used_to_would", "name": "Used to / would", "description": "used to + base verb or would + base verb, for past habits and states that no longer hold" }
+      ]
+    },
+    {
+      "name": "Other",
+      "topics": [
+        { "key": "en.comparatives_superlatives", "name": "Comparatives and Superlatives", "description": "-er/more … than and the -est/the most, for comparing" },
+        { "key": "en.relative_clauses", "name": "Relative Clauses", "description": "who/which/that/where clauses that define or add information about a noun" },
+        { "key": "en.question_tags", "name": "Question Tags", "description": "a statement followed by a short tag question, e.g. it's cold, isn't it?" },
+        { "key": "en.wish_if_only", "name": "Wish / if only", "description": "wish/if only + past tense forms, for regrets and unreal wishes" },
+        { "key": "en.articles", "name": "Articles", "description": "a/an/the or no article, chosen by whether the noun is specific, countable or general" },
+        { "key": "en.countable_uncountable", "name": "Countable and Uncountable Nouns", "description": "much/many, a little/a few, some/any with countable and uncountable nouns" }
+      ]
+    }
+  ]
+}
