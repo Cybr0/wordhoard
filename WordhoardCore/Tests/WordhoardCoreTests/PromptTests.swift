@@ -18,12 +18,42 @@ struct PromptTests {
         #expect(topical.contains("\"to reserve\""))
         #expect(topical.contains(Self.presentPerfect.name))
         #expect(topical.contains(Self.presentPerfect.description))
-        #expect(topical.contains("return an empty string"))
+        #expect(topical.contains("set fits to false instead of forcing a sentence"))
+        #expect(!topical.contains("must contain the word"))
 
         let neutral = ExamplePrompt.prompt(headword: "book", partOfSpeech: .noun, definition: "a text", topic: nil)
         #expect(neutral.hasSuffix(". Use everyday language with no special grammar."))
-        #expect(!neutral.contains("empty string"))
-        #expect(ExamplePrompt.instructions.contains("never write the word \"empty\""))
+        #expect(!neutral.contains("fits to false"))
+        #expect(ExamplePrompt.instructions.contains("set fits to false instead of forcing a sentence"))
+        #expect(ExamplePrompt.instructions.contains("When no grammar topic is given, a natural sentence always exists"))
+
+        let retry = ExamplePrompt.prompt(
+            headword: "book", partOfSpeech: .noun, definition: "a text", topic: nil, mustContainHeadword: true
+        )
+        #expect(retry.hasPrefix(neutral), "the same prompt plus one line")
+        #expect(retry.hasSuffix("\nThe sentence must contain the word \"book\" itself."))
+        #expect(ExamplePrompt
+            .mustContainLine(headword: "look up") == "The sentence must contain the word \"look up\" itself.")
+    }
+
+    @Test("no prompt text contains the word the spike's model copied into its examples")
+    func promptsNeverSayTheBannedWord() {
+        let texts = [
+            SensesPrompt.instructions, VerifierPrompt.instructions, DefinitionPrompt.instructions,
+            ExamplePrompt.instructions,
+            SensesPrompt.prompt(headword: "book", wordClass: .preposition),
+            VerifierPrompt.prompt(headword: "book", partOfSpeech: .noun, definition: "a text", wordClass: .adverb),
+            ExamplePrompt.prompt(
+                headword: "book", partOfSpeech: .noun, definition: "a text", topic: Self.presentPerfect,
+                mustContainHeadword: true
+            ),
+            DefinitionPrompt.prompt(headword: "book", sense: WordNetSense(
+                partOfSpeech: .noun, gloss: "a text", synonyms: [], antonyms: [], example: nil
+            )),
+        ]
+        for text in texts {
+            #expect(!text.lowercased().contains("empty"), "\(text.prefix(40))…")
+        }
     }
 
     @Test("the definition prompt carries gloss, synonyms and the WordNet example, each only when present")

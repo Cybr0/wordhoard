@@ -13,7 +13,13 @@ public final class ScriptedModelCalls: ModelCalls {
         case proposeSenses(headword: String, wordClass: FunctionWordClass?)
         case verify(headword: String, sense: ProposedSense, wordClass: FunctionWordClass?)
         case writeDefinition(headword: String, sense: WordNetSense)
-        case writeExample(headword: String, partOfSpeech: PartOfSpeech, definition: String, topic: GrammarTopic?)
+        case writeExample(
+            headword: String,
+            partOfSpeech: PartOfSpeech,
+            definition: String,
+            topic: GrammarTopic?,
+            mustContainHeadword: Bool
+        )
 
         /// The method name, for counting.
         public var method: Method {
@@ -34,13 +40,18 @@ public final class ScriptedModelCalls: ModelCalls {
     }
 
     /// The answers. Defaults: no proposed senses, every verdict yes, `"def:<gloss>"`,
-    /// `"I <part of speech> the <headword>"` for every example.
+    /// `"I <part of speech> the <headword>"` for every example (it contains the headword, so the
+    /// generator's headword check passes). The example closure's last argument is `mustContainHeadword`.
     public struct Script: Sendable {
         public var proposeSenses: @Sendable (_ headword: String) throws -> [ProposedSense]
         public var verify: @Sendable (_ headword: String, _ sense: ProposedSense) throws -> Bool
         public var writeDefinition: @Sendable (_ headword: String, _ sense: WordNetSense) throws -> String
         public var writeExample: @Sendable (
-            _ headword: String, _ partOfSpeech: PartOfSpeech, _ definition: String, _ topic: GrammarTopic?
+            _ headword: String,
+            _ partOfSpeech: PartOfSpeech,
+            _ definition: String,
+            _ topic: GrammarTopic?,
+            _ mustContainHeadword: Bool
         ) throws -> ExampleAnswer
 
         public init(
@@ -49,8 +60,8 @@ public final class ScriptedModelCalls: ModelCalls {
             writeDefinition: @escaping @Sendable (String, WordNetSense) throws -> String = { _, sense in
                 "def:\(sense.gloss)"
             },
-            writeExample: @escaping @Sendable (String, PartOfSpeech, String, GrammarTopic?) throws
-                -> ExampleAnswer = { headword, partOfSpeech, _, _ in
+            writeExample: @escaping @Sendable (String, PartOfSpeech, String, GrammarTopic?, Bool) throws
+                -> ExampleAnswer = { headword, partOfSpeech, _, _, _ in
                     .text("I \(partOfSpeech.rawValue) the \(headword)")
                 }
         ) {
@@ -110,15 +121,17 @@ public final class ScriptedModelCalls: ModelCalls {
         headword: String,
         partOfSpeech: PartOfSpeech,
         definition: String,
-        topic: GrammarTopic?
+        topic: GrammarTopic?,
+        mustContainHeadword: Bool
     ) async throws -> ExampleAnswer {
         try await record(.writeExample(
             headword: headword,
             partOfSpeech: partOfSpeech,
             definition: definition,
-            topic: topic
+            topic: topic,
+            mustContainHeadword: mustContainHeadword
         ))
-        return try script.writeExample(headword, partOfSpeech, definition, topic)
+        return try script.writeExample(headword, partOfSpeech, definition, topic, mustContainHeadword)
     }
 
     /// Records, then sleeps `delay` (a cancelled sleep throws `CancellationError`, as the real call would).

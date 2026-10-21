@@ -19,12 +19,14 @@ public protocol ModelCalls: Sendable {
     /// WordNet path: the learner definition for one WordNet sense, written from gloss + synonyms + example.
     func writeDefinition(headword: String, sense: WordNetSense) async throws -> String
 
-    /// One example sentence for one sense; `topic == nil` is the neutral example.
+    /// One example sentence for one sense; `topic == nil` is the neutral example. `mustContainHeadword`
+    /// is the generator's one retry after the first sentence lacked the headword (2.9).
     func writeExample(
         headword: String,
         partOfSpeech: PartOfSpeech,
         definition: String,
-        topic: GrammarTopic?
+        topic: GrammarTopic?,
+        mustContainHeadword: Bool
     ) async throws -> ExampleAnswer
 }
 
@@ -47,8 +49,15 @@ public struct ProposedSense: Equatable, Sendable {
 public enum ExampleAnswer: Equatable, Sendable {
     /// A sentence, trimmed.
     case text(String)
-    /// The sense cannot use this grammar naturally (an empty answer in 2.2; plan 2.9 types it).
+    /// The sense cannot use this grammar naturally: the model set `fits` to false (plan 2.9).
     case doesNotFit
+
+    /// The model's typed reply as the seam sees it: `fits == false` **or** a blank `text` is
+    /// `.doesNotFit` (belt and braces), anything else `.text(trimmed)`.
+    public init(fits: Bool, text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        self = fits && !trimmed.isEmpty ? .text(trimmed) : .doesNotFit
+    }
 }
 
 /// How a model call fails. Cancellation is not a `ModelCallError`: `CancellationError` passes through.

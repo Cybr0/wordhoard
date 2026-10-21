@@ -70,7 +70,7 @@ struct FoundationModelsCardGeneratorPathTests {
             case let .writeDefinition(headword, sense):
                 let prompt = DefinitionPrompt.prompt(headword: headword, sense: sense)
                 #expect(glosses.filter { prompt.contains($0) } == [sense.gloss], "one gloss per definition prompt")
-            case let .writeExample(headword, partOfSpeech, definition, topic):
+            case let .writeExample(headword, partOfSpeech, definition, topic, _):
                 let prompt = ExamplePrompt.prompt(
                     headword: headword, partOfSpeech: partOfSpeech, definition: definition, topic: topic
                 )

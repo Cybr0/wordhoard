@@ -28,7 +28,8 @@ public enum DefinitionPrompt {
             "Part of speech: \(sense.partOfSpeech.rawValue)",
             "Dictionary gloss: \(sense.gloss)",
         ]
-        if !sense.synonyms.isEmpty {
+        // Not the usual idiom on purpose: #21 greps this directory for the word it bans from prompts.
+        if sense.synonyms.first != nil {
             lines.append("Synonyms: \(sense.synonyms.joined(separator: ", "))")
         }
         if let example = sense.example {

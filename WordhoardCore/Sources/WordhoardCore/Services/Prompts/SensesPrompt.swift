@@ -19,7 +19,7 @@ public enum SensesPrompt {
     - Cover every common part of speech of the word. If the word is commonly used both as a noun and as a verb, include one sense for each.
     - Each sense has exactly one part of speech. Prepositions are "preposition", conjunctions are "conjunction", determiners and pronouns are "other"; idioms and multi-word expressions are "phrase". A preposition is never an adverb.
     - Definitions are short, learner-friendly English, one sentence, no example sentences. A definition describes the meaning in general terms; it is never a sentence about a particular person or event.
-    - Synonyms and antonyms are single English words or short phrases. Give at least one synonym when any exists. Use an empty list only when there truly are none.
+    - Synonyms and antonyms are single English words or short phrases. Give at least one synonym when any exists; give none only when there truly are none.
     - Do not write example sentences in this entry.
 
     Worked example — "run" has three different meanings across two parts of speech:
@@ -68,10 +68,10 @@ struct ProposedSenseContent {
     @Guide(description: "Short learner-friendly definition in English, one sentence.")
     var definition: String
 
-    @Guide(description: "English synonyms for this sense. Empty only if none exist.", .maximumCount(5))
+    @Guide(description: "English synonyms for this sense; none only if none exist.", .maximumCount(5))
     var synonyms: [String]
 
-    @Guide(description: "English antonyms for this sense. Empty if none exist.", .maximumCount(5))
+    @Guide(description: "English antonyms for this sense; none if none exist.", .maximumCount(5))
     var antonyms: [String]
 }
 

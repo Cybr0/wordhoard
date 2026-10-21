@@ -17,7 +17,7 @@ struct GeneratorDegradationTests {
                 }
                 return "def:\(sense.gloss)"
             },
-            writeExample: { _, partOfSpeech, definition, topic in
+            writeExample: { _, partOfSpeech, definition, topic, _ in
                 if topic == nil, partOfSpeech == .noun, definition.hasPrefix("def:a written") {
                     throw ModelCallError.failed("timeout")
                 }
@@ -43,7 +43,7 @@ struct GeneratorDegradationTests {
 
     @Test("an empty neutral example is a skipped example with a note, not a sentence")
     func anEmptyNeutralExampleIsSkipped() async throws {
-        let calls = ScriptedModelCalls(script: .init(writeExample: { _, _, _, _ in .doesNotFit }))
+        let calls = ScriptedModelCalls(script: .init(writeExample: { _, _, _, _, _ in .doesNotFit }))
         let card = try await makeGenerator(calls).generateCard(makeRequest("book"))
         #expect(card.senses.allSatisfy { $0.neutralExample == nil })
         #expect(card.notes == (0 ..< 4).map { .exampleRefused(senseIndex: $0, topic: nil) })
@@ -94,7 +94,7 @@ struct GeneratorDegradationTests {
 
     @Test("topic examples carry the requested key, skip misfits and refusals, and reach the prompt builder")
     func topicExamplesCarryTheRequestedKeyAndSkipMisfits() async throws {
-        let calls = ScriptedModelCalls(script: .init(writeExample: { headword, partOfSpeech, definition, topic in
+        let calls = ScriptedModelCalls(script: .init(writeExample: { headword, partOfSpeech, definition, topic, _ in
             guard let topic else { return .text("I \(partOfSpeech.rawValue) the \(headword)") }
             if topic.key == GeneratorFixtures.passiveVoice.key, definition.hasPrefix("def:physical objects") {
                 return .doesNotFit
@@ -130,7 +130,7 @@ struct GeneratorDegradationTests {
         let topicCalls = calls.calls(.writeExample).dropFirst(4)
         #expect(topicCalls.count == 8)
         for call in topicCalls {
-            guard case let .writeExample(headword, partOfSpeech, definition, requested) = call else { continue }
+            guard case let .writeExample(headword, partOfSpeech, definition, requested, _) = call else { continue }
             let topic = try #require(requested)
             let prompt = ExamplePrompt.prompt(
                 headword: headword,

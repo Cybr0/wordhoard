@@ -78,18 +78,22 @@ public struct FoundationModelCalls: ModelCalls {
         headword: String,
         partOfSpeech: PartOfSpeech,
         definition: String,
-        topic: GrammarTopic?
+        topic: GrammarTopic?,
+        mustContainHeadword: Bool
     ) async throws -> ExampleAnswer {
-        let example = try await respond(
+        let reply = try await respond(
             instructions: ExamplePrompt.instructions,
             prompt: ExamplePrompt.prompt(
-                headword: headword, partOfSpeech: partOfSpeech, definition: definition, topic: topic
+                headword: headword,
+                partOfSpeech: partOfSpeech,
+                definition: definition,
+                topic: topic,
+                mustContainHeadword: mustContainHeadword
             ),
-            generating: ExampleText.self,
+            generating: ExampleReply.self,
             label: topic == nil ? "neutral example" : "topic example"
         )
-        let text = example.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? .doesNotFit : .text(text)
+        return ExampleAnswer(fits: reply.fits, text: reply.text)
     }
 
     // MARK: - The one session factory

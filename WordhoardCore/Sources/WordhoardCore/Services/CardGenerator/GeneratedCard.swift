@@ -42,7 +42,7 @@ public struct GeneratedSense: Equatable, Sendable {
     public var translation: String?
     public var synonyms: [String]
     public var antonyms: [String]
-    /// nil only after a refusal or drop (A6, 2.9); see `GenerationNote.exampleRefused`.
+    /// nil only after a refusal or a drop (A6, 2.9); see `GenerationNote.exampleRefused` / `.exampleDropped`.
     public var neutralExample: GeneratedExample?
 
     public init(
@@ -88,13 +88,17 @@ public struct GeneratedTopicExample: Equatable, Sendable {
     }
 }
 
-/// A field the generator could not fill (A6). Later tasks add cases (`exampleDropped` 2.9,
-/// `senseSelectionFellBack` 2.6, `translationFallback` 2.10).
+/// A field the generator could not fill (A6). Later tasks add cases (`senseSelectionFellBack` 2.6,
+/// `translationFallback` 2.10).
 public enum GenerationNote: Equatable, Sendable {
     /// The definition call was refused; the gloss is kept as the definition.
     case definitionRefused(senseIndex: Int)
-    /// That example was skipped; `topic == nil` is the neutral example.
+    /// That example was skipped: the call was refused or failed, or the model said the sense does not
+    /// fit; `topic == nil` is the neutral example.
     case exampleRefused(senseIndex: Int, topic: GrammarTopicID?)
+    /// That example was written twice without the headword and dropped (2.9); `topic == nil` is the
+    /// neutral example. Topic examples are not on the card when they drop, so only neutral ones occur.
+    case exampleDropped(senseIndex: Int, topic: GrammarTopicID?)
     /// The language pack is not installed; every `translation` is nil.
     case translationUnavailable(language: String)
 }
