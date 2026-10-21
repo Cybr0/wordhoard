@@ -40,6 +40,18 @@ struct WordCardModelEdgeCaseTests {
         return word
     }
 
+    /// `book` with the senses `a`, `b`, `c` in that order; `b` has two examples.
+    private func makeBookWithThreeSensesAndExamples() throws -> (Word, [Sense]) {
+        let word = try makeBookWithThreeSenses()
+        let middle = try #require(word.sortedSenses.first { $0.definition == "b" })
+        middle.examples = [
+            Example(text: "b one", source: .auto, order: 0),
+            Example(text: "b two", source: .auto, order: 1),
+        ]
+        try store.save(word)
+        return (word, word.sortedSenses)
+    }
+
     private func storedSense(_ id: UUID) throws -> Sense? {
         try fresh().fetch(FetchDescriptor<Sense>(predicate: #Predicate { $0.id == id })).first
     }
@@ -206,6 +218,57 @@ struct WordCardModelEdgeCaseTests {
         model.moveExamples(in: sense, fromOffsets: [0], toOffset: 99)
         #expect(sense.sortedExamples.map(\.text) == ["two", "one"])
         #expect(try storedSense(sense.id)?.sortedExamples.map(\.order) == [0, 1])
+    }
+
+    @Test("a late commit on a removed sense is dropped without a trap, a mark or a save")
+    func aLateCommitOnARemovedSenseIsDropped() throws {
+        let (word, senses) = try makeBookWithThreeSensesAndExamples()
+        let removed = senses[1]
+        let example = try #require(removed.sortedExamples.first)
+        let model = WordCardModel(word: word, store: store)
+        model.removeSense(removed)
+        let savedAt = word.updatedAt
+
+        // Every setter the view can fire from `onDisappear` or a focus change after "Remove sense".
+        model.setDefinition("late", for: removed)
+        model.setTranslation("late", for: removed)
+        model.setSynonyms("late", for: removed)
+        model.setAntonyms("late", for: removed)
+        model.setPartOfSpeech(.verb, for: removed)
+        model.setExampleText("late", for: example)
+        _ = model.addExample(to: removed)
+        model.moveExamples(in: removed, fromOffsets: [0], toOffset: 1)
+        model.removeExample(example)
+        model.removeSense(removed)
+
+        #expect(model.failure == nil)
+        #expect(word.updatedAt == savedAt)
+        #expect(model.senses.map(\.definition) == ["a", "c"])
+        #expect(try storedWord(word.id)?.sortedSenses.map(\.definition) == ["a", "c"])
+        #expect(try fresh().fetchCount(FetchDescriptor<Example>()) == 0)
+    }
+
+    @Test("a late commit on a removed example is dropped and does not touch its sense")
+    func aLateCommitOnARemovedExampleIsDropped() throws {
+        let (word, senses) = try makeBookWithThreeSensesAndExamples()
+        let sense = senses[1]
+        let removed = try #require(sense.sortedExamples.first)
+        let kept = try #require(sense.sortedExamples.last)
+        let model = WordCardModel(word: word, store: store)
+        model.removeExample(removed)
+        let savedAt = word.updatedAt
+
+        model.setExampleText("late", for: removed)
+        model.removeExample(removed)
+
+        #expect(model.failure == nil)
+        #expect(word.updatedAt == savedAt)
+        #expect(sense.sortedExamples.map(\.id) == [kept.id])
+        #expect(try storedSense(sense.id)?.sortedExamples.map(\.order) == [0])
+
+        // The sense itself is untouched and still editable.
+        model.setDefinition("still here", for: sense)
+        #expect(try storedSense(sense.id)?.definition == "still here")
     }
 
     @Test("a late example commit after its removal writes nothing back")

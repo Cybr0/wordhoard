@@ -18,7 +18,10 @@ import os
 /// identity, not a regenerable field.
 ///
 /// The model never holds a SwiftData context; removing a sense or example goes through the store's two
-/// hard-delete helpers, and `senses` is re-read from the word after every structural change.
+/// hard-delete helpers, and `senses` is re-read from the word after every structural change. A sense or
+/// example the model has removed is remembered, and any later call for it is dropped: the view commits
+/// a field on focus loss and on disappearing, so a commit can land after "Remove sense" or a
+/// swipe-delete, and touching a hard-deleted object's attributes is a SwiftData fatal error.
 @MainActor
 @Observable
 public final class WordCardModel {
@@ -51,6 +54,11 @@ public final class WordCardModel {
 
     private let store: WordStore
     private let logger = Logger(subsystem: "Wordhoard", category: "card")
+
+    /// Senses and examples this model hard-deleted, keyed by identity. The objects are retained so a
+    /// new object can never reuse a removed one's `ObjectIdentifier`; reading their attributes traps.
+    @ObservationIgnored
+    private var removed: [ObjectIdentifier: AnyObject] = [:]
 
     public init(word: Word, store: WordStore) {
         self.word = word
@@ -110,7 +118,7 @@ public final class WordCardModel {
 
     /// No provenance mark: part of speech is part of the sense's identity, not a regenerable field.
     public func setPartOfSpeech(_ partOfSpeech: PartOfSpeech, for sense: Sense) {
-        guard sense.partOfSpeech != partOfSpeech else {
+        guard !isRemoved(sense), sense.partOfSpeech != partOfSpeech else {
             return
         }
         sense.partOfSpeech = partOfSpeech
@@ -118,7 +126,7 @@ public final class WordCardModel {
     }
 
     public func setDefinition(_ text: String, for sense: Sense) {
-        guard sense.definition != text else {
+        guard !isRemoved(sense), sense.definition != text else {
             return
         }
         sense.definition = text
@@ -129,7 +137,7 @@ public final class WordCardModel {
     /// Blank text stores `nil`; clearing is an edit and marks the field `.user` like any other.
     public func setTranslation(_ text: String, for sense: Sense) {
         let translation = Self.trimmed(text).isEmpty ? nil : text
-        guard sense.translation != translation else {
+        guard !isRemoved(sense), sense.translation != translation else {
             return
         }
         sense.translation = translation
@@ -140,7 +148,7 @@ public final class WordCardModel {
     /// Stores `splitList(text)`.
     public func setSynonyms(_ text: String, for sense: Sense) {
         let synonyms = Self.splitList(text)
-        guard sense.synonyms != synonyms else {
+        guard !isRemoved(sense), sense.synonyms != synonyms else {
             return
         }
         sense.synonyms = synonyms
@@ -151,7 +159,7 @@ public final class WordCardModel {
     /// Stores `splitList(text)`.
     public func setAntonyms(_ text: String, for sense: Sense) {
         let antonyms = Self.splitList(text)
-        guard sense.antonyms != antonyms else {
+        guard !isRemoved(sense), sense.antonyms != antonyms else {
             return
         }
         sense.antonyms = antonyms
@@ -174,9 +182,16 @@ public final class WordCardModel {
     }
 
     /// Hard-deletes `sense` and its examples through the store, then renumbers the remaining senses
-    /// `0…n-1` in display order.
+    /// `0…n-1` in display order. A second call for the same sense does nothing.
     public func removeSense(_ sense: Sense) {
+        guard !isRemoved(sense) else {
+            return
+        }
         let remaining = senses.filter { $0.id != sense.id }
+        remember(removed: sense)
+        for example in sense.examples {
+            remember(removed: example)
+        }
         do {
             try store.delete(sense)
         } catch {
@@ -203,8 +218,12 @@ public final class WordCardModel {
     // MARK: - Examples
 
     /// Appends a hand-entered example: `.user` from the start, no topic, empty text.
+    /// Returns the example; for a removed sense the example is created but not attached or saved.
     @discardableResult
     public func addExample(to sense: Sense) -> Example {
+        guard !isRemoved(sense) else {
+            return Example(text: "", source: .user, grammarTopic: nil, order: 0)
+        }
         let example = Example(text: "", source: .user, grammarTopic: nil, order: sense.examples.count)
         sense.examples.append(example)
         save()
@@ -212,7 +231,7 @@ public final class WordCardModel {
     }
 
     public func setExampleText(_ text: String, for example: Example) {
-        guard example.text != text else {
+        guard !isRemoved(example), example.text != text else {
             return
         }
         example.text = text
@@ -220,9 +239,14 @@ public final class WordCardModel {
         save()
     }
 
-    /// Hard-deletes `example` through the store, then renumbers its sense's remaining examples.
+    /// Hard-deletes `example` through the store, then renumbers its sense's remaining examples. A second
+    /// call for the same example does nothing.
     public func removeExample(_ example: Example) {
+        guard !isRemoved(example) else {
+            return
+        }
         let remaining = example.sense?.sortedExamples.filter { $0.id != example.id } ?? []
+        remember(removed: example)
         do {
             try store.delete(example)
         } catch {
@@ -237,7 +261,9 @@ public final class WordCardModel {
 
     /// Reorders `sense`'s examples with the semantics of `moveSenses(fromOffsets:toOffset:)`.
     public func moveExamples(in sense: Sense, fromOffsets source: IndexSet, toOffset destination: Int) {
-        guard renumber(Self.moved(sense.sortedExamples, fromOffsets: source, toOffset: destination)) else {
+        guard !isRemoved(sense),
+              renumber(Self.moved(sense.sortedExamples, fromOffsets: source, toOffset: destination))
+        else {
             return
         }
         save()
@@ -279,6 +305,14 @@ public final class WordCardModel {
 
     private func mark(_ field: SenseField, on sense: Sense) {
         sense.fieldSources[field.rawValue] = .user
+    }
+
+    private func isRemoved(_ object: AnyObject) -> Bool {
+        removed[ObjectIdentifier(object)] != nil
+    }
+
+    private func remember(removed object: AnyObject) {
+        removed[ObjectIdentifier(object)] = object
     }
 
     private func reloadSenses() {
