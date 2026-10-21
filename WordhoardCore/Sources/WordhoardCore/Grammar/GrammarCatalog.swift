@@ -49,13 +49,20 @@ public struct GrammarCatalog: Sendable {
     }()
 
     /// Reads `GrammarCatalog/<language>.json` from the package bundle and validates it.
+    ///
+    /// `Bundle.url(forResource:)` resolves `""` to the first `.json` in the directory and `"./en"` to
+    /// `en.json`, so the decoded file's `language` is checked against the request as well.
     public static func load(language: String) throws -> GrammarCatalog {
         guard let url = Bundle.module.url(
             forResource: language, withExtension: "json", subdirectory: "GrammarCatalog"
         ) else {
             throw GrammarCatalogError.resourceNotFound(language: language)
         }
-        return try GrammarCatalog(decoding: Data(contentsOf: url))
+        let catalog = try GrammarCatalog(decoding: Data(contentsOf: url))
+        guard catalog.language == language else {
+            throw GrammarCatalogError.resourceNotFound(language: language)
+        }
+        return catalog
     }
 
     /// Decodes a catalog file and validates it. Throws `DecodingError` for malformed JSON and

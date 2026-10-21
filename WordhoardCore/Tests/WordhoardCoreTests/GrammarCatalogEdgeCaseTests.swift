@@ -51,9 +51,8 @@ func sharedCatalogIsSafeToReadConcurrently() async {
 
 @Test("loading with a file-name-like, padded or upper-cased language code throws resourceNotFound, not a trap")
 func loadingWithAnOddLanguageCodeThrowsResourceNotFound() {
-    // `""` is deliberately absent: see the QA report on PR #29 (Foundation resolves an empty resource
-    // name to the first `.json` in the subdirectory, so `load(language: "")` currently returns English).
-    for language in ["en.json", "GrammarCatalog/en", "../en", " en", "EN", "en "] {
+    // `""` and `"./en"` resolve to `en.json` at the bundle level; the loader must still reject them.
+    for language in ["en.json", "GrammarCatalog/en", "../en", "./en", " en", "EN", "en ", ""] {
         #expect(throws: GrammarCatalogError.resourceNotFound(language: language), "\(language.debugDescription)") {
             try GrammarCatalog.load(language: language)
         }
