@@ -239,6 +239,29 @@ func catalogWithBarePrefixKeyFailsToLoad() throws {
     }
 }
 
+@Test("a catalog with an empty language fails to load")
+func catalogWithEmptyLanguageFailsToLoad() throws {
+    let data = try catalogJSON(
+        language: "",
+        defaultActive: [],
+        groups: [group(topics: [["key": ".alpha", "name": "Alpha", "description": "d"]])]
+    )
+    #expect(throws: GrammarCatalogError.emptyLanguage) { try GrammarCatalog(decoding: data) }
+}
+
+@Test("a key containing a space, tab or newline fails to load")
+func catalogWithWhitespaceInKeyFailsToLoad() throws {
+    for key in ["xx.alpha ", "xx.al pha", "xx.alpha\t", "xx.alpha\n"] {
+        let data = try catalogJSON(
+            defaultActive: [],
+            groups: [group(topics: [["key": key, "name": "Alpha", "description": "d"]])]
+        )
+        #expect(throws: GrammarCatalogError.keyContainsWhitespace(key), "\(key.debugDescription)") {
+            try GrammarCatalog(decoding: data)
+        }
+    }
+}
+
 @Test("a catalog whose defaultActive names a key not in any group fails to load")
 func catalogWithUnknownDefaultKeyFailsToLoad() throws {
     let data = try catalogJSON(defaultActive: ["xx.alpha", "xx.gamma"])

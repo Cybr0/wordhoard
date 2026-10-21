@@ -5,8 +5,12 @@ import Foundation
 public enum GrammarCatalogError: Error, Equatable, Sendable {
     /// No `GrammarCatalog/<language>.json` in the package bundle.
     case resourceNotFound(language: String)
+    /// `language` is empty.
+    case emptyLanguage
     /// `groups` is empty.
     case noGroups
+    /// A key contains whitespace or a newline.
+    case keyContainsWhitespace(GrammarTopicID)
     /// The same key appears on two topics.
     case duplicateKey(GrammarTopicID)
     /// A key does not start with the file's `language` followed by a dot.
@@ -69,19 +73,13 @@ public struct GrammarCatalog: Sendable {
     /// `GrammarCatalogError` for content that decodes but breaks the catalog's invariants.
     public init(decoding data: Data) throws {
         let file = try JSONDecoder().decode(CatalogFile.self, from: data)
+        guard !file.language.isEmpty else { throw GrammarCatalogError.emptyLanguage }
         guard !file.groups.isEmpty else { throw GrammarCatalogError.noGroups }
 
-        let prefix = "\(file.language)."
         var topics: [GrammarTopic] = []
         var topicsByKey: [GrammarTopicID: GrammarTopic] = [:]
         for topic in file.groups.flatMap(\.topics) {
-            guard topic.key.hasPrefix(prefix), topic.key.count > prefix.count else {
-                throw GrammarCatalogError.keyNotNamespaced(topic.key, language: file.language)
-            }
-            guard Self.isOneLine(topic.name) else { throw GrammarCatalogError.invalidName(key: topic.key) }
-            guard Self.isOneLine(topic.description) else {
-                throw GrammarCatalogError.invalidDescription(key: topic.key)
-            }
+            try Self.validate(topic, language: file.language)
             guard topicsByKey.updateValue(topic, forKey: topic.key) == nil else {
                 throw GrammarCatalogError.duplicateKey(topic.key)
             }
@@ -104,6 +102,19 @@ public struct GrammarCatalog: Sendable {
     /// like a neutral example (G4); unknown keys are never a crash.
     public func topic(for key: GrammarTopicID) -> GrammarTopic? {
         topicsByKey[key]
+    }
+
+    /// Checks one topic's key, name and description; `duplicateKey` is the caller's job.
+    private static func validate(_ topic: GrammarTopic, language: String) throws {
+        guard !topic.key.contains(where: \.isWhitespace) else {
+            throw GrammarCatalogError.keyContainsWhitespace(topic.key)
+        }
+        let prefix = "\(language)."
+        guard topic.key.hasPrefix(prefix), topic.key.count > prefix.count else {
+            throw GrammarCatalogError.keyNotNamespaced(topic.key, language: language)
+        }
+        guard isOneLine(topic.name) else { throw GrammarCatalogError.invalidName(key: topic.key) }
+        guard isOneLine(topic.description) else { throw GrammarCatalogError.invalidDescription(key: topic.key) }
     }
 
     private static func isOneLine(_ text: String) -> Bool {
