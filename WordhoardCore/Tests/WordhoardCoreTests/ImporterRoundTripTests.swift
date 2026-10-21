@@ -94,6 +94,27 @@ struct ImporterRoundTripTests {
         #expect(try Importer.import(file, into: store) == .nothing)
     }
 
+    @Test("two words created within one millisecond keep their file order after a restore")
+    func twoWordsInOneMillisecondKeepTheirFileOrderAfterARestore() throws {
+        let earlier = try store.add("x").word
+        let later = try store.add("y").word
+        try store.transaction { _ in
+            earlier.id = TransferFixture.uuid(999) // last by id
+            earlier.createdAt = Date(timeIntervalSince1970: 1_700_000_000.0001) // first by createdAt
+            later.id = TransferFixture.uuid(1)
+            later.createdAt = Date(timeIntervalSince1970: 1_700_000_000.0004)
+        }
+        // At the file's millisecond precision the two dates tie, so `id` decides on both sides.
+        let first = try export(store)
+        #expect(try ExportDocument.decode(first).words.map(\.headword) == ["y", "x"])
+        let fresh = try WordStore(container: WordhoardContainer.makeInMemory())
+        _ = try Importer.import(first, into: fresh)
+        let second = try export(fresh)
+        #expect(try ExportDocument.decode(second).words.map(\.headword) == ["y", "x"])
+        #expect(first == second)
+        #expect(try Importer.import(second, into: store) == .nothing)
+    }
+
     @Test("the first import of the rich fixture reports what it created")
     func firstImportReportsWhatItCreated() throws {
         let summary = try Importer.import(GoldenExport.data, into: store)
