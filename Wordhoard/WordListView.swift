@@ -198,13 +198,27 @@ struct WordListView: View {
             }
         }
         do {
-            let data = try Data(contentsOf: url)
+            let data = try coordinatedRead(url)
             model.importWords(data)
         } catch {
             logger.error("Could not read the picked file: \(error.localizedDescription, privacy: .public)")
             isReadFailurePresented = true
             model.reload()
         }
+    }
+
+    /// Reads through a file coordinator so an iCloud Drive placeholder that is not downloaded yet is
+    /// fetched first instead of failing with a generic read error.
+    private func coordinatedRead(_ url: URL) throws -> Data {
+        var coordinationError: NSError?
+        var read: Result<Data, any Error> = .failure(CocoaError(.fileReadUnknown))
+        NSFileCoordinator().coordinate(readingItemAt: url, error: &coordinationError) { readURL in
+            read = Result { try Data(contentsOf: readURL) }
+        }
+        if let coordinationError {
+            throw coordinationError
+        }
+        return try read.get()
     }
 
     /// Word counts only; senses, examples and tags are detail the alert does not need.
