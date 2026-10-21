@@ -30,3 +30,21 @@ func settingsDefaultsMatchTheRequirements() throws {
     #expect(settings.activeGrammarTopics == [])
     #expect(settings.autoGenerateImages == true)
 }
+
+@Test("with more than one settings record the helper always returns the one with the lowest id")
+func settingsHelperPicksTheLowestIDWhenSeveralRecordsExist() throws {
+    let container = try WordhoardContainer.makeInMemory()
+    let contextA = ModelContext(container)
+    let contextB = ModelContext(container)
+    let fromA = try UserSettings.current(in: contextA)
+    let fromB = try UserSettings.current(in: contextB)
+    try contextA.save()
+    try contextB.save()
+    #expect(fromA.id != fromB.id)
+
+    let fresh = ModelContext(container)
+    #expect(try fresh.fetchCount(FetchDescriptor<UserSettings>()) == 2)
+    let expected = min(fromA.id, fromB.id)
+    #expect(try UserSettings.current(in: fresh).id == expected)
+    #expect(try UserSettings.current(in: ModelContext(container)).id == expected)
+}

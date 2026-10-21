@@ -18,9 +18,9 @@ public final class UserSettings {
 
     /// Fetches the settings record, creating and inserting it into `context` on first call. The
     /// caller saves. If more than one record exists (possible only after a future sync merge), the
-    /// first one fetched is returned.
+    /// one with the lowest `id` is returned, so the choice is stable across launches and devices.
     public static func current(in context: ModelContext) throws -> UserSettings {
-        var descriptor = FetchDescriptor<UserSettings>()
+        var descriptor = FetchDescriptor<UserSettings>(sortBy: [SortDescriptor(\.id)])
         descriptor.fetchLimit = 1
         if let existing = try context.fetch(descriptor).first {
             return existing
