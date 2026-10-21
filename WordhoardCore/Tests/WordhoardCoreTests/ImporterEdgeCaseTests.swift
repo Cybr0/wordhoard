@@ -215,4 +215,20 @@ struct ImporterEdgeCaseTests {
         let counts = RowCounts(words: 1000, senses: 2000, examples: 4000, tags: 0, settings: 1)
         #expect(try RowCounts(in: container) == counts)
     }
+
+    @Test("store-made dates survive export, import into a fresh store, and re-export unchanged")
+    func storeMadeDatesSurviveAnExportImportExportRoundTrip() throws {
+        let book = try store.add("book").word
+        try store.transaction { _ in
+            book.createdAt = Date(timeIntervalSince1970: 1_700_000_000.002)
+            book.updatedAt = Date(timeIntervalSince1970: 1_700_000_000.008)
+        }
+        let first = try export(store)
+        #expect(try utf8(first).contains("\"createdAt\" : \"2023-11-14T22:13:20.002Z\""))
+        #expect(try utf8(first).contains("\"updatedAt\" : \"2023-11-14T22:13:20.008Z\""))
+
+        let fresh = try WordStore(container: WordhoardContainer.makeInMemory())
+        _ = try Importer.import(first, into: fresh)
+        #expect(try export(fresh) == first)
+    }
 }

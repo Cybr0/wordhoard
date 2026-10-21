@@ -46,7 +46,7 @@ public struct ExportDocument: Codable, Equatable, Sendable {
         encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .custom { date, encoder in
             var container = encoder.singleValueContainer()
-            try container.encode(date.formatted(Self.dateFormat))
+            try container.encode(Self.format(date))
         }
         return try encoder.encode(self)
     }
@@ -62,7 +62,7 @@ public struct ExportDocument: Codable, Equatable, Sendable {
         decoder.dateDecodingStrategy = .custom { decoder in
             let text = try decoder.singleValueContainer().decode(String.self)
             do {
-                return try dateFormat.parse(text)
+                return try roundedToMillisecond(dateFormat.parse(text))
             } catch {
                 throw DecodingError.dataCorrupted(DecodingError.Context(
                     codingPath: decoder.codingPath,
@@ -93,8 +93,25 @@ public struct ExportDocument: Codable, Equatable, Sendable {
         }
     }
 
-    /// `2026-10-21T12:34:56.789Z`. Parsing also accepts a value without the fraction.
+    /// Parses `2026-10-21T12:34:56.789Z`, also without the fraction. Not used for output: this style
+    /// truncates the fraction, and a parsed `.362` sits just below the millisecond, so it would print `.361`.
     private static let dateFormat = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+    private static let wholeSecondFormat = Date.ISO8601FormatStyle()
+
+    /// `2026-10-21T12:34:56.789Z`, rounded to the nearest millisecond; the fraction is built from an
+    /// integer so every millisecond value is a fixed point of format → parse → format.
+    static func format(_ date: Date) -> String {
+        let milliseconds = (date.timeIntervalSince1970 * 1000).rounded()
+        let seconds = (milliseconds / 1000).rounded(.down)
+        let fraction = Int(milliseconds - seconds * 1000)
+        let whole = Date(timeIntervalSince1970: seconds).formatted(Self.wholeSecondFormat)
+        return whole.dropLast() + String(format: ".%03dZ", fraction)
+    }
+
+    /// The nearest representable instant to the millisecond `date` names.
+    static func roundedToMillisecond(_ date: Date) -> Date {
+        Date(timeIntervalSince1970: (date.timeIntervalSince1970 * 1000).rounded() / 1000)
+    }
 
     /// Just enough of the top level to read the version before the rest is decoded.
     private struct SchemaProbe: Decodable {
