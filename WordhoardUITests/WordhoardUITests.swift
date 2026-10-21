@@ -4,9 +4,9 @@ import XCTest
 final class WordhoardUITests: XCTestCase {
     /// Launches with `--ui-testing`, so the app uses an empty in-memory store and leaves nothing behind.
     @MainActor
-    private func launchApp() -> XCUIApplication {
+    private func launchApp(arguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--ui-testing"] + arguments
         app.launch()
         return app
     }
@@ -53,6 +53,59 @@ final class WordhoardUITests: XCTestCase {
         XCTAssertTrue(rows.element(boundBy: 1).waitForExistence(timeout: 5))
         XCTAssertEqual(rows.count, 2)
         XCTAssertTrue(isEmpty(addField))
+    }
+
+    /// CLAUDE.md's third reserved flow: export → relaunch (empty in-memory store) → import. The debug
+    /// launch arguments replace only the two system sheets; menu, model, importer, alert and reload are
+    /// the production path.
+    @MainActor
+    func testExportThenImportRestoresTheWordList() throws {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appending(path: "Wordhoard-UITest-\(UUID().uuidString).json")
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+
+        var app = launchApp(arguments: ["--ui-testing-export-path", fileURL.path()])
+        let addField = app.textFields["wordList.addField"]
+        XCTAssertTrue(addField.waitForExistence(timeout: 5))
+        addField.tap()
+        addField.typeText("book\n")
+        addField.typeText("apple\n")
+        let rows = app.staticTexts.matching(identifier: "wordList.rowHeadword")
+        XCTAssertTrue(rows.element(boundBy: 1).waitForExistence(timeout: 5))
+
+        app.buttons["wordList.moreMenu"].tap()
+        let exportButton = app.buttons["wordList.export"]
+        XCTAssertTrue(exportButton.waitForExistence(timeout: 5))
+        exportButton.tap()
+
+        let exported = NSPredicate { _, _ in FileManager.default.fileExists(atPath: fileURL.path()) }
+        wait(for: [XCTNSPredicateExpectation(predicate: exported, object: nil)], timeout: 5)
+        let json = try JSONSerialization.jsonObject(with: Data(contentsOf: fileURL)) as? [String: Any]
+        XCTAssertEqual(json?["schemaVersion"] as? Int, 1)
+        XCTAssertEqual((json?["words"] as? [Any])?.count, 2)
+
+        app.terminate()
+        app = launchApp(arguments: ["--ui-testing-import-path", fileURL.path()])
+        XCTAssertTrue(app.staticTexts["No words yet"].waitForExistence(timeout: 5))
+
+        app.buttons["wordList.moreMenu"].tap()
+        let importButton = app.buttons["wordList.import"]
+        XCTAssertTrue(importButton.waitForExistence(timeout: 5))
+        importButton.tap()
+
+        let alert = app.alerts["Import finished"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        XCTAssertTrue(alert.staticTexts["Added 2, updated 0, skipped 0."].exists)
+        alert.buttons["OK"].tap()
+
+        let restored = app.staticTexts.matching(identifier: "wordList.rowHeadword")
+        XCTAssertTrue(restored.element(boundBy: 1).waitForExistence(timeout: 5))
+        XCTAssertEqual(restored.count, 2)
+        XCTAssertEqual(restored.element(boundBy: 0).label, "apple")
+        XCTAssertEqual(restored.element(boundBy: 1).label, "book")
+        XCTAssertFalse(app.staticTexts["No words yet"].exists)
     }
 
     /// An empty `TextField` reports its placeholder as its value, so "empty" is either.

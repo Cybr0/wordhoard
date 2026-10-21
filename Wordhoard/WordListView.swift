@@ -1,18 +1,28 @@
+import OSLog
 import SwiftUI
+import UniformTypeIdentifiers
 import WordhoardCore
 
-/// The word list (B1) with the add field (C1, C4, C5) as its first row. Talks only to `WordListModel`.
+/// The word list (B1) with the add field (C1, C4, C5) as its first row and, until 5.3 adds Settings, the
+/// "More" menu with Export… and Import… (S3). Talks only to `WordListModel`; the export runs `Exporter`
+/// over the store on demand and the import hands the picked file's bytes to the model, so Core never
+/// sees a URL.
 struct WordListView: View {
     @State private var model: WordListModel
     @State private var path: [Word] = []
+    @State private var isImporterPresented = false
+    @State private var isReadFailurePresented = false
     @FocusState private var isAddFieldFocused: Bool
     private let store: WordStore
     private let isStorageUnavailable: Bool
+    private let hooks: UITestingHooks
+    private let logger = Logger(subsystem: "Wordhoard", category: "transfer")
 
-    init(store: WordStore, isStorageUnavailable: Bool) {
+    init(store: WordStore, isStorageUnavailable: Bool, hooks: UITestingHooks = .none) {
         _model = State(initialValue: WordListModel(store: store))
         self.store = store
         self.isStorageUnavailable = isStorageUnavailable
+        self.hooks = hooks
     }
 
     var body: some View {
@@ -42,8 +52,30 @@ struct WordListView: View {
             .navigationDestination(for: Word.self) { word in
                 WordCardView(word: word, store: store)
             }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    moreMenu
+                }
+            }
+            .fileImporter(isPresented: $isImporterPresented, allowedContentTypes: [.json], onCompletion: importPicked)
             .alert(failureTitle, isPresented: isFailurePresented) {
                 Button("OK", role: .cancel) {}
+            } message: {
+                if case let .importing(error?) = model.failure, let description = error.errorDescription {
+                    Text(verbatim: description)
+                }
+            }
+            .alert("Import finished", isPresented: isImportSummaryPresented) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                if let summary = model.importSummary {
+                    importMessage(summary)
+                }
+            }
+            .alert("Couldn't import", isPresented: $isReadFailurePresented) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("The file couldn't be read.")
             }
             .onAppear(perform: model.reload)
             .onChange(of: path) { _, path in
@@ -94,12 +126,113 @@ struct WordListView: View {
         !Word.normalize(model.query).isEmpty
     }
 
+    // MARK: - More menu (export and import)
+
+    private var moreMenu: some View {
+        Menu("More", systemImage: "ellipsis.circle") {
+            exportRow
+            Button("Import…", systemImage: "square.and.arrow.down", action: startImport)
+                .accessibilityIdentifier("wordList.import")
+        }
+        .accessibilityIdentifier("wordList.moreMenu")
+    }
+
+    /// The share sheet in production; under the UI-test hook, a plain button that writes the file to the
+    /// given path so the test can read it.
+    @ViewBuilder private var exportRow: some View {
+        if let path = hooks.exportPath {
+            Button("Export…", systemImage: "square.and.arrow.up") {
+                exportToFile(atPath: path)
+            }
+            .accessibilityIdentifier("wordList.export")
+        } else {
+            let fileName = Exporter.fileName()
+            ShareLink(
+                item: ExportFile(fileName: fileName, makeData: exportData),
+                preview: SharePreview(fileName)
+            ) {
+                Label("Export…", systemImage: "square.and.arrow.up")
+            }
+            .accessibilityIdentifier("wordList.export")
+        }
+    }
+
+    private func exportData() throws -> Data {
+        try Exporter.export(from: store, exportedAt: .now, appVersion: Bundle.main.wordhoardVersion)
+    }
+
+    private func exportToFile(atPath path: String) {
+        do {
+            try exportData().write(to: URL(filePath: path), options: .atomic)
+        } catch {
+            logger.error("Export failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func startImport() {
+        if let path = hooks.importPath {
+            importFile(at: URL(filePath: path), isSecurityScoped: false)
+        } else {
+            isImporterPresented = true
+        }
+    }
+
+    private func importPicked(_ result: Result<URL, any Error>) {
+        switch result {
+        case let .success(url):
+            importFile(at: url, isSecurityScoped: true)
+        case let .failure(error):
+            logger.error("File picker failed: \(error.localizedDescription, privacy: .public)")
+            isReadFailurePresented = true
+            model.reload()
+        }
+    }
+
+    /// Reads the file into memory inside its security scope and hands the bytes to the model, which
+    /// reloads the list whatever the outcome. A read failure is the view's alert; nothing reaches Core.
+    private func importFile(at url: URL, isSecurityScoped: Bool) {
+        let accessing = isSecurityScoped && url.startAccessingSecurityScopedResource()
+        defer {
+            if accessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        do {
+            let data = try Data(contentsOf: url)
+            model.importWords(data)
+        } catch {
+            logger.error("Could not read the picked file: \(error.localizedDescription, privacy: .public)")
+            isReadFailurePresented = true
+            model.reload()
+        }
+    }
+
+    /// Word counts only; senses, examples and tags are detail the alert does not need.
+    private func importMessage(_ counts: ImportSummary) -> Text {
+        Text("Added \(counts.wordsCreated), updated \(counts.wordsUpdated), skipped \(counts.wordsSkipped).")
+    }
+
+    private var isImportSummaryPresented: Binding<Bool> {
+        Binding(
+            get: { model.importSummary != nil },
+            set: { isPresented in
+                if !isPresented {
+                    model.importSummary = nil
+                }
+            }
+        )
+    }
+
+    // MARK: - Failures
+
     private var failureTitle: Text {
         switch model.failure {
         case .saving:
             Text("Couldn't save the word")
         case .loading:
             Text("Couldn't load your words")
+        case .importing:
+            Text("Couldn't import")
         case nil:
             Text(verbatim: "")
         }
