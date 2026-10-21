@@ -12,12 +12,12 @@
 		18B68C32C7AFF63D5FF6BF5A /* RegressionRunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5418EF468448475396E41443 /* RegressionRunnerTests.swift */; };
 		1CFFCD3AAFFA5EA9DFC4EE5A /* SpikeTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52D6B33B6D8AC9DC5C4F3D5 /* SpikeTranslator.swift */; };
 		298195004003EDF0B76CE7EF /* CardGenerationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF6FA18178B9ADE94DEEA92 /* CardGenerationModel.swift */; };
-		4CD028FE58390F98A5C53A60 /* oewn-2024.json in Resources */ = {isa = PBXBuildFile; fileRef = E543C9E362FAA7E32F000520 /* oewn-2024.json */; };
-		759B78D7A0BF86E3E79C03FF /* function-words.txt in Resources */ = {isa = PBXBuildFile; fileRef = E23A113A2BC476079B4D0586 /* function-words.txt */; };
-		8216C7FE1D3BD5A6D00F0588 /* OEWN-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D4AE6EF0CAC8E7642BA63CA1 /* OEWN-LICENSE.txt */; };
 		A823071433FDF410E0155072 /* WordNetLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED1209E9448D1237D16A5C5C /* WordNetLookup.swift */; };
 		C511E21D3761B5A7C1FC2574 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC3C3A43961F6215DF9F98D /* ContentView.swift */; };
+		D3E1411338CA81FC5602D1EC /* function-words.txt in Resources */ = {isa = PBXBuildFile; fileRef = 3710327DB38835B9694718AD /* function-words.txt */; };
+		D9271B2780AE1FB761805042 /* oewn-2024.json in Resources */ = {isa = PBXBuildFile; fileRef = D1153775C33674C0C9D57880 /* oewn-2024.json */; };
 		F0D52AEE36D933A5991376F2 /* regression-words.md in Resources */ = {isa = PBXBuildFile; fileRef = 73FE8843C4E1F107666BD954 /* regression-words.md */; };
+		F26458759275EC6D97E0358F /* OEWN-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8762AE3C6E50E245673A5EC5 /* OEWN-LICENSE.txt */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,34 +33,35 @@
 /* Begin PBXFileReference section */
 		02665B3F1B6E94FFB545279C /* WordhoardSpike.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WordhoardSpike.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0CF6FA18178B9ADE94DEEA92 /* CardGenerationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardGenerationModel.swift; sourceTree = "<group>"; };
+		3710327DB38835B9694718AD /* function-words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "function-words.txt"; sourceTree = "<group>"; };
 		47738B4C2DC73C27160F877F /* WordhoardSpikeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordhoardSpikeApp.swift; sourceTree = "<group>"; };
 		5418EF468448475396E41443 /* RegressionRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegressionRunnerTests.swift; sourceTree = "<group>"; };
 		6B786C8470EA43BC7FDAA7BC /* CardGeneration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardGeneration.swift; sourceTree = "<group>"; };
 		73BB8BBE6F636608CAD1AF7C /* WordhoardSpikeRegression.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WordhoardSpikeRegression.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		73FE8843C4E1F107666BD954 /* regression-words.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "regression-words.md"; sourceTree = "<group>"; };
 		7FC3C3A43961F6215DF9F98D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		D4AE6EF0CAC8E7642BA63CA1 /* OEWN-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OEWN-LICENSE.txt"; sourceTree = "<group>"; };
-		E23A113A2BC476079B4D0586 /* function-words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "function-words.txt"; sourceTree = "<group>"; };
-		E543C9E362FAA7E32F000520 /* oewn-2024.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "oewn-2024.json"; sourceTree = "<group>"; };
+		8762AE3C6E50E245673A5EC5 /* OEWN-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OEWN-LICENSE.txt"; sourceTree = "<group>"; };
+		D1153775C33674C0C9D57880 /* oewn-2024.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "oewn-2024.json"; sourceTree = "<group>"; };
 		ED1209E9448D1237D16A5C5C /* WordNetLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordNetLookup.swift; sourceTree = "<group>"; };
 		F52D6B33B6D8AC9DC5C4F3D5 /* SpikeTranslator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeTranslator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
-		1BC7FAFD4281D5C6ED27EA4C /* Resources */ = {
+		1F1270C24FFB78935127D3D1 /* WordNet */ = {
 			isa = PBXGroup;
 			children = (
-				E23A113A2BC476079B4D0586 /* function-words.txt */,
-				E543C9E362FAA7E32F000520 /* oewn-2024.json */,
-				D4AE6EF0CAC8E7642BA63CA1 /* OEWN-LICENSE.txt */,
+				3710327DB38835B9694718AD /* function-words.txt */,
+				D1153775C33674C0C9D57880 /* oewn-2024.json */,
+				8762AE3C6E50E245673A5EC5 /* OEWN-LICENSE.txt */,
 			);
-			path = Resources;
+			path = WordNet;
 			sourceTree = "<group>";
 		};
 		223C72D2178AC5CFFD419145 /* wordhoard */ = {
 			isa = PBXGroup;
 			children = (
 				B6B461CD9052B25F5B81E25B /* docs */,
+				4CD5888906BED3F9DB73DC74 /* WordhoardCore */,
 			);
 			name = wordhoard;
 			path = ..;
@@ -73,6 +74,14 @@
 				73BB8BBE6F636608CAD1AF7C /* WordhoardSpikeRegression.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4CD5888906BED3F9DB73DC74 /* WordhoardCore */ = {
+			isa = PBXGroup;
+			children = (
+				FEBC648D78AFCF8DA23EB798 /* Sources */,
+			);
+			path = WordhoardCore;
 			sourceTree = "<group>";
 		};
 		648B6493F0850F3670A6AAEB = {
@@ -94,7 +103,6 @@
 				F52D6B33B6D8AC9DC5C4F3D5 /* SpikeTranslator.swift */,
 				47738B4C2DC73C27160F877F /* WordhoardSpikeApp.swift */,
 				ED1209E9448D1237D16A5C5C /* WordNetLookup.swift */,
-				1BC7FAFD4281D5C6ED27EA4C /* Resources */,
 			);
 			path = WordhoardSpike;
 			sourceTree = "<group>";
@@ -113,6 +121,30 @@
 				73FE8843C4E1F107666BD954 /* regression-words.md */,
 			);
 			path = docs;
+			sourceTree = "<group>";
+		};
+		E49BE045CF5DB3A3FACF72EE /* WordhoardCore */ = {
+			isa = PBXGroup;
+			children = (
+				F93F301AF5F95CAF0621E543 /* Resources */,
+			);
+			path = WordhoardCore;
+			sourceTree = "<group>";
+		};
+		F93F301AF5F95CAF0621E543 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				1F1270C24FFB78935127D3D1 /* WordNet */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		FEBC648D78AFCF8DA23EB798 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				E49BE045CF5DB3A3FACF72EE /* WordhoardCore */,
+			);
+			path = Sources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -199,9 +231,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8216C7FE1D3BD5A6D00F0588 /* OEWN-LICENSE.txt in Resources */,
-				759B78D7A0BF86E3E79C03FF /* function-words.txt in Resources */,
-				4CD028FE58390F98A5C53A60 /* oewn-2024.json in Resources */,
+				F26458759275EC6D97E0358F /* OEWN-LICENSE.txt in Resources */,
+				D3E1411338CA81FC5602D1EC /* function-words.txt in Resources */,
+				D9271B2780AE1FB761805042 /* oewn-2024.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

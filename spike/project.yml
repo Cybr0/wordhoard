@@ -24,10 +24,9 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: WordhoardSpike
-        excludes:
-          - Resources
-      # The WordNet bundle and its license; see README "WordNet + model".
-      - path: WordhoardSpike/Resources
+      # The WordNet bundle, stoplist and license live in the product package since plan task 2.2
+      # (one copy in git); the spike copies them flat into its app bundle. See README "WordNet + model".
+      - path: ../WordhoardCore/Sources/WordhoardCore/Resources/WordNet
         buildPhase: resources
     settings:
       base:

@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Convert an Open English WordNet WN-LMF release into the compact JSON bundle the spike reads.
+"""Convert an Open English WordNet WN-LMF release into the compact JSON bundle the app reads.
 
 Usage:
     python3 -I spike/tools/convert_oewn.py <english-wordnet-2024.xml.gz> <oewn-2024.json>
     python3 -I spike/tools/convert_oewn.py --check <oewn-2024.json>
+
+The bundle lives at WordhoardCore/Sources/WordhoardCore/Resources/WordNet/oewn-2024.json (read by
+WordNetLookup in the product package and copied into the spike's app bundle); this script stays in
+spike/tools because it is not needed at build time.
 
 The first form reads the gzipped WN-LMF XML from the GitHub release
 (https://github.com/globalwordnet/english-wordnet, tag `2024-edition`, asset
 `english-wordnet-2024.xml.gz`, CC BY 4.0) and writes the bundle. The second form
 loads a bundle and prints, for every word in `docs/regression-words.md`, whether the
 lemma is found and the senses the app would show. If a `function-words.txt` sits next
-to the bundle (it does in the app's Resources folder) the check applies the same
+to the bundle (it does in Resources/WordNet) the check applies the same
 stoplist as the app: those words never reach WordNet and go to the model-only path.
 
 Standard library only (system python3 is 3.9). Run with `-I` because the release is

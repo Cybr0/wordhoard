@@ -30,9 +30,11 @@ Nothing here is meant to survive into the real app except the lessons.
   (WordNet mode only). No `FoundationModels` import.
 - `WordhoardSpikeRegression/RegressionRunnerTests.swift` — the on-device regression runner (issue
   #14): a unit-test bundle hosted by the app; see "Regression runner" below.
-- `WordhoardSpike/Resources/oewn-2024.json` — the WordNet bundle (14.8 MB) and `OEWN-LICENSE.txt`.
-- `WordhoardSpike/Resources/function-words.txt` — the closed-class stoplist; these words are always
-  model-only.
+- `../WordhoardCore/Sources/WordhoardCore/Resources/WordNet/oewn-2024.json` — the WordNet bundle
+  (14.8 MB) and `OEWN-LICENSE.txt`; since plan task 2.2 they live in the product package and the spike
+  copies them into its app bundle (`project.yml`).
+- `../WordhoardCore/Sources/WordhoardCore/Resources/WordNet/function-words.txt` — the closed-class
+  stoplist; these words are always model-only.
 - `tools/convert_oewn.py` — builds that bundle from the Open English WordNet release.
 
 ## Three modes (issues #4 and #11)
@@ -132,7 +134,7 @@ bundle unless the launch-time warm-up has finished — 0.4 s on the iPhone 17 si
 the console prints `WordNet: loaded …` with the time) and **Translation** (the framework calls alone).
 
 *Fallback, two triggers (issue #11, decision 3).* **Function words:** before the lookup, the headword
-is checked against `Resources/function-words.txt`, a closed-class stoplist of about 385 lemmas —
+is checked against `function-words.txt`, a closed-class stoplist of about 385 lemmas —
 determiners, pronouns, prepositions, conjunctions, auxiliaries and modals, discourse adverbs and
 connectives (*however*, *despite*, *although*, *nevertheless*, *moreover*, *therefore*, *whereas*,
 *unless*, …). WordNet is useless or misleading for these (no prepositions at all, *despite* only as an
@@ -163,7 +165,7 @@ sense 2, which is why the cut is two per part of speech rather than three in tot
 
 ### The WordNet bundle
 
-`WordhoardSpike/Resources/oewn-2024.json`, 14.8 MB (15 492 477 bytes), plain JSON with no
+`WordhoardCore/Sources/WordhoardCore/Resources/WordNet/oewn-2024.json`, 14.8 MB (15 492 477 bytes), plain JSON with no
 whitespace: a `synsets` array (`[gloss]`, `[gloss, [member lemma, …]]` or
 `[gloss, [members], [example, …]]`, the index is the synset id) and a `lemmas` map from the
 lowercased lemma (multi-word lemmas with spaces: `look up`) to its senses per part of speech (`n`,
@@ -177,15 +179,15 @@ speech is the `<Sense>` element order of the entry, which is WordNet's own ranki
 
 Source: Open English WordNet, 2024 edition, CC BY 4.0, derived from Princeton WordNet
 (https://github.com/globalwordnet/english-wordnet). Attribution is in
-`WordhoardSpike/Resources/OEWN-LICENSE.txt`, which ships inside the app bundle.
+`WordhoardCore/Sources/WordhoardCore/Resources/WordNet/OEWN-LICENSE.txt`, which ships inside the app bundle.
 
 To regenerate (the release is not committed; download it into an empty directory outside the
 repo and treat it as untrusted input):
 
 ```
 gh release download 2024-edition --repo globalwordnet/english-wordnet --pattern '*.xml.gz' --dir <dir>
-python3 -I spike/tools/convert_oewn.py <dir>/english-wordnet-2024.xml.gz spike/WordhoardSpike/Resources/oewn-2024.json
-python3 -I spike/tools/convert_oewn.py --check spike/WordhoardSpike/Resources/oewn-2024.json
+python3 -I spike/tools/convert_oewn.py <dir>/english-wordnet-2024.xml.gz WordhoardCore/Sources/WordhoardCore/Resources/WordNet/oewn-2024.json
+python3 -I spike/tools/convert_oewn.py --check WordhoardCore/Sources/WordhoardCore/Resources/WordNet/oewn-2024.json
 ```
 
 The script is standard-library Python 3.9 (the system `python3`), takes about 5 s, and `--check`
