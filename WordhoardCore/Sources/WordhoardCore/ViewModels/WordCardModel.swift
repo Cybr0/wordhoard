@@ -181,8 +181,9 @@ public final class WordCardModel {
         return sense
     }
 
-    /// Hard-deletes `sense` and its examples through the store, then renumbers the remaining senses
-    /// `0…n-1` in display order. A second call for the same sense does nothing.
+    /// Renumbers the remaining senses `0…n-1` in display order, then hard-deletes `sense` and its
+    /// examples through the store, whose save commits both in one transaction: the store never holds a
+    /// gap in `order`. A second call for the same sense does nothing.
     public func removeSense(_ sense: Sense) {
         guard !isRemoved(sense) else {
             return
@@ -192,15 +193,13 @@ public final class WordCardModel {
         for example in sense.examples {
             remember(removed: example)
         }
+        _ = renumber(remaining)
         do {
             try store.delete(sense)
         } catch {
             logger.error("Could not remove the sense: \(error.localizedDescription, privacy: .public)")
             failure = .saving
             return
-        }
-        if renumber(remaining) {
-            save()
         }
         reloadSenses()
     }
@@ -239,23 +238,20 @@ public final class WordCardModel {
         save()
     }
 
-    /// Hard-deletes `example` through the store, then renumbers its sense's remaining examples. A second
-    /// call for the same example does nothing.
+    /// Renumbers its sense's remaining examples, then hard-deletes `example` through the store in the
+    /// same save, as `removeSense(_:)` does. A second call for the same example does nothing.
     public func removeExample(_ example: Example) {
         guard !isRemoved(example) else {
             return
         }
         let remaining = example.sense?.sortedExamples.filter { $0.id != example.id } ?? []
         remember(removed: example)
+        _ = renumber(remaining)
         do {
             try store.delete(example)
         } catch {
             logger.error("Could not remove the example: \(error.localizedDescription, privacy: .public)")
             failure = .saving
-            return
-        }
-        if renumber(remaining) {
-            save()
         }
     }
 
