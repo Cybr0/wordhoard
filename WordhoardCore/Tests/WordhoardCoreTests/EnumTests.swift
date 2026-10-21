@@ -45,3 +45,23 @@ func enumsEncodeAsTheirCaseNames() throws {
     }
     #expect(try json(ReviewDirection.wordToMeaning) == "\"wordToMeaning\"")
 }
+
+@Test("decoding an unknown enum raw value throws instead of falling back to a case")
+func decodingAnUnknownEnumRawValueThrows() {
+    let decoder = JSONDecoder()
+    #expect(throws: DecodingError.self) {
+        try decoder.decode(PartOfSpeech.self, from: Data("\"determiner\"".utf8))
+    }
+    #expect(throws: DecodingError.self) {
+        try decoder.decode(FieldSource.self, from: Data("\"generated\"".utf8))
+    }
+    #expect(throws: DecodingError.self) {
+        try decoder.decode(SenseSource.self, from: Data("\"manual\"".utf8))
+    }
+    #expect(throws: DecodingError.self) {
+        try decoder.decode(ImageSource.self, from: Data("\"url\"".utf8))
+    }
+    #expect(throws: DecodingError.self) {
+        try decoder.decode(ReviewDirection.self, from: Data("\"both\"".utf8))
+    }
+}
