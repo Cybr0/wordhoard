@@ -7,7 +7,7 @@ import Foundation
 /// could misread the file; adding optional keys is not a change. `appVersion` is informational and
 /// optional on input; the other top-level keys are required.
 ///
-/// Not in the file: the derived `normalized` key (recomputed on import), tombstones, images and review
+/// Not in the file: the derived duplicate key (recomputed on import), tombstones, images and review
 /// events (a future sync ADR decides about those).
 public struct ExportDocument: Codable, Equatable, Sendable {
     /// The schema this build writes and the newest it reads.
