@@ -240,6 +240,31 @@ struct ImporterMergeTests {
         #expect(try importing(document) == .nothing)
     }
 
+    @Test("a tag renamed by id does not also capture a new file tag that takes its old name")
+    func aRenamedTagDoesNotCaptureANewTagWithItsOldName() throws {
+        let book = try store.add("book").word
+        let local = WordhoardCore.Tag(name: "a")
+        book.tags = [local]
+        try store.save(book)
+        let newTagID = TransferFixture.uuid(210)
+        let document = makeDocument(
+            words: [makeWord(headword: "apple", tagIDs: [newTagID])],
+            tags: [ExportTag(id: newTagID, name: "a"), ExportTag(id: local.id, name: "b")]
+        )
+        let summary = try importing(document)
+
+        #expect(summary.tagsUpdated == 1)
+        #expect(summary.tagsCreated == 1)
+        let tags = try ModelContext(container).fetch(FetchDescriptor<WordhoardCore.Tag>())
+        #expect(tags.map(\.name).sorted() == ["a", "b"])
+        #expect(tags.first { $0.name == "b" }?.id == local.id)
+        #expect(tags.first { $0.name == "a" }?.id == newTagID)
+        let apple = try #require(try store.activeWord(normalized: "apple"))
+        #expect(apple.tags.map(\.name) == ["a"])
+        #expect(book.tags.map(\.name) == ["b"])
+        #expect(try importing(document) == .nothing)
+    }
+
     @Test("settings are replaced by the file's values")
     func settingsAreReplacedByTheFile() throws {
         let settings = try store.settings()

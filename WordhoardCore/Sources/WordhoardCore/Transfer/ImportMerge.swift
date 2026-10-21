@@ -64,33 +64,38 @@ struct ImportMerge {
         summary.settingsChanged = changes.contains(true)
     }
 
+    /// Two passes, so an id match and a name match can never land on the same local tag: every id match
+    /// is resolved (and renamed) first, then the remaining file tags match by name only against local tags
+    /// no id claimed, and the rest are inserted.
     private mutating func mergeTags() throws {
         let local = try context.fetch(FetchDescriptor<Tag>())
-        var byID = Dictionary(local.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        var byName = Dictionary(local.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
-        for fileTag in document.tags {
-            let name = Importer.trimmed(fileTag.name)
-            guard !name.isEmpty else {
-                continue
-            }
+        let byID = Dictionary(local.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let fileTags = document.tags.map { (id: $0.id, name: Importer.trimmed($0.name)) }.filter { !$0.name.isEmpty }
+
+        var unmatched: [(id: UUID, name: String)] = []
+        for fileTag in fileTags {
             if let tag = byID[fileTag.id] {
-                if tag.name != name {
-                    tag.name = name
-                    byName[name] = tag
+                if tag.name != fileTag.name {
+                    tag.name = fileTag.name
                     summary.tagsUpdated += 1
                 }
                 tagsByFileID[fileTag.id] = tag
-            } else if let tag = byName[name] {
-                tagsByFileID[fileTag.id] = tag
             } else {
-                let tag = Tag(name: name)
+                unmatched.append(fileTag)
+            }
+        }
+
+        let unclaimed = local.filter { tagsByFileID[$0.id] == nil }
+        var byName = Dictionary(unclaimed.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
+        for fileTag in unmatched {
+            if byName[fileTag.name] == nil {
+                let tag = Tag(name: fileTag.name)
                 tag.id = fileTag.id
                 context.insert(tag)
-                byID[tag.id] = tag
-                byName[name] = tag
-                tagsByFileID[fileTag.id] = tag
+                byName[fileTag.name] = tag
                 summary.tagsCreated += 1
             }
+            tagsByFileID[fileTag.id] = byName[fileTag.name]
         }
     }
 
