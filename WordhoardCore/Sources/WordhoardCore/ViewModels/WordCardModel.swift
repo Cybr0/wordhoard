@@ -189,10 +189,8 @@ public final class WordCardModel {
             return
         }
         let remaining = senses.filter { $0.id != sense.id }
-        remember(removed: sense)
-        for example in sense.examples {
-            remember(removed: example)
-        }
+        removed[ObjectIdentifier(sense)] = sense
+        sense.examples.forEach { removed[ObjectIdentifier($0)] = $0 }
         _ = renumber(remaining)
         do {
             try store.delete(sense)
@@ -245,7 +243,7 @@ public final class WordCardModel {
             return
         }
         let remaining = example.sense?.sortedExamples.filter { $0.id != example.id } ?? []
-        remember(removed: example)
+        removed[ObjectIdentifier(example)] = example
         _ = renumber(remaining)
         do {
             try store.delete(example)
@@ -305,10 +303,6 @@ public final class WordCardModel {
 
     private func isRemoved(_ object: AnyObject) -> Bool {
         removed[ObjectIdentifier(object)] != nil
-    }
-
-    private func remember(removed object: AnyObject) {
-        removed[ObjectIdentifier(object)] = object
     }
 
     private func reloadSenses() {
