@@ -12,6 +12,7 @@
 		324504F048EE4CB34CE99294 /* WordhoardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B498FAD69F54EAFEF99BE62B /* WordhoardUITests.swift */; };
 		600B84B53823E0F1C0F8DD2E /* WordhoardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */; };
 		8C3B499067641BB31A762797 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8DDA685CA7599AFA87A612C6 /* Assets.xcassets */; };
+		C95F8167B36E03E325409984 /* WordCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B56280FC6C6D93C237E63D /* WordCardView.swift */; };
 		F9F9E25C9AB20F8F98ACFC97 /* WordListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4E9B7FF3EE327D268FF674 /* WordListView.swift */; };
 /* End PBXBuildFile section */
 
@@ -27,6 +28,7 @@
 
 /* Begin PBXFileReference section */
 		078B4D3E73CFA61F5FA2A770 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		13B56280FC6C6D93C237E63D /* WordCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordCardView.swift; sourceTree = "<group>"; };
 		33106C603F8F27F7485EA7B4 /* WordhoardCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = WordhoardCore; path = WordhoardCore; sourceTree = SOURCE_ROOT; };
 		3E950E4D0A0491B07CF5F05B /* WordhoardUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WordhoardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8A4E9B7FF3EE327D268FF674 /* WordListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListView.swift; sourceTree = "<group>"; };
@@ -96,6 +98,7 @@
 			isa = PBXGroup;
 			children = (
 				0130D00FAFD8FF9C88142601 /* Resources */,
+				13B56280FC6C6D93C237E63D /* WordCardView.swift */,
 				D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */,
 				8A4E9B7FF3EE327D268FF674 /* WordListView.swift */,
 			);
@@ -203,6 +206,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C95F8167B36E03E325409984 /* WordCardView.swift in Sources */,
 				F9F9E25C9AB20F8F98ACFC97 /* WordListView.swift in Sources */,
 				600B84B53823E0F1C0F8DD2E /* WordhoardApp.swift in Sources */,
 			);
