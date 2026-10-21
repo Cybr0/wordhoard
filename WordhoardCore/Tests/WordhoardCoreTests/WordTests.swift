@@ -59,3 +59,24 @@ func newWordHasEnglishAsLearningLanguageAndNoDeletion() {
     #expect(word.createdAt == word.updatedAt)
     #expect(word.id != other.id)
 }
+
+@Test("normalize gives canonically equivalent headwords byte-identical keys but keeps café and cafe apart")
+func normalizeCanonicalisesUnicodeFormWithoutFoldingDiacritics() throws {
+    let decomposed = "cafe\u{301}"
+    let precomposed = "caf\u{E9}"
+    #expect(Array(decomposed.utf8) != Array(precomposed.utf8))
+    #expect(Array(Word.normalize(decomposed).utf8) == Array(Word.normalize(precomposed).utf8))
+    #expect(Word.normalize(decomposed) != Word.normalize("cafe"))
+    #expect(Word.normalize("CAFE\u{301}") == "café")
+
+    let container = try WordhoardContainer.makeInMemory()
+    let context = ModelContext(container)
+    context.insert(Word(headword: decomposed))
+    try context.save()
+
+    let key = Word.normalize(precomposed)
+    let fresh = ModelContext(container)
+    let descriptor = FetchDescriptor<Word>(predicate: #Predicate { $0.normalized == key })
+    #expect(try fresh.fetchCount(descriptor) == 1)
+    #expect(try fresh.fetch(descriptor).first?.headword == decomposed)
+}

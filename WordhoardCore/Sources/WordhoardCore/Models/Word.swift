@@ -46,13 +46,15 @@ public final class Word {
     }
 
     /// The comparison key for duplicate detection (C4): lowercased, trimmed of leading and trailing
-    /// whitespace and newlines, with internal whitespace runs collapsed to one space. No diacritic
-    /// folding.
+    /// whitespace and newlines, with internal whitespace runs collapsed to one space, in Unicode
+    /// canonical composed form (NFC) so canonically equivalent input yields byte-identical keys that
+    /// SQLite predicates can match. No diacritic folding: `café` stays distinct from `cafe`.
     public static func normalize(_ headword: String) -> String {
         headword
             .lowercased()
             .split(whereSeparator: \.isWhitespace)
             .joined(separator: " ")
+            .precomposedStringWithCanonicalMapping
     }
 
     /// Words that are not soft-deleted, newest first (B1). The default fetch for every list.
