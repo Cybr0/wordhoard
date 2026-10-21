@@ -69,6 +69,8 @@ public final class WordStore {
     /// - Returns: `.created` after inserting and saving a new `Word`; `.existing` when a match was found,
     ///   in which case nothing is modified (not even `updatedAt`) and nothing is saved.
     /// - Throws: `WordStoreError.emptyHeadword` when the trimmed headword is empty; nothing is saved.
+    ///   A SwiftData save error is rethrown after the new word has been removed from the context again, so
+    ///   a failed insert is not left pending and does not show up in `words()`.
     public func add(_ headword: String) throws -> AddResult {
         let trimmed = Self.trimmed(headword)
         guard !trimmed.isEmpty else {
@@ -79,7 +81,12 @@ public final class WordStore {
         }
         let word = Word(headword: trimmed)
         context.insert(word)
-        try save()
+        do {
+            try save()
+        } catch {
+            context.delete(word)
+            throw error
+        }
         return .created(word)
     }
 
