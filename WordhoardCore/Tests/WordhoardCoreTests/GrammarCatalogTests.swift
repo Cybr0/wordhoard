@@ -65,13 +65,13 @@ func loadingAMissingLanguageThrows() {
 }
 
 @Test("catalog keys match Appendix A in order")
-func catalogKeysMatchAppendixAInOrder() {
-    #expect(GrammarCatalog.english.topics.map(\.key) == appendixAKeys)
+func catalogKeysMatchAppendixAInOrder() throws {
+    #expect(try GrammarCatalog.load(language: "en").topics.map(\.key) == appendixAKeys)
 }
 
 @Test("catalog groups match Appendix A, including in-group order")
 func catalogGroupsMatchAppendixA() throws {
-    let groups = GrammarCatalog.english.groups
+    let groups = try GrammarCatalog.load(language: "en").groups
     #expect(groups.map(\.name) == appendixAGroups.map(\.name))
     try #require(groups.count == appendixAGroups.count)
     for (group, expected) in zip(groups, appendixAGroups) {
@@ -80,8 +80,8 @@ func catalogGroupsMatchAppendixA() throws {
 }
 
 @Test("every key is unique and namespaced with the language code")
-func everyKeyIsUniqueAndNamespaced() {
-    let keys = GrammarCatalog.english.topics.map(\.key)
+func everyKeyIsUniqueAndNamespaced() throws {
+    let keys = try GrammarCatalog.load(language: "en").topics.map(\.key)
     #expect(Set(keys).count == 32)
     for key in keys {
         #expect(key.hasPrefix("en."), "\(key)")
@@ -90,8 +90,8 @@ func everyKeyIsUniqueAndNamespaced() {
 }
 
 @Test("every topic has a one-line, trimmed name and a one-line description")
-func everyTopicHasAOneLineNameAndDescription() {
-    for topic in GrammarCatalog.english.topics {
+func everyTopicHasAOneLineNameAndDescription() throws {
+    for topic in try GrammarCatalog.load(language: "en").topics {
         #expect(!topic.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "\(topic.key)")
         #expect(!topic.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "\(topic.key)")
         #expect(topic.name.rangeOfCharacter(from: .newlines) == nil, "\(topic.key)")
@@ -103,8 +103,8 @@ func everyTopicHasAOneLineNameAndDescription() {
 }
 
 @Test("a known key resolves to its topic with the issue's name and description")
-func knownKeyResolvesToItsTopic() {
-    let catalog = GrammarCatalog.english
+func knownKeyResolvesToItsTopic() throws {
+    let catalog = try GrammarCatalog.load(language: "en")
     let presentPerfect = catalog.topic(for: "en.present_perfect")
     #expect(presentPerfect?.name == "Present Perfect")
     #expect(
@@ -116,8 +116,8 @@ func knownKeyResolvesToItsTopic() {
 }
 
 @Test("the default active set matches Appendix A and every default key is in the catalog")
-func defaultActiveSetMatchesAppendixA() {
-    let catalog = GrammarCatalog.english
+func defaultActiveSetMatchesAppendixA() throws {
+    let catalog = try GrammarCatalog.load(language: "en")
     #expect(catalog.defaultActiveKeys == appendixADefaults)
     for key in catalog.defaultActiveKeys {
         #expect(catalog.topic(for: key) != nil, "\(key)")
@@ -125,8 +125,8 @@ func defaultActiveSetMatchesAppendixA() {
 }
 
 @Test("an unknown key looks up to nil without crashing")
-func unknownKeyLookupReturnsNil() {
-    let catalog = GrammarCatalog.english
+func unknownKeyLookupReturnsNil() throws {
+    let catalog = try GrammarCatalog.load(language: "en")
     for key in ["en.subjunctive", "present_perfect", "de.present_perfect", "", "EN.PRESENT_PERFECT", "en."] {
         #expect(catalog.topic(for: key) == nil, "\(key)")
     }
