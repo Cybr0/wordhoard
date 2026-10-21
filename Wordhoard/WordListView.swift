@@ -6,10 +6,12 @@ struct WordListView: View {
     @State private var model: WordListModel
     @State private var path: [Word] = []
     @FocusState private var isAddFieldFocused: Bool
+    private let store: WordStore
     private let isStorageUnavailable: Bool
 
     init(store: WordStore, isStorageUnavailable: Bool) {
         _model = State(initialValue: WordListModel(store: store))
+        self.store = store
         self.isStorageUnavailable = isStorageUnavailable
     }
 
@@ -38,7 +40,7 @@ struct WordListView: View {
             .searchable(text: $model.query)
             .navigationTitle("Wordhoard")
             .navigationDestination(for: Word.self) { word in
-                WordCardView(word: word)
+                WordCardView(word: word, store: store)
             }
             .alert(failureTitle, isPresented: isFailurePresented) {
                 Button("OK", role: .cancel) {}

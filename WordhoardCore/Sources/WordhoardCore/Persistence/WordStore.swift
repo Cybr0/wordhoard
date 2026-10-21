@@ -153,6 +153,25 @@ public final class WordStore {
         try save()
     }
 
+    /// Hard-deletes `sense` together with its examples (the relationship cascades), bumps its word's
+    /// `updatedAt`, saves. Hard, not soft: §5 has `deletedAt` only on `Word`, and deleting a word already
+    /// cascades to its senses. Renumbering the remaining senses' `order` is the caller's job.
+    public func delete(_ sense: Sense) throws {
+        let word = sense.word
+        context.delete(sense)
+        word?.updatedAt = .now
+        try save()
+    }
+
+    /// Hard-deletes `example`, bumps its word's `updatedAt`, saves. Renumbering the remaining examples'
+    /// `order` is the caller's job.
+    public func delete(_ example: Example) throws {
+        let word = example.sense?.word
+        context.delete(example)
+        word?.updatedAt = .now
+        try save()
+    }
+
     /// The single settings record, created from the English catalog's defaults and saved immediately
     /// on first use, so a second context never creates a second record.
     public func settings() throws -> UserSettings {
@@ -166,8 +185,9 @@ public final class WordStore {
 
     // MARK: - Helpers
 
-    /// The oldest active word with this `normalized` key (`createdAt` ascending, `id` as tie-break).
-    private func activeWord(normalized: String) throws -> Word? {
+    /// The oldest active word with this `normalized` key (`createdAt` ascending, `id` as tie-break), or
+    /// `nil`. What `add(_:)` uses for duplicate detection; a rename checks it before assigning (C4).
+    public func activeWord(normalized: String) throws -> Word? {
         var descriptor = FetchDescriptor<Word>(
             predicate: #Predicate { $0.deletedAt == nil && $0.normalized == normalized },
             sortBy: [SortDescriptor(\.createdAt), SortDescriptor(\.id)]

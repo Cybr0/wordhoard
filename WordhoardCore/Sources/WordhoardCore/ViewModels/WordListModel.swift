@@ -8,9 +8,9 @@ import os
 /// **Isolation: `@MainActor`**, like the `WordStore` it wraps; it republishes `Word` objects, which are not
 /// `Sendable`, to SwiftUI views that already run on the main actor.
 ///
-/// The model calls the store and republishes an array. It never holds a `ModelContext` or a
-/// `FetchDescriptor`; the view calls `reload()` whenever it (re)appears so edits and deletes made on a
-/// card show up after popping it. There is no debounce on `query` and no caching beyond `words`.
+/// The model calls the store and republishes an array. It never holds a SwiftData context or a fetch
+/// descriptor; the view calls `reload()` whenever it (re)appears so edits and deletes made on a card
+/// show up after popping it. There is no debounce on `query` and no caching beyond `words`.
 @MainActor
 @Observable
 public final class WordListModel {
@@ -62,7 +62,8 @@ public final class WordListModel {
     /// Submits `draft` to `WordStore.add(_:)` (C1, C4, C5).
     ///
     /// - `.created`: the draft and the query are cleared and `words` is re-read, so the new word is first.
-    /// - `.existing`: the draft and the query are cleared; the view navigates to the returned word.
+    /// - `.existing`: the draft and the query are cleared and `words` is re-read all the same, so the list
+    ///   behind the pushed card is current; the view navigates to the returned word.
     /// - Blank draft: the draft is cleared, nothing is added, `failure` stays as it was; returns `nil`.
     /// - Any other error: logged, `failure = .saving`, the draft is kept for a retry; returns `nil`.
     @discardableResult
@@ -71,9 +72,7 @@ public final class WordListModel {
             let result = try store.add(draft)
             draft = ""
             query = ""
-            if case .created = result {
-                reload()
-            }
+            reload()
             return result
         } catch WordStoreError.emptyHeadword {
             draft = ""
