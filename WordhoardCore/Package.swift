@@ -12,6 +12,9 @@ let package = Package(
     targets: [
         .target(
             name: "WordhoardCore",
+            // `.copy` keeps the directory, so the loader path `GrammarCatalog/<language>.json` is the
+            // same on the macOS host (`swift test`) and inside the app bundle built by Xcode.
+            resources: [.copy("Resources/GrammarCatalog")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

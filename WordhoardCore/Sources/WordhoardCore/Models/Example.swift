@@ -8,14 +8,15 @@ public final class Example {
     public var sense: Sense?
     public var text: String = ""
     /// Namespaced key into the grammar catalog, e.g. `"en.present_perfect"`; `nil` is a neutral
-    /// example. Not validated here (catalog is plan task 1.3).
-    public var grammarTopic: String?
+    /// example. Never validated at the store: the catalog grows with app updates, so readers resolve
+    /// the key with `GrammarCatalog.topic(for:)` and treat an unknown one like `nil`.
+    public var grammarTopic: GrammarTopicID?
     /// Stored default is `.user` so a record that somehow lacks it is never overwritten.
     public var source: FieldSource = FieldSource.user
     /// Position within `Sense.examples`; the relationship itself is unordered.
     public var order: Int = 0
 
-    public init(text: String = "", source: FieldSource, grammarTopic: String? = nil, order: Int = 0) {
+    public init(text: String = "", source: FieldSource, grammarTopic: GrammarTopicID? = nil, order: Int = 0) {
         self.text = text
         self.source = source
         self.grammarTopic = grammarTopic
