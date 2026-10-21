@@ -194,6 +194,8 @@ struct WordCardModelEdgeCaseTests {
         model.moveSenses(fromOffsets: [5], toOffset: 0)
         model.moveSenses(fromOffsets: [], toOffset: 1)
         model.moveSenses(fromOffsets: [0], toOffset: -1)
+        model.moveSenses(fromOffsets: [7], toOffset: 99)
+        model.moveSenses(fromOffsets: [2], toOffset: 3) // the end of the list is a valid destination
         #expect(model.senses.map(\.definition) == ["a", "b", "c"])
         #expect(word.updatedAt == savedAt)
 
