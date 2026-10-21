@@ -35,6 +35,11 @@ final class Gate: Sendable {
         }
     }
 
+    /// Shuts the gate again, so the next caller waits; nobody already through is affected.
+    func close() {
+        state.withLock { $0.isOpen = false }
+    }
+
     func wait() async throws {
         let id = UUID()
         try await withTaskCancellationHandler {
