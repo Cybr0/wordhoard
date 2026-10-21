@@ -183,6 +183,27 @@ public final class WordStore {
         return settings
     }
 
+    // MARK: - Batching
+
+    /// Runs `body` on the main context with no intermediate saves, then commits once (the headword rules
+    /// apply to every pending `Word`, as for any save). If `body` or the save throws, the context is
+    /// rolled back and the error rethrown, so a batch is all-or-nothing.
+    ///
+    /// The one sanctioned way for a Core service to batch writes (the importer, plan task 1.7). It does
+    /// not bump `updatedAt`, so dates written by `body` land verbatim. Like every other save it is a
+    /// commit point for pending in-place edits made elsewhere on the context, and a rollback discards
+    /// those too; callers run it when no card edit is in flight.
+    public func transaction<T>(_ body: (ModelContext) throws -> T) throws -> T {
+        do {
+            let result = try body(context)
+            try save()
+            return result
+        } catch {
+            context.rollback()
+            throw error
+        }
+    }
+
     // MARK: - Helpers
 
     /// The oldest active word with this `normalized` key (`createdAt` ascending, `id` as tie-break), or

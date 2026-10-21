@@ -21,6 +21,9 @@ public final class WordListModel {
         case loading
         /// `addDraft()` could not save; `draft` still holds the typed text so the user can retry.
         case saving
+        /// `importWords(_:)` refused the file (the `ImportError`) or the store could not save it (`nil`).
+        /// Nothing was written either way.
+        case importing(ImportError?)
     }
 
     /// What the list shows: active words matching `query`, newest first.
@@ -40,6 +43,10 @@ public final class WordListModel {
     public var draft = ""
 
     public var failure: Failure?
+
+    /// What the last `importWords(_:)` did. The view shows it and sets it back to `nil` when the user
+    /// dismisses the alert, as for `failure`; a failed import clears it.
+    public var importSummary: ImportSummary?
 
     private let store: WordStore
     private let logger = Logger(subsystem: "Wordhoard", category: "list")
@@ -82,5 +89,26 @@ public final class WordListModel {
             failure = .saving
             return nil
         }
+    }
+
+    /// Merges an export file into the store (S3) through `Importer`, then re-reads `words` whatever the
+    /// outcome, so a partially matched file and a refused one both leave the list current.
+    ///
+    /// - Success: `importSummary` is set; `failure` is left as it was.
+    /// - `ImportError`: `failure = .importing(error)`, `importSummary = nil`; the store is unchanged.
+    /// - Any other error: logged, `failure = .importing(nil)`, `importSummary = nil`; the transaction was
+    ///   rolled back.
+    public func importWords(_ data: Data) {
+        do {
+            importSummary = try Importer.import(data, into: store)
+        } catch let error as ImportError {
+            importSummary = nil
+            failure = .importing(error)
+        } catch {
+            logger.error("Could not import the file: \(error.localizedDescription, privacy: .public)")
+            importSummary = nil
+            failure = .importing(nil)
+        }
+        reload()
     }
 }
