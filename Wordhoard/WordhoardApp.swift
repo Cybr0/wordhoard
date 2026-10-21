@@ -6,25 +6,35 @@ import WordhoardCore
 @main
 struct WordhoardApp: App {
     private let logger = Logger(subsystem: "Wordhoard", category: "app")
+    @Environment(\.scenePhase) private var scenePhase
 
-    /// The one container and the one store for the whole app. Views receive the store through their
-    /// initializers and never touch SwiftData themselves, so no SwiftUI container modifier is applied
-    /// and `WordStore.init` stays the only code that configures the main context.
+    /// The one container, the one store and the one autofill queue for the whole app. Views receive
+    /// them through their initializers and never touch SwiftData themselves, so no SwiftUI container
+    /// modifier is applied and `WordStore.init` stays the only code that configures the main context.
     private let container: ModelContainer
     private let store: WordStore
+    private let autofill: AutofillService
     /// `true` when the on-disk store could not be opened and `container` is an in-memory fallback.
     private let isStorageUnavailable: Bool
 
     init() {
         logger.info("Launching with WordhoardCore \(CoreInfo.version, privacy: .public)")
+        let options = LaunchOptions.fromLaunchArguments()
         (container, isStorageUnavailable) = Self.makeContainer(logger: logger)
         store = WordStore(container: container)
+        autofill = AutofillService(store: store, generator: options.makeGenerator())
         // Warm up the settings record now, before any in-place edit can be pending, so its first-use
         // save never becomes a surprise commit point from inside a card (1.4 ruling on #30).
         do {
-            _ = try store.settings()
+            let settings = try store.settings()
+            if let tag = options.nativeLanguage, settings.nativeLanguage != tag {
+                try store.transaction { _ in settings.nativeLanguage = tag }
+            }
         } catch {
             logger.error("Could not load settings: \(error.localizedDescription, privacy: .public)")
+        }
+        Task.detached {
+            await WordNetLookup.shared.warmUp()
         }
     }
 
@@ -32,9 +42,27 @@ struct WordhoardApp: App {
         WindowGroup {
             WordListView(
                 store: store,
+                autofill: autofill,
                 isStorageUnavailable: isStorageUnavailable,
                 hooks: UITestingHooks.fromLaunchArguments()
             )
+            .task(resumeAutofill)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Every foreground: a word added while the app was closed (the 5.1 intent) is filled now.
+            if phase == .active {
+                resumeAutofill()
+            }
+        }
+    }
+
+    /// Resets interrupted fills and queues every pending word. Idempotent, so launch and foreground
+    /// can both call it.
+    private func resumeAutofill() {
+        do {
+            try autofill.resumeAfterLaunch()
+        } catch {
+            logger.error("Could not resume autofill: \(error.localizedDescription, privacy: .public)")
         }
     }
 

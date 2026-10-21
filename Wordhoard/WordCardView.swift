@@ -1,16 +1,19 @@
 import SwiftUI
 import WordhoardCore
 
-/// The word card (W1, W2, W3): the headword, one section per sense and the add, remove, reorder and
-/// delete actions. Talks only to `WordCardModel`; every edit is held in a field's local state and
-/// committed through one model setter when the edit ends.
+/// The word card (W1, W2, W3): the headword, the autofill status row (C5, A6), one section per sense and
+/// the add, remove, reorder and delete actions. Talks only to `WordCardModel` for edits; every edit is
+/// held in a field's local state and committed through one model setter when the edit ends. The
+/// `AutofillService` is read for progress and asked to retry; it never mutates the card from here.
 struct WordCardView: View {
     @State private var model: WordCardModel
     @State private var isDeleteDialogPresented = false
     @Environment(\.dismiss) private var dismiss
+    private let autofill: AutofillService
 
-    init(word: Word, store: WordStore) {
+    init(word: Word, store: WordStore, autofill: AutofillService) {
         _model = State(initialValue: WordCardModel(word: word, store: store))
+        self.autofill = autofill
     }
 
     private var word: Word {
@@ -20,7 +23,7 @@ struct WordCardView: View {
     var body: some View {
         List {
             headwordSection
-            if model.senses.isEmpty {
+            if model.senses.isEmpty, !isFilling {
                 emptyState
             }
             ForEach(Array(model.senses.enumerated()), id: \.element.id) { index, sense in
@@ -60,6 +63,10 @@ struct WordCardView: View {
         .alert(failureTitle, isPresented: isFailurePresented) {
             Button("OK", role: .cancel) {}
         }
+        .onChange(of: word.autofillState) { _, _ in
+            // The service merges senses behind the model's back; re-read them when a fill ends or starts.
+            model.reloadSenses()
+        }
     }
 
     private var headwordSection: some View {
@@ -77,7 +84,60 @@ struct WordCardView: View {
                     .foregroundStyle(.red)
                     .accessibilityIdentifier("wordCard.headwordMessage")
             }
+            statusRow
         }
+    }
+
+    // MARK: - Autofill status (C5, A6)
+
+    private var isFilling: Bool {
+        word.autofillState == .pending || word.autofillState == .filling
+    }
+
+    /// Whether this word's topic examples are still arriving after its first card.
+    private var isReceivingExamples: Bool {
+        word.autofillState == .ready && autofill.currentWordID == word.id
+    }
+
+    /// One row under the headword, by state. Editing is never blocked by it (A7).
+    @ViewBuilder private var statusRow: some View {
+        switch word.autofillState {
+        case .pending, .filling:
+            progressRow(Text("Filling in…"))
+        case .failed:
+            Text("Couldn't fill in this card.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("wordCard.status")
+            Button("Try again") {
+                autofill.retry(word)
+            }
+            .accessibilityIdentifier("wordCard.retry")
+        case .unavailable:
+            Text(Self.unavailableExplanation)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("wordCard.status")
+        case .ready:
+            if isReceivingExamples {
+                progressRow(Text("Adding examples…"))
+            }
+        }
+    }
+
+    private static let unavailableExplanation: LocalizedStringKey =
+        "Apple Intelligence isn't available on this device. Fill in the card by hand."
+
+    private func progressRow(_ text: Text) -> some View {
+        HStack {
+            ProgressView()
+                .controlSize(.small)
+            text
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("wordCard.status")
     }
 
     private func headwordMessage(for rejection: WordCardModel.HeadwordRejection) -> Text {
@@ -89,11 +149,22 @@ struct WordCardView: View {
         }
     }
 
+    /// After a fill that found nothing (A1) the description says so; otherwise the plain 1.6 empty state.
     private var emptyState: some View {
-        ContentUnavailableView("No senses yet", systemImage: "text.book.closed")
-            .accessibilityIdentifier("wordCard.emptyState")
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
+        Group {
+            if word.autofillState == .ready {
+                ContentUnavailableView(
+                    "No senses yet",
+                    systemImage: "text.book.closed",
+                    description: Text("Nothing was found for this word. Add a sense by hand.")
+                )
+            } else {
+                ContentUnavailableView("No senses yet", systemImage: "text.book.closed")
+            }
+        }
+        .accessibilityIdentifier("wordCard.emptyState")
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
 
     private var failureTitle: Text {
@@ -312,8 +383,13 @@ private func previewCard() -> WordCardView? {
     ]
     let verb = Sense(partOfSpeech: .verb, definition: "To reserve a seat, room or table.", order: 1)
     word.senses = [noun, verb]
+    word.autofillState = .ready
     try? store.save(word)
-    return WordCardView(word: word, store: store)
+    return WordCardView(
+        word: word,
+        store: store,
+        autofill: AutofillService(store: store, generator: StubCardGenerator())
+    )
 }
 
 #Preview {

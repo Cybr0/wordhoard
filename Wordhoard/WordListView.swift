@@ -14,13 +14,15 @@ struct WordListView: View {
     @State private var isReadFailurePresented = false
     @FocusState private var isAddFieldFocused: Bool
     private let store: WordStore
+    private let autofill: AutofillService
     private let isStorageUnavailable: Bool
     private let hooks: UITestingHooks
     private let logger = Logger(subsystem: "Wordhoard", category: "transfer")
 
-    init(store: WordStore, isStorageUnavailable: Bool, hooks: UITestingHooks = .none) {
-        _model = State(initialValue: WordListModel(store: store))
+    init(store: WordStore, autofill: AutofillService, isStorageUnavailable: Bool, hooks: UITestingHooks = .none) {
+        _model = State(initialValue: WordListModel(store: store, autofill: autofill))
         self.store = store
+        self.autofill = autofill
         self.isStorageUnavailable = isStorageUnavailable
         self.hooks = hooks
     }
@@ -39,8 +41,7 @@ struct WordListView: View {
                     .accessibilityIdentifier("wordList.addField")
                 ForEach(model.words) { word in
                     NavigationLink(value: word) {
-                        Text(word.headword)
-                            .accessibilityIdentifier("wordList.rowHeadword")
+                        row(word)
                     }
                 }
                 if model.words.isEmpty {
@@ -50,7 +51,7 @@ struct WordListView: View {
             .searchable(text: $model.query)
             .navigationTitle("Wordhoard")
             .navigationDestination(for: Word.self) { word in
-                WordCardView(word: word, store: store)
+                WordCardView(word: word, store: store, autofill: autofill)
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -83,6 +84,20 @@ struct WordListView: View {
                 if path.isEmpty {
                     model.reload()
                 }
+            }
+        }
+    }
+
+    /// The headword, with a small progress indicator while the word is waiting for or receiving its card.
+    private func row(_ word: Word) -> some View {
+        HStack {
+            Text(word.headword)
+                .accessibilityIdentifier("wordList.rowHeadword")
+            if word.autofillState == .pending || word.autofillState == .filling {
+                Spacer()
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityIdentifier("wordList.rowProgress")
             }
         }
     }

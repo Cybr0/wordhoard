@@ -13,6 +13,9 @@
     "Added %lld, updated %lld, skipped %lld." : {
 
     },
+    "Adding examples…" : {
+
+    },
     "Adjective" : {
 
     },
@@ -22,6 +25,9 @@
     "Antonyms, separated by commas" : {
 
     },
+    "Apple Intelligence isn't available on this device. Fill in the card by hand." : {
+
+    },
     "Cancel" : {
 
     },
@@ -29,6 +35,9 @@
 
     },
     "Couldn't delete the word" : {
+
+    },
+    "Couldn't fill in this card." : {
 
     },
     "Couldn't import" : {
@@ -61,6 +70,9 @@
     "Export…" : {
 
     },
+    "Filling in…" : {
+
+    },
     "Import finished" : {
 
     },
@@ -83,6 +95,9 @@
 
     },
     "No words yet" : {
+
+    },
+    "Nothing was found for this word. Add a sense by hand." : {
 
     },
     "Noun" : {
@@ -137,6 +152,9 @@
       "extractionState" : "manual"
     },
     "Translation" : {
+
+    },
+    "Try again" : {
 
     },
     "Verb" : {

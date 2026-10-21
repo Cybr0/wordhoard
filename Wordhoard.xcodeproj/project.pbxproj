@@ -12,6 +12,7 @@
 		25FF80C3F7DEB7AE7CA5C43A /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 078B4D3E73CFA61F5FA2A770 /* Localizable.xcstrings */; };
 		324504F048EE4CB34CE99294 /* WordhoardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B498FAD69F54EAFEF99BE62B /* WordhoardUITests.swift */; };
 		452233B39E8A2483A5316AF4 /* UITestingHooks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F0C5C2F44B6F6351C45A4E /* UITestingHooks.swift */; };
+		45AAEEAD9618661829030008 /* LaunchOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02F90EAB0084C7A7B0FBA59 /* LaunchOptions.swift */; };
 		600B84B53823E0F1C0F8DD2E /* WordhoardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */; };
 		8C3B499067641BB31A762797 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8DDA685CA7599AFA87A612C6 /* Assets.xcassets */; };
 		9968065F2C4DF2AFC034C06C /* ExportFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86FE5FD03CDF1DD697988B70 /* ExportFile.swift */; };
@@ -42,6 +43,7 @@
 		8DDA685CA7599AFA87A612C6 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		90F0C5C2F44B6F6351C45A4E /* UITestingHooks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestingHooks.swift; sourceTree = "<group>"; };
 		B498FAD69F54EAFEF99BE62B /* WordhoardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordhoardUITests.swift; sourceTree = "<group>"; };
+		D02F90EAB0084C7A7B0FBA59 /* LaunchOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchOptions.swift; sourceTree = "<group>"; };
 		D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordhoardApp.swift; sourceTree = "<group>"; };
 		DD2A89CD07C1F6FD775E4977 /* Wordhoard.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Wordhoard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -108,6 +110,7 @@
 				0130D00FAFD8FF9C88142601 /* Resources */,
 				209C88D9788EA67B237B9C6D /* CommittingTextField.swift */,
 				86FE5FD03CDF1DD697988B70 /* ExportFile.swift */,
+				D02F90EAB0084C7A7B0FBA59 /* LaunchOptions.swift */,
 				63B54BE22DDB8020566C4D52 /* PartOfSpeech+DisplayName.swift */,
 				90F0C5C2F44B6F6351C45A4E /* UITestingHooks.swift */,
 				13B56280FC6C6D93C237E63D /* WordCardView.swift */,
@@ -220,6 +223,7 @@
 			files = (
 				C3B4F7FB3ACDBAC95F50F869 /* CommittingTextField.swift in Sources */,
 				9968065F2C4DF2AFC034C06C /* ExportFile.swift in Sources */,
+				45AAEEAD9618661829030008 /* LaunchOptions.swift in Sources */,
 				0275FC6D7CD917F8C26D65DF /* PartOfSpeech+DisplayName.swift in Sources */,
 				452233B39E8A2483A5316AF4 /* UITestingHooks.swift in Sources */,
 				C95F8167B36E03E325409984 /* WordCardView.swift in Sources */,
