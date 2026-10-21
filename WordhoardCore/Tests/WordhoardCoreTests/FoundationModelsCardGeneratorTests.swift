@@ -110,8 +110,8 @@ struct FoundationModelsCardGeneratorPathTests {
         #expect(card.senses.first?.neutralExample?.text == "I adverb the however")
         #expect(card.notes.isEmpty)
         #expect(calls.calls.map(\.method) == [.proposeSenses, .verify, .writeExample])
-        #expect(calls.calls.first == .proposeSenses(headword: "however"))
-        #expect(calls.calls[1] == .verify(headword: "however", sense: GeneratorFixtures.howeverSense))
+        #expect(calls.calls.first == .proposeSenses(headword: "however", wordClass: nil))
+        #expect(calls.calls[1] == .verify(headword: "however", sense: GeneratorFixtures.howeverSense, wordClass: nil))
     }
 
     @Test("a word nobody knows is `.notFound` with no sense when the verifier rejects every proposal")

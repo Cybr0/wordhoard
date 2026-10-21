@@ -55,8 +55,10 @@ struct PromptTests {
         #expect(prompt(.noun).contains("used as a noun meaning \"in spite of\"? Answer yes or no."))
         #expect(prompt(.adverb).contains("used as an adverb meaning"))
         #expect(prompt(.phrase).contains("as an idiom or fixed phrase"))
-        #expect(prompt(.preposition).contains("as a preposition, conjunction, determiner or pronoun"))
-        #expect(prompt(.other) == prompt(.conjunction))
+        #expect(prompt(.preposition).contains("used as a preposition meaning"))
+        #expect(prompt(.conjunction).contains("used as a conjunction meaning"))
+        #expect(prompt(.other).contains("as a determiner, pronoun or other function word"))
+        #expect(!prompt(.other).contains("usually"), "no hint without a word class")
         #expect(SensesPrompt
             .prompt(headword: "however") == "Write the dictionary entry for the English word: \"however\"")
     }
@@ -74,7 +76,10 @@ struct PromptTests {
             #expect(!lowered.contains("native language"))
             #expect(!lowered.contains("image"))
         }
-        #expect(SensesPrompt.instructions.contains("1. other — \"throughout the whole time that something lasts\""))
+        #expect(SensesPrompt.instructions
+            .contains("1. preposition — \"throughout the whole time that something lasts\""))
+        #expect(!SensesPrompt.instructions.contains("other for a preposition"))
+        #expect(!SensesPrompt.instructions.contains("prepositions are never adverbs"))
         #expect(GenerationDefaults.temperature == 0.3)
     }
 }

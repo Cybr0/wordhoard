@@ -82,6 +82,42 @@ struct WordNetLookupTests {
         #expect(await !lookup.isFunctionWord(""))
     }
 
+    @Test("the stoplist's section headers give the word class; a lemma before the first header has none")
+    func stoplistSectionsGiveTheWordClass() async throws {
+        let lookup = WordNetLookup.shared
+        #expect(await lookup.functionWordClass("despite") == .preposition)
+        #expect(await lookup.functionWordClass("in spite of") == .preposition)
+        #expect(await lookup.functionWordClass("however") == .adverb)
+        #expect(await lookup.functionWordClass("the") == .determiner)
+        #expect(await lookup.functionWordClass("They") == .pronoun)
+        #expect(await lookup.functionWordClass("and") == .conjunction)
+        #expect(await lookup.functionWordClass("could") == .auxiliary)
+        #expect(await lookup.functionWordClass("book") == nil)
+        #expect(await lookup.functionWordClass("") == nil)
+
+        // The shipped file lists nothing before its first header; a hand-made one may.
+        let early = try WordNetLookup(bundle: temporaryBundle(files: [
+            "function-words.txt": """
+            # prose comment mentioning Prepositions in passing
+            lo
+
+            # Conjunctions
+            and
+            #   pronouns
+            me
+            """,
+        ]))
+        #expect(await early.isFunctionWord("lo"))
+        #expect(await early.functionWordClass("lo") == nil, "listed before the first section header")
+        #expect(await early.functionWordClass("and") == .conjunction)
+        #expect(
+            await early.functionWordClass("me") == .pronoun,
+            "headers match case-insensitively, leading spaces ignored"
+        )
+        #expect(await early.functionWordClass("prepositions") == nil, "a header is not a lemma")
+        #expect(await !early.isFunctionWord("conjunctions"))
+    }
+
     @Test("`select` keeps two per part of speech and four in all, rank 1 of every part first")
     func selectKeepsTwoPerPartOfSpeechAndFourInAll() {
         let noun1 = sense(.noun, "n1"), noun2 = sense(.noun, "n2"), noun3 = sense(.noun, "n3")

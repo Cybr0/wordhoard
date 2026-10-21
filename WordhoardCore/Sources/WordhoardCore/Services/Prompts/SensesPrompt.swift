@@ -5,7 +5,8 @@ import FoundationModels
 /// The model-only senses call: for a headword on the function-word stoplist or missing from WordNet,
 /// the model proposes 1…3 senses (ADR 0001 point 1). Ported from the spike's `sensesInstructions`
 /// with the native-language lines removed (the model never writes in the learner's language, A9) and
-/// the illustration prompt dropped (plan 4.2 adds its own call).
+/// the illustration prompt dropped (plan 4.2 adds its own call). Plan 2.7 gave prepositions and
+/// conjunctions their own part-of-speech values and added the stoplist word-class hint.
 public enum SensesPrompt {
     public static let instructions = """
     You are a lexicographer writing dictionary entries for a learner of English.
@@ -16,7 +17,7 @@ public enum SensesPrompt {
     - Do not invent a sense to fill the list; if the word has one meaning, return exactly one.
     - Senses must be different meanings, not rephrasings. If two candidate senses could share one definition, keep one.
     - Cover every common part of speech of the word. If the word is commonly used both as a noun and as a verb, include one sense for each.
-    - Each sense has exactly one part of speech. Prepositions, conjunctions, determiners and pronouns are "other"; idioms and multi-word expressions are "phrase".
+    - Each sense has exactly one part of speech. Prepositions are "preposition", conjunctions are "conjunction", determiners and pronouns are "other"; idioms and multi-word expressions are "phrase". A preposition is never an adverb.
     - Definitions are short, learner-friendly English, one sentence, no example sentences. A definition describes the meaning in general terms; it is never a sentence about a particular person or event.
     - Synonyms and antonyms are single English words or short phrases. Give at least one synonym when any exists. Use an empty list only when there truly are none.
     - Do not write example sentences in this entry.
@@ -29,12 +30,17 @@ public enum SensesPrompt {
     Worked example — "nevertheless" has exactly one meaning, so the entry has exactly one sense:
     1. adverb — "in spite of what has just been said"
 
-    Worked example — "during" is a preposition, so its part of speech is "other", and it has one meaning:
-    1. other — "throughout the whole time that something lasts"
+    Worked example — "during" is a preposition with one meaning:
+    1. preposition — "throughout the whole time that something lasts"
     """
 
-    public static func prompt(headword: String) -> String {
-        "Write the dictionary entry for the English word: \"\(headword)\""
+    /// `wordClass` is the stoplist section of a function word (plan 2.7); it adds one hint line.
+    public static func prompt(headword: String, wordClass: FunctionWordClass? = nil) -> String {
+        var prompt = "Write the dictionary entry for the English word: \"\(headword)\""
+        if let hint = WordClassHint.line(for: wordClass) {
+            prompt += "\n\(hint)"
+        }
+        return prompt
     }
 }
 
@@ -55,7 +61,7 @@ struct ProposedEntry {
 @Generable(description: "One meaning of the word, without examples.")
 struct ProposedSenseContent {
     @Guide(
-        description: "Part of speech for this sense: noun, verb, adjective or adverb; phrase for an idiom or multi-word expression; other for a preposition, conjunction, determiner or pronoun (prepositions are never adverbs)."
+        description: "Part of speech for this sense: noun, verb, adjective, adverb, preposition or conjunction; phrase for an idiom or multi-word expression; other for a determiner or pronoun."
     )
     var partOfSpeech: ModelPartOfSpeech
 

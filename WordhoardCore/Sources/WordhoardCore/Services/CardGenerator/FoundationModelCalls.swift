@@ -32,10 +32,10 @@ public struct FoundationModelCalls: ModelCalls {
         }
     }
 
-    public func proposeSenses(headword: String) async throws -> [ProposedSense] {
+    public func proposeSenses(headword: String, wordClass: FunctionWordClass?) async throws -> [ProposedSense] {
         let entry = try await respond(
             instructions: SensesPrompt.instructions,
-            prompt: SensesPrompt.prompt(headword: headword),
+            prompt: SensesPrompt.prompt(headword: headword, wordClass: wordClass),
             generating: ProposedEntry.self,
             label: "senses"
         )
@@ -49,11 +49,14 @@ public struct FoundationModelCalls: ModelCalls {
         }
     }
 
-    public func verify(headword: String, sense: ProposedSense) async throws -> Bool {
+    public func verify(headword: String, sense: ProposedSense, wordClass: FunctionWordClass?) async throws -> Bool {
         let verdict = try await respond(
             instructions: VerifierPrompt.instructions,
             prompt: VerifierPrompt.prompt(
-                headword: headword, partOfSpeech: sense.partOfSpeech, definition: sense.definition
+                headword: headword,
+                partOfSpeech: sense.partOfSpeech,
+                definition: sense.definition,
+                wordClass: wordClass
             ),
             generating: SenseVerdict.self,
             label: "verify"

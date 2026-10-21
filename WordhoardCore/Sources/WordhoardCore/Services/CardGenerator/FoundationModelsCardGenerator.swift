@@ -36,13 +36,16 @@ public final class FoundationModelsCardGenerator: CardGenerator {
         try await checkAvailability()
         let headword = Self.trimmed(request.headword)
 
-        // Sense inventory (step 2): stoplist → model; bundle miss → model; otherwise WordNet only.
+        // Sense inventory (step 2): stoplist → model with the section's class as a hint; bundle miss →
+        // model; otherwise WordNet only.
         var card: GeneratedCard = if await lookup.isFunctionWord(headword) {
-            try await modelOnlyCard(headword: headword, path: .stoplist)
+            try await modelOnlyCard(
+                headword: headword, path: .stoplist, wordClass: lookup.functionWordClass(headword)
+            )
         } else if let entry = await lookup.entry(for: headword) {
             try await wordNetCard(headword: headword, entry: entry)
         } else {
-            try await modelOnlyCard(headword: headword, path: .modelOnly)
+            try await modelOnlyCard(headword: headword, path: .modelOnly, wordClass: nil)
         }
         guard !card.senses.isEmpty else {
             Self.logger.info("\(headword, privacy: .private(mask: .hash)): not found, no sense invented")
@@ -138,10 +141,15 @@ public final class FoundationModelsCardGenerator: CardGenerator {
 
     /// One `proposeSenses` call, then one `verify` call per proposed sense, serial. "No" drops the
     /// sense; a verify call that throws keeps it; none kept → `.notFound` with no senses (A1).
-    private func modelOnlyCard(headword: String, path: GenerationPath) async throws -> GeneratedCard {
+    /// `wordClass` (stoplist words only) reaches both prompts as a hint (2.7).
+    private func modelOnlyCard(
+        headword: String,
+        path: GenerationPath,
+        wordClass: FunctionWordClass?
+    ) async throws -> GeneratedCard {
         let proposed: [ProposedSense]
         do {
-            proposed = try await calls.proposeSenses(headword: headword)
+            proposed = try await calls.proposeSenses(headword: headword, wordClass: wordClass)
         } catch ModelCallError.refused {
             throw CardGeneratorError.refused
         } catch let ModelCallError.failed(description) {
@@ -152,7 +160,7 @@ public final class FoundationModelsCardGenerator: CardGenerator {
         for sense in proposed where !sense.definition.isEmpty {
             try Task.checkCancellation()
             do {
-                guard try await calls.verify(headword: headword, sense: sense) else {
+                guard try await calls.verify(headword: headword, sense: sense, wordClass: wordClass) else {
                     continue
                 }
             } catch let error as ModelCallError {

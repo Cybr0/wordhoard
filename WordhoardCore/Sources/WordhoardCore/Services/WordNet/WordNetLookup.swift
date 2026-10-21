@@ -39,7 +39,7 @@ public actor WordNetLookup {
 
     private let bundle: Bundle
     private var loadState: LoadState = .notLoaded
-    private var functionWords: Set<String>?
+    private var stoplist: Stoplist?
 
     /// `bundle` holds `WordNet/oewn-2024.json` and `WordNet/function-words.txt`; tests may point at a
     /// directory with a tiny or broken copy.
@@ -56,10 +56,13 @@ public actor WordNetLookup {
     /// conjunctions, auxiliaries, discourse adverbs. WordNet is useless or misleading for these, so the
     /// generator takes the model-only path without consulting the bundle.
     public func isFunctionWord(_ headword: String) -> Bool {
-        if functionWords == nil {
-            functionWords = loadFunctionWords()
-        }
-        return functionWords?.contains(Self.normalize(headword)) ?? false
+        loadedStoplist().members.contains(Self.normalize(headword))
+    }
+
+    /// The stoplist section the headword is listed under (plan 2.7), or `nil` when it is not a function
+    /// word or is listed before the first `#` section header. The prompts state it as a hint.
+    public func functionWordClass(_ headword: String) -> FunctionWordClass? {
+        loadedStoplist().classes[Self.normalize(headword)]
     }
 
     /// Every bundled sense of the lemma and the default selection, or `nil` when the bundle has no
@@ -148,31 +151,57 @@ public actor WordNetLookup {
         }
     }
 
+    private func loadedStoplist() -> Stoplist {
+        if let stoplist {
+            return stoplist
+        }
+        let loaded = loadStoplist()
+        stoplist = loaded
+        return loaded
+    }
+
     /// `function-words.txt`: one lemma per line, lowercase, `#` starts a comment, blank lines skipped.
-    /// Same parsing as `load_function_words` in `spike/tools/convert_oewn.py`, so `--check` and the app agree.
-    private func loadFunctionWords() -> Set<String> {
+    /// Same membership parsing as `load_function_words` in `spike/tools/convert_oewn.py`, so `--check`
+    /// and the app agree. A comment whose text is one of the six section headers
+    /// (`FunctionWordClass.sectionHeader`) sets the class of every lemma until the next header.
+    private func loadStoplist() -> Stoplist {
         guard let url = bundle.url(
             forResource: Self.stoplistResource, withExtension: "txt", subdirectory: Self.subdirectory
         ) else {
             Self.logger.fault("function-words.txt is missing from the resource bundle; no stoplist")
-            return []
+            return Stoplist()
         }
         do {
             let text = try String(contentsOf: url, encoding: .utf8)
-            var words: Set<String> = []
+            var stoplist = Stoplist()
+            var section: FunctionWordClass?
             for line in text.split(whereSeparator: \.isNewline) {
-                let content = line.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first ?? ""
-                let key = Self.normalize(String(content))
-                if !key.isEmpty {
-                    words.insert(key)
+                let parts = line.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
+                let key = Self.normalize(String(parts.first ?? ""))
+                if key.isEmpty, parts.count == 2, let header = FunctionWordClass.forSectionHeader(String(parts[1])) {
+                    section = header
+                    continue
+                }
+                guard !key.isEmpty else { continue }
+                stoplist.members.insert(key)
+                if let section {
+                    stoplist.classes[key] = section
                 }
             }
-            Self.logger.info("Loaded function-words.txt: \(words.count, privacy: .public) function words")
-            return words
+            Self.logger.info(
+                "Loaded function-words.txt: \(stoplist.members.count, privacy: .public) function words"
+            )
+            return stoplist
         } catch {
             Self.logger.fault("function-words.txt failed to load: \(error, privacy: .public)")
-            return []
+            return Stoplist()
         }
+    }
+
+    /// The parsed stoplist: every lemma, and the section class of those listed under a header.
+    private struct Stoplist {
+        var members: Set<String> = []
+        var classes: [String: FunctionWordClass] = [:]
     }
 }
 

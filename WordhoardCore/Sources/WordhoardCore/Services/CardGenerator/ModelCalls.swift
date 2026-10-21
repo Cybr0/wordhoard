@@ -10,10 +10,11 @@ public protocol ModelCalls: Sendable {
     func availability() async -> CardGeneratorAvailability
 
     /// Model-only path: 1…3 proposed senses for a headword WordNet cannot serve. No examples.
-    func proposeSenses(headword: String) async throws -> [ProposedSense]
+    /// `wordClass` is the stoplist section of a function word, stated as a hint in the prompt (2.7).
+    func proposeSenses(headword: String, wordClass: FunctionWordClass?) async throws -> [ProposedSense]
 
-    /// Yes/no: is the headword commonly used with this part of speech and meaning?
-    func verify(headword: String, sense: ProposedSense) async throws -> Bool
+    /// Yes/no: is the headword commonly used with this part of speech and meaning? Same `wordClass` hint.
+    func verify(headword: String, sense: ProposedSense, wordClass: FunctionWordClass?) async throws -> Bool
 
     /// WordNet path: the learner definition for one WordNet sense, written from gloss + synonyms + example.
     func writeDefinition(headword: String, sense: WordNetSense) async throws -> String

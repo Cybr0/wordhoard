@@ -14,14 +14,25 @@ public enum VerifierPrompt {
     Answer yes or no only.
     """
 
-    public static func prompt(headword: String, partOfSpeech: PartOfSpeech, definition: String) -> String {
+    /// `wordClass` is the stoplist section of a function word (plan 2.7); it adds the same hint line
+    /// the senses prompt carries.
+    public static func prompt(
+        headword: String,
+        partOfSpeech: PartOfSpeech,
+        definition: String,
+        wordClass: FunctionWordClass? = nil
+    ) -> String {
         let role = switch partOfSpeech {
         case .phrase: "as an idiom or fixed phrase"
-        case .other, .preposition, .conjunction: "as a preposition, conjunction, determiner or pronoun"
+        case .other: "as a determiner, pronoun or other function word"
         case .adjective, .adverb: "as an \(partOfSpeech.rawValue)"
-        case .noun, .verb: "as a \(partOfSpeech.rawValue)"
+        case .noun, .verb, .preposition, .conjunction: "as a \(partOfSpeech.rawValue)"
         }
-        return "Is the English word \"\(headword)\" commonly used \(role) meaning \"\(definition)\"? Answer yes or no."
+        var prompt = "Is the English word \"\(headword)\" commonly used \(role) meaning \"\(definition)\"? Answer yes or no."
+        if let hint = WordClassHint.line(for: wordClass) {
+            prompt += " \(hint)"
+        }
+        return prompt
     }
 }
 

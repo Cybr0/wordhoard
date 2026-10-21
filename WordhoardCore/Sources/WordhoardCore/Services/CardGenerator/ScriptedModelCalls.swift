@@ -10,8 +10,8 @@ import Synchronization
 public final class ScriptedModelCalls: ModelCalls {
     /// One recorded call, with everything the generator passed.
     public enum Call: Equatable, Sendable {
-        case proposeSenses(headword: String)
-        case verify(headword: String, sense: ProposedSense)
+        case proposeSenses(headword: String, wordClass: FunctionWordClass?)
+        case verify(headword: String, sense: ProposedSense, wordClass: FunctionWordClass?)
         case writeDefinition(headword: String, sense: WordNetSense)
         case writeExample(headword: String, partOfSpeech: PartOfSpeech, definition: String, topic: GrammarTopic?)
 
@@ -91,13 +91,13 @@ public final class ScriptedModelCalls: ModelCalls {
         storedAvailability
     }
 
-    public func proposeSenses(headword: String) async throws -> [ProposedSense] {
-        try await record(.proposeSenses(headword: headword))
+    public func proposeSenses(headword: String, wordClass: FunctionWordClass?) async throws -> [ProposedSense] {
+        try await record(.proposeSenses(headword: headword, wordClass: wordClass))
         return try script.proposeSenses(headword)
     }
 
-    public func verify(headword: String, sense: ProposedSense) async throws -> Bool {
-        try await record(.verify(headword: headword, sense: sense))
+    public func verify(headword: String, sense: ProposedSense, wordClass: FunctionWordClass?) async throws -> Bool {
+        try await record(.verify(headword: headword, sense: sense, wordClass: wordClass))
         return try script.verify(headword, sense)
     }
 
