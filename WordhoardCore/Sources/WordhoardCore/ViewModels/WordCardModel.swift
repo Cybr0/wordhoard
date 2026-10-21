@@ -17,7 +17,7 @@ import os
 /// carry no mark: the generator never writes the headword, and part of speech is part of a sense's
 /// identity, not a regenerable field.
 ///
-/// The model never holds a `ModelContext`; removing a sense or example goes through the store's two
+/// The model never holds a SwiftData context; removing a sense or example goes through the store's two
 /// hard-delete helpers, and `senses` is re-read from the word after every structural change.
 @MainActor
 @Observable

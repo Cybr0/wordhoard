@@ -4,10 +4,61 @@
     "Add a word" : {
 
     },
+    "Add example" : {
+
+    },
+    "Add sense" : {
+
+    },
+    "Adjective" : {
+
+    },
+    "Adverb" : {
+
+    },
+    "Antonyms, separated by commas" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Conjunction" : {
+
+    },
+    "Couldn't delete the word" : {
+
+    },
     "Couldn't load your words" : {
 
     },
     "Couldn't save the word" : {
+
+    },
+    "Couldn't save your changes" : {
+
+    },
+    "Definition" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete word" : {
+
+    },
+    "Delete “%@”?" : {
+
+    },
+    "Example sentence" : {
+
+    },
+    "Model" : {
+
+    },
+    "Move down" : {
+
+    },
+    "Move up" : {
 
     },
     "No senses yet" : {
@@ -16,10 +67,49 @@
     "No words yet" : {
 
     },
+    "Noun" : {
+
+    },
     "OK" : {
 
     },
+    "Other" : {
+
+    },
+    "Part of speech" : {
+
+    },
+    "Phrase" : {
+
+    },
+    "Preposition" : {
+
+    },
+    "Remove sense" : {
+
+    },
+    "Sense actions" : {
+
+    },
     "Storage unavailable" : {
+
+    },
+    "Synonyms, separated by commas" : {
+
+    },
+    "The headword can't be empty." : {
+
+    },
+    "The word and all its senses will be removed." : {
+
+    },
+    "Translation" : {
+
+    },
+    "Verb" : {
+
+    },
+    "WordNet" : {
 
     },
     "Wordhoard" : {
@@ -29,6 +119,9 @@
 
     },
     "Your words can't be stored on this device right now. Anything you add will be lost when the app closes." : {
+
+    },
+    "“%@” is already in your words." : {
 
     }
   },

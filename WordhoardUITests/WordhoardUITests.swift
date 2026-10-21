@@ -45,9 +45,9 @@ final class WordhoardUITests: XCTestCase {
 
         // Same word, different case and a trailing space: the existing card opens instead of a new row (C4).
         addField.typeText("Book \n")
-        let cardHeadword = app.staticTexts["wordCard.headword"]
+        let cardHeadword = app.textFields["wordCard.headword"]
         XCTAssertTrue(cardHeadword.waitForExistence(timeout: 5))
-        XCTAssertEqual(cardHeadword.label, "book")
+        XCTAssertEqual(cardHeadword.value as? String, "book")
 
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(rows.element(boundBy: 1).waitForExistence(timeout: 5))
