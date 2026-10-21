@@ -305,7 +305,10 @@ public final class WordCardModel {
         removed[ObjectIdentifier(object)] != nil
     }
 
-    private func reloadSenses() {
+    /// Re-reads `senses` from the word. The model calls it after its own structural changes; the card view
+    /// calls it when `AutofillService` has merged a card into this word (plan 2.3), which adds senses
+    /// behind the model's back.
+    public func reloadSenses() {
         senses = word.sortedSenses
     }
 

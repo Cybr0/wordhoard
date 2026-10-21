@@ -49,10 +49,13 @@ public final class WordListModel {
     public var importSummary: ImportSummary?
 
     private let store: WordStore
+    private let autofill: AutofillService?
     private let logger = Logger(subsystem: "Wordhoard", category: "list")
 
-    public init(store: WordStore) {
+    /// `autofill` is queued a word on every `.created` add (C5); `nil` means nothing is filled in.
+    public init(store: WordStore, autofill: AutofillService? = nil) {
         self.store = store
+        self.autofill = autofill
     }
 
     /// Re-reads `words` for the current `query`. On a store error `failure` becomes `.loading` and `words`
@@ -68,7 +71,8 @@ public final class WordListModel {
 
     /// Submits `draft` to `WordStore.add(_:)` (C1, C4, C5).
     ///
-    /// - `.created`: the draft and the query are cleared and `words` is re-read, so the new word is first.
+    /// - `.created`: the draft and the query are cleared, `words` is re-read, so the new word is first, and
+    ///   the word is handed to `autofill` (the save is already done; filling in happens afterwards, C5).
     /// - `.existing`: the draft and the query are cleared and `words` is re-read all the same, so the list
     ///   behind the pushed card is current; the view navigates to the returned word.
     /// - Blank draft: the draft is cleared, nothing is added, `failure` stays as it was; returns `nil`.
@@ -80,6 +84,9 @@ public final class WordListModel {
             draft = ""
             query = ""
             reload()
+            if case let .created(word) = result {
+                autofill?.enqueue(word)
+            }
             return result
         } catch WordStoreError.emptyHeadword {
             draft = ""

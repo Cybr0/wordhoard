@@ -117,6 +117,8 @@ struct ImportMerge {
         let tagsChanged = applyTags(file.tagIDs, to: word)
         let sensesChanged = mergeSenses(file.senses, into: word)
         if created {
+            // `autofillState` is not in the file: a word with senses is filled, an empty one is worth filling.
+            word.autofillState = word.senses.isEmpty ? .pending : .ready
             summary.wordsCreated += 1
         } else if fieldsChanged || tagsChanged || sensesChanged {
             summary.wordsUpdated += 1
