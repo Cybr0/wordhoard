@@ -22,6 +22,8 @@ public final class Word {
     public var updatedAt: Date = Date.now
     /// Soft-delete marker. A non-nil value hides the word from `Word.activeDescriptor()`.
     public var deletedAt: Date?
+    /// Autofill progress (plan 2.3). Defaulted so a word created by anyone is a word to fill in.
+    public var autofillState: AutofillState = AutofillState.pending
 
     @Relationship(deleteRule: .nullify, inverse: \Tag.words)
     public var tags: [Tag] = []
