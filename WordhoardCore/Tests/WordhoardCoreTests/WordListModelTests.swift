@@ -94,6 +94,33 @@ struct WordListModelTests {
         #expect(model.words.map(\.headword) == ["book"])
     }
 
+    @Test("adding an existing word re-reads the list whether or not a search was active")
+    func addingAnExistingWordReloadsTheList() throws {
+        model.draft = "book"
+        _ = model.addDraft()
+        model.query = "boo"
+        _ = try store.add("apple")
+        #expect(model.words.map(\.headword) == ["book"])
+
+        model.draft = "Book"
+        guard case .existing = model.addDraft() else {
+            Issue.record("expected .existing")
+            return
+        }
+        #expect(try model.words.map(\.id) == (store.words().map(\.id)))
+        #expect(model.words.map(\.headword) == ["apple", "book"])
+
+        // No search active: the query does not change, so only an explicit reload can refresh the list.
+        _ = try store.add("cat")
+        model.draft = "BOOK"
+        guard case .existing = model.addDraft() else {
+            Issue.record("expected .existing")
+            return
+        }
+        #expect(try model.words.map(\.id) == (store.words().map(\.id)))
+        #expect(model.words.map(\.headword) == ["cat", "apple", "book"])
+    }
+
     @Test("a blank draft is ignored without an error")
     func blankDraftIsIgnoredWithoutAnError() throws {
         model.draft = "book"
