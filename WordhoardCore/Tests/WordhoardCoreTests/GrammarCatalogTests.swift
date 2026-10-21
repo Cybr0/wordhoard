@@ -245,6 +245,12 @@ func catalogWithUnknownDefaultKeyFailsToLoad() throws {
     #expect(throws: GrammarCatalogError.unknownDefaultKey("xx.gamma")) { try GrammarCatalog(decoding: data) }
 }
 
+@Test("a catalog whose defaultActive lists the same key twice fails to load")
+func catalogWithDuplicateDefaultKeyFailsToLoad() throws {
+    let data = try catalogJSON(defaultActive: ["xx.alpha", "xx.beta", "xx.alpha"])
+    #expect(throws: GrammarCatalogError.duplicateDefaultKey("xx.alpha")) { try GrammarCatalog(decoding: data) }
+}
+
 @Test("a catalog with an empty topic name fails to load")
 func catalogWithEmptyNameFailsToLoad() throws {
     let data = try catalogJSON(

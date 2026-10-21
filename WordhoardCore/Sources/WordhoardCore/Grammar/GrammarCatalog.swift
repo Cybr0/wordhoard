@@ -13,6 +13,8 @@ public enum GrammarCatalogError: Error, Equatable, Sendable {
     case keyNotNamespaced(GrammarTopicID, language: String)
     /// `defaultActive` names a key that no group contains.
     case unknownDefaultKey(GrammarTopicID)
+    /// `defaultActive` lists the same key twice.
+    case duplicateDefaultKey(GrammarTopicID)
     /// A topic's `name` is empty or spans more than one line.
     case invalidName(key: GrammarTopicID)
     /// A topic's `description` is empty or spans more than one line.
@@ -78,8 +80,10 @@ public struct GrammarCatalog: Sendable {
             }
             topics.append(topic)
         }
-        if let unknown = file.defaultActive.first(where: { topicsByKey[$0] == nil }) {
-            throw GrammarCatalogError.unknownDefaultKey(unknown)
+        var seenDefaults: Set<GrammarTopicID> = []
+        for key in file.defaultActive {
+            guard topicsByKey[key] != nil else { throw GrammarCatalogError.unknownDefaultKey(key) }
+            guard seenDefaults.insert(key).inserted else { throw GrammarCatalogError.duplicateDefaultKey(key) }
         }
 
         language = file.language
