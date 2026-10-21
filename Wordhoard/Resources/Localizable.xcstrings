@@ -1,13 +1,34 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Add a word" : {
+
+    },
+    "Couldn't load your words" : {
+
+    },
+    "Couldn't save the word" : {
+
+    },
+    "No senses yet" : {
+
+    },
     "No words yet" : {
+
+    },
+    "OK" : {
+
+    },
+    "Storage unavailable" : {
 
     },
     "Wordhoard" : {
 
     },
     "Words you add will appear here." : {
+
+    },
+    "Your words can't be stored on this device right now. Anything you add will be lost when the app closes." : {
 
     }
   },
