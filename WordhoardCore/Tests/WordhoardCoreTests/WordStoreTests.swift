@@ -278,6 +278,7 @@ struct WordStoreTests {
 
     @Test("the existing path of add writes nothing, not even pending changes")
     func existingPathWritesNothing() throws {
+        #expect(container.mainContext.autosaveEnabled == false)
         let word = try store.add("book").word
         word.note = "unsaved edit"
 
