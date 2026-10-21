@@ -30,7 +30,11 @@ struct WordhoardApp: App {
 
     var body: some Scene {
         WindowGroup {
-            WordListView(store: store, isStorageUnavailable: isStorageUnavailable)
+            WordListView(
+                store: store,
+                isStorageUnavailable: isStorageUnavailable,
+                hooks: UITestingHooks.fromLaunchArguments()
+            )
         }
     }
 

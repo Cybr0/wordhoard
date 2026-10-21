@@ -10,6 +10,9 @@
     "Add sense" : {
 
     },
+    "Added %lld, updated %lld, skipped %lld." : {
+
+    },
     "Adjective" : {
 
     },
@@ -26,6 +29,9 @@
 
     },
     "Couldn't delete the word" : {
+
+    },
+    "Couldn't import" : {
 
     },
     "Couldn't load your words" : {
@@ -52,7 +58,19 @@
     "Example sentence" : {
 
     },
+    "Export…" : {
+
+    },
+    "Import finished" : {
+
+    },
+    "Import…" : {
+
+    },
     "Model" : {
+
+    },
+    "More" : {
 
     },
     "Move down" : {
@@ -97,11 +115,26 @@
     "Synonyms, separated by commas" : {
 
     },
+    "The file couldn't be read." : {
+
+    },
     "The headword can't be empty." : {
 
     },
     "The word and all its senses will be removed." : {
 
+    },
+    "This file isn't a Wordhoard export." : {
+      "extractionState" : "manual"
+    },
+    "This file lists the same item twice (%@)." : {
+      "extractionState" : "manual"
+    },
+    "This file uses a value this version of Wordhoard doesn't recognize (%@: %@)." : {
+      "extractionState" : "manual"
+    },
+    "This file was made by a newer version of Wordhoard. Update the app and try again." : {
+      "extractionState" : "manual"
     },
     "Translation" : {
 
