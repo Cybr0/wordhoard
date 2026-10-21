@@ -80,3 +80,20 @@ func normalizeCanonicalisesUnicodeFormWithoutFoldingDiacritics() throws {
     #expect(try fresh.fetchCount(descriptor) == 1)
     #expect(try fresh.fetch(descriptor).first?.headword == decomposed)
 }
+
+@Test("words created at the same instant come back in a stable order")
+func defaultFetchBreaksCreatedAtTiesByID() throws {
+    let container = try WordhoardContainer.makeInMemory()
+    let context = ModelContext(container)
+    let sameInstant = Date(timeIntervalSince1970: 1000)
+    let words = ["one", "two", "three", "four"].map(Word.init(headword:))
+    for word in words {
+        word.createdAt = sameInstant
+        context.insert(word)
+    }
+    try context.save()
+
+    let expected = words.sorted { $0.id < $1.id }.map(\.headword)
+    #expect(try ModelContext(container).fetch(Word.activeDescriptor()).map(\.headword) == expected)
+    #expect(try ModelContext(container).fetch(Word.activeDescriptor()).map(\.headword) == expected)
+}

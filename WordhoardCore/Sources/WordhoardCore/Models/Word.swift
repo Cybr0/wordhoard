@@ -60,11 +60,12 @@ public final class Word {
             .precomposedStringWithCanonicalMapping
     }
 
-    /// Words that are not soft-deleted, newest first (B1). The default fetch for every list.
+    /// Words that are not soft-deleted, newest first (B1), ties broken by `id` so the order is
+    /// stable. The default fetch for every list.
     public static func activeDescriptor() -> FetchDescriptor<Word> {
         FetchDescriptor<Word>(
             predicate: #Predicate { $0.deletedAt == nil },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse), SortDescriptor(\.id)]
         )
     }
 }
