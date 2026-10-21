@@ -170,40 +170,66 @@ private struct SenseSection: View {
         }
     }
 
+    /// Picker, badge and menu on one line; at accessibility sizes, where that no longer fits, the
+    /// picker takes its own line so no label wraps mid-word.
     private var header: some View {
-        HStack {
-            Picker("Part of speech", selection: partOfSpeech) {
-                ForEach(PartOfSpeech.allCases, id: \.self) { partOfSpeech in
-                    Text(partOfSpeech.displayName)
+        ViewThatFits(in: .horizontal) {
+            HStack {
+                partOfSpeechPicker
+                sourceBadge
+                Spacer()
+                actionsMenu
+            }
+            VStack(alignment: .leading) {
+                partOfSpeechPicker
+                HStack {
+                    sourceBadge
+                    Spacer()
+                    actionsMenu
                 }
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .accessibilityIdentifier(identifier("partOfSpeech"))
-            if let source = sense.senseSource {
-                badge(sourceName(source))
-                    .accessibilityIdentifier(identifier("sourceBadge"))
-            }
-            Spacer()
-            Menu {
-                Button("Move up", systemImage: "arrow.up") {
-                    model.moveSenses(fromOffsets: [index], toOffset: index - 1)
-                }
-                .disabled(index == 0)
-                Button("Move down", systemImage: "arrow.down") {
-                    model.moveSenses(fromOffsets: [index], toOffset: index + 2)
-                }
-                .disabled(index == count - 1)
-                Button("Remove sense", systemImage: "trash", role: .destructive) {
-                    model.removeSense(sense)
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-            }
-            .accessibilityLabel("Sense actions")
-            .accessibilityIdentifier(identifier("menu"))
         }
         .textCase(nil)
+    }
+
+    private var partOfSpeechPicker: some View {
+        Picker("Part of speech", selection: partOfSpeech) {
+            ForEach(PartOfSpeech.allCases, id: \.self) { partOfSpeech in
+                Text(partOfSpeech.displayName)
+            }
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .fixedSize()
+        .accessibilityIdentifier(identifier("partOfSpeech"))
+    }
+
+    @ViewBuilder
+    private var sourceBadge: some View {
+        if let source = sense.senseSource {
+            badge(sourceName(source))
+                .accessibilityIdentifier(identifier("sourceBadge"))
+        }
+    }
+
+    private var actionsMenu: some View {
+        Menu {
+            Button("Move up", systemImage: "arrow.up") {
+                model.moveSenses(fromOffsets: [index], toOffset: index - 1)
+            }
+            .disabled(index == 0)
+            Button("Move down", systemImage: "arrow.down") {
+                model.moveSenses(fromOffsets: [index], toOffset: index + 2)
+            }
+            .disabled(index == count - 1)
+            Button("Remove sense", systemImage: "trash", role: .destructive) {
+                model.removeSense(sense)
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .accessibilityLabel("Sense actions")
+        .accessibilityIdentifier(identifier("menu"))
     }
 
     private func exampleRow(_ example: Example, position: Int) -> some View {
