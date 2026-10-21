@@ -1,0 +1,100 @@
+import Foundation
+
+/// The first card as a generator produced it (requirements A1, A2, A6). Plain values: the merge into
+/// `Word` (plan 2.4) maps `GeneratedSense` onto `Sense` by `senseSource` + `gloss`.
+public struct GeneratedCard: Equatable, Sendable {
+    public var headword: String
+    public var path: GenerationPath
+    /// `path == .notFound` ⇔ `senses.isEmpty`: nothing was invented (A1).
+    public var senses: [GeneratedSense]
+    /// Per-field degradation records, so the card and the regression runner can show what was skipped.
+    public var notes: [GenerationNote]
+
+    public init(headword: String, path: GenerationPath, senses: [GeneratedSense], notes: [GenerationNote] = []) {
+        self.headword = headword
+        self.path = path
+        self.senses = senses
+        self.notes = notes
+    }
+}
+
+/// Which route the sense inventory took (ADR 0001 point 1). Recorded by the regression runner.
+public enum GenerationPath: String, Equatable, Sendable {
+    /// WordNet knows the lemma; its senses are the only senses.
+    case wordnet
+    /// A function word from the stoplist: model-only senses, verified.
+    case stoplist
+    /// WordNet lacks the lemma: model-only senses, verified.
+    case modelOnly
+    /// Every proposed sense was rejected (or the lemma is nonsense): a success with no senses.
+    case notFound
+}
+
+/// One sense of the first card.
+public struct GeneratedSense: Equatable, Sendable {
+    public var partOfSpeech: PartOfSpeech
+    /// `.wordnet` or `.model`; never nil for a generated sense (a nil `Sense.senseSource` means hand-entered).
+    public var senseSource: SenseSource
+    /// The WordNet gloss; nil for model senses.
+    public var gloss: String?
+    public var definition: String
+    /// nil: no native language, pack missing, or not translated. Never the model's text (A9).
+    public var translation: String?
+    public var synonyms: [String]
+    public var antonyms: [String]
+    /// nil only after a refusal or drop (A6, 2.9); see `GenerationNote.exampleRefused`.
+    public var neutralExample: GeneratedExample?
+
+    public init(
+        partOfSpeech: PartOfSpeech,
+        senseSource: SenseSource,
+        gloss: String?,
+        definition: String,
+        translation: String?,
+        synonyms: [String],
+        antonyms: [String],
+        neutralExample: GeneratedExample?
+    ) {
+        self.partOfSpeech = partOfSpeech
+        self.senseSource = senseSource
+        self.gloss = gloss
+        self.definition = definition
+        self.translation = translation
+        self.synonyms = synonyms
+        self.antonyms = antonyms
+        self.neutralExample = neutralExample
+    }
+}
+
+/// One example sentence. `grammarTopic == nil` is the neutral example.
+public struct GeneratedExample: Equatable, Sendable {
+    public var text: String
+    public var grammarTopic: GrammarTopicID?
+
+    public init(text: String, grammarTopic: GrammarTopicID?) {
+        self.text = text
+        self.grammarTopic = grammarTopic
+    }
+}
+
+/// A stage-2 example addressed to `card.senses[senseIndex]`.
+public struct GeneratedTopicExample: Equatable, Sendable {
+    public var senseIndex: Int
+    public var example: GeneratedExample
+
+    public init(senseIndex: Int, example: GeneratedExample) {
+        self.senseIndex = senseIndex
+        self.example = example
+    }
+}
+
+/// A field the generator could not fill (A6). Later tasks add cases (`exampleDropped` 2.9,
+/// `senseSelectionFellBack` 2.6, `translationFallback` 2.10).
+public enum GenerationNote: Equatable, Sendable {
+    /// The definition call was refused; the gloss is kept as the definition.
+    case definitionRefused(senseIndex: Int)
+    /// That example was skipped; `topic == nil` is the neutral example.
+    case exampleRefused(senseIndex: Int, topic: GrammarTopicID?)
+    /// The language pack is not installed; every `translation` is nil.
+    case translationUnavailable(language: String)
+}
