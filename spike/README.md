@@ -29,7 +29,10 @@ Nothing here is meant to survive into the real app except the lessons.
 - `WordhoardSpike/SpikeTranslator.swift` — English → Russian through Apple's Translation framework
   (WordNet mode only). No `FoundationModels` import.
 - `WordhoardSpikeRegression/RegressionRunnerTests.swift` — the on-device regression runner (issue
-  #14): a unit-test bundle hosted by the app; see "Regression runner" below.
+  #14): a unit-test bundle hosted by the app that, since plan task 2.2b, drives the **product's**
+  `FoundationModelsCardGenerator` from `../WordhoardCore` (the only spike target that links the
+  package); see "Regression runner" below. The app's own screens keep the Phase 0 code below and are
+  not maintained.
 - `../WordhoardCore/Sources/WordhoardCore/Resources/WordNet/oewn-2024.json` — the WordNet bundle
   (14.8 MB) and `OEWN-LICENSE.txt`; since plan task 2.2 they live in the product package and the spike
   copies them into its app bundle (`project.yml`).
@@ -245,16 +248,21 @@ model" and compare the learner definitions, translations and timings with split 
 
 ## Regression runner (issue #14)
 
-`WordhoardSpikeRegression` is an XCTest bundle hosted by the app (`TEST_HOST`, `@testable import
-WordhoardSpike`), so one test can drive `CardGenerationModel` in "WordNet + model" mode in-process
-on the phone, with the bundled WordNet and the device's Translation packs. It parses the table in
-`docs/regression-words.md` (copied into the test bundle at build time — the list lives only there),
-runs every word through `CardGenerationModel.generateAndWait(word:)` (the same `generate(word:)` the
-screen uses, awaited until every topic example has arrived), and records per word: path taken
-(`wordnet` / `stoplist` / `model-only` / `not-found`), senses with part of speech, source, gloss,
-learner definition, translation, synonyms (with their translations) and antonyms, neutral and topic
-examples, guardrail refusals and failed calls, lookup / senses / translation / first-card / full-card
-seconds, errors.
+`WordhoardSpikeRegression` is an XCTest bundle hosted by the app (`TEST_HOST`) that links the
+product package `WordhoardCore`, so one test can drive the product's `FoundationModelsCardGenerator`
+— Core's prompts, `WordNetLookup` and `AppleTranslator` — in-process on the phone, with the bundled
+WordNet and the device's Translation packs (plan task 2.2b, issue #38; ADR 0001 point 6 makes this the
+acceptance tool for every prompt change). It parses the table in `docs/regression-words.md` (copied
+into the test bundle at build time — the list lives only there), runs every word through
+`generateCard` (first card: senses, definitions, one translation batch, neutral examples) and then the
+full `generateTopicExamples` stream (full card) with native language `ru` and the topics
+`present_perfect`, `second_conditional`, `passive_voice` from `GrammarCatalog.english`, and records
+per word: path taken (`wordnet` / `stoplist` / `modelOnly` / `notFound`), senses with part of speech,
+source, gloss, learner definition, translation, synonyms and antonyms, neutral and topic examples, the
+generator's notes (refused or failed definition and neutral-example calls; topic-example refusals are
+only in the `os_log` output, the stream yields nothing for them), first-card / full-card seconds,
+errors. Lookup, senses and translation seconds are no longer measured separately (`—` in the report);
+there is no headword translation any more (A9), so the translation check covers the senses only.
 
 Mechanical checks per word, reported, never fatal to the run: generated without error (a writing or
 verification refusal with gloss fallback is a flagged pass; a failed example call is a fail);

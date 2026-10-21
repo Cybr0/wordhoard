@@ -1,9 +1,12 @@
-// Phase 0 spike, issue #14: the on-device regression runner.
+// Phase 0 spike, issue #14: the on-device regression runner. Since plan task 2.2b (issue #38) it
+// drives the *product's* generator, `FoundationModelsCardGenerator` from WordhoardCore, so it
+// measures the prompts the app ships (ADR 0001 point 6); the spike's own CardGenerationModel is no
+// longer involved.
 //
 // One test walks every word of docs/regression-words.md (copied into this bundle at build time,
-// parsed here — the list is never duplicated in code) through the default "WordNet + model"
-// pipeline of CardGenerationModel, in-process on the phone, and records everything the issue asks
-// for: senses, examples, path taken, refusals, timings, errors. Mechanical checks are asserted per
+// parsed here — the list is never duplicated in code) through `generateCard` (first card) and the
+// full topic-example stream (full card), in-process on the phone, and records everything the issue
+// asks for: senses, examples, path taken, refusals, timings, errors. Mechanical checks are asserted per
 // word and reported; none of them aborts the run. The judged checks are left to the reader: the
 // report ends with the judged table, pre-filled with the actual senses and an empty verdict column.
 //
@@ -23,8 +26,8 @@
 import FoundationModels
 import Translation
 import UIKit
+import WordhoardCore
 import XCTest
-@testable import WordhoardSpike
 
 // MARK: - Word list
 
@@ -106,6 +109,26 @@ struct WordRecord: Codable, Sendable {
     let wallSeconds: Double
     let senses: [SenseRecord]
     let checks: [CheckRecord]
+}
+
+/// A refused or failed model call the generator recorded as a `GenerationNote` (A6). The note does not
+/// say whether the guardrail refused or the call failed, so every note counts as a refusal here.
+struct CallFailure: Sendable {
+    let label: String
+    let isRefusal: Bool
+
+    init?(_ note: GenerationNote) {
+        switch note {
+        case let .definitionRefused(senseIndex):
+            label = "write: sense \(senseIndex + 1) refused or failed, gloss kept"
+            isRefusal = true
+        case let .exampleRefused(senseIndex, topic):
+            label = "example: sense \(senseIndex + 1) / \(topic ?? "en.neutral") refused, failed or empty"
+            isRefusal = true
+        case .translationUnavailable:
+            return nil
+        }
+    }
 }
 
 struct RunReport: Codable, Sendable {
@@ -247,8 +270,10 @@ enum MechanicalChecks {
 
 @MainActor
 final class RegressionRunnerTests: XCTestCase {
+    private static let nativeLanguage = "ru"
     private static let source = Locale.Language(identifier: "en")
-    private static let target = Locale.Language(identifier: "ru")
+    private static let target = Locale.Language(identifier: nativeLanguage)
+    private static let topicKeys = ["en.present_perfect", "en.second_conditional", "en.passive_voice"]
     private static let fullCardBudget: Double = 30
 
     func testRegressionWordList() async throws {
@@ -280,8 +305,8 @@ final class RegressionRunnerTests: XCTestCase {
             return
         }
 
-        guard Bundle.main.url(forResource: "oewn-2024", withExtension: "json") != nil else {
-            XCTFail("WordNet bundle oewn-2024.json is missing from the host app")
+        guard CoreInfo.resourceBundle.url(forResource: "WordNet/oewn-2024", withExtension: "json") != nil else {
+            XCTFail("WordNet bundle oewn-2024.json is missing from WordhoardCore's resources")
             return
         }
         guard await WordNetLookup.shared.entry(for: "book") != nil else {
@@ -295,20 +320,47 @@ final class RegressionRunnerTests: XCTestCase {
             return
         }
 
-        // --- The run.
+        let catalog = GrammarCatalog.english
+        let topics = Self.topicKeys.compactMap { catalog.topic(for: $0) }
+        guard topics.count == Self.topicKeys.count else {
+            XCTFail("the grammar catalog lacks one of \(Self.topicKeys)")
+            return
+        }
+
+        // --- The run: the product generator with its real collaborators.
         let device = UIDevice.current
         let commit = ProcessInfo.processInfo.environment["GIT_COMMIT"]
         var records: [WordRecord] = []
         let clock = ContinuousClock()
+        let generator = FoundationModelsCardGenerator()
 
         for entry in words {
             print("regression: ▶ \(entry.number). \(entry.word)")
-            let model = CardGenerationModel()
-            model.mode = .wordNet
+            let request = CardRequest(headword: entry.word, nativeLanguage: Self.nativeLanguage, topics: topics)
             let start = clock.now
-            await model.generateAndWait(word: entry.word)
+            var card: GeneratedCard?
+            var errorText: String?
+            var firstCard: Duration?
+            var fullCard: Duration?
+            var topicExamples: [GeneratedTopicExample] = []
+            do {
+                card = try await generator.generateCard(request)
+                firstCard = clock.now - start
+                if let produced = card, !produced.senses.isEmpty {
+                    for try await example in generator.generateTopicExamples(for: produced, request: request) {
+                        topicExamples.append(example)
+                    }
+                    fullCard = clock.now - start
+                }
+            } catch {
+                errorText = String(describing: error)
+                print("regression: \(entry.word) failed: \(error)")
+            }
             let wall = clock.now - start
-            let record = Self.record(for: entry, model: model, wall: wall)
+            let record = Self.record(
+                for: entry, card: card, topicExamples: topicExamples, error: errorText,
+                topicCount: topics.count, firstCard: firstCard, fullCard: fullCard, wall: wall
+            )
             records.append(record)
             let verdicts = record.checks.map { check in
                 switch check.passed {
@@ -325,8 +377,8 @@ final class RegressionRunnerTests: XCTestCase {
             device: "\(device.model) \(Self.hardwareIdentifier())",
             system: "\(device.systemName) \(device.systemVersion)",
             commit: commit,
-            pipeline: "WordNet + model (stoplist → WordNet → writing call → Translation en→ru → examples; model-only fallback with verifier)",
-            topics: GrammarTopic.active.map(\.key),
+            pipeline: "WordhoardCore.FoundationModelsCardGenerator (stoplist → WordNet → definition call per sense → Translation en→ru, one batch → neutral example per sense → topic examples; model-only fallback with verifier)",
+            topics: topics.map(\.key),
             maxSensesPerPartOfSpeech: WordNetLookup.maxSensesPerPartOfSpeech,
             maxSensesTotal: WordNetLookup.maxSensesTotal,
             words: records
@@ -377,54 +429,86 @@ final class RegressionRunnerTests: XCTestCase {
 
     // MARK: Recording
 
-    private static func record(for entry: RegressionWord, model: CardGenerationModel, wall: Duration) -> WordRecord {
-        let senses: [SenseRecord] = (model.card?.senses ?? []).map { sense in
-            SenseRecord(
+    // swiftlint:disable:next function_parameter_count
+    private static func record(
+        for entry: RegressionWord,
+        card: GeneratedCard?,
+        topicExamples: [GeneratedTopicExample],
+        error: String?,
+        topicCount: Int,
+        firstCard: Duration?,
+        fullCard: Duration?,
+        wall: Duration
+    ) -> WordRecord {
+        let senses: [SenseRecord] = (card?.senses ?? []).enumerated().map { index, sense in
+            var examples: [ExampleRecord] = []
+            if let neutral = sense.neutralExample {
+                examples.append(ExampleRecord(topic: "en.neutral", text: neutral.text))
+            }
+            for example in topicExamples where example.senseIndex == index {
+                examples.append(ExampleRecord(topic: example.example.grammarTopic ?? "en.neutral", text: example.example.text))
+            }
+            return SenseRecord(
                 partOfSpeech: sense.partOfSpeech.rawValue,
-                source: sense.source.rawValue,
+                source: sense.senseSource.rawValue,
                 gloss: sense.gloss,
                 definition: sense.definition,
-                translation: sense.translation,
+                translation: sense.translation ?? "",
                 synonyms: sense.synonyms,
                 antonyms: sense.antonyms,
-                examples: sense.examples.map { ExampleRecord(topic: $0.topicKey, text: $0.text) }
+                examples: examples
             )
         }
-        let path = model.path?.rawValue ?? (model.errorText == nil ? "unknown" : "error")
-        let refusals = model.callFailures.filter(\.isRefusal).map { "\($0.label): \($0.description)" }
-        let failures = model.callFailures.filter { !$0.isRefusal }.map { "\($0.label): \($0.description)" }
-        let fullCard = model.fullCardElapsed?.seconds ?? (model.path == .notFound ? wall.seconds : nil)
+        let path = card?.path.rawValue ?? "error"
+        let notes = card?.notes ?? []
+        let callFailures = notes.compactMap(CallFailure.init)
+        let translationNote = notes.compactMap { note -> String? in
+            if case let .translationUnavailable(language) = note {
+                return "Translation: en→\(language) language pack not installed or batch failed → no translation"
+            }
+            return nil
+        }.first
+        let translated = card.map { !$0.senses.isEmpty && translationNote == nil } ?? false
+        // The generator does not expose a call count; this is the number of model calls its pipeline
+        // makes for what it returned (the verify calls of a model-only word are counted as one per kept sense).
+        let callCount: Int
+        switch card?.path {
+        case .wordnet: callCount = 2 * senses.count + topicExamples.count + senses.count * topicCount - topicExamples.count
+        case .stoplist, .modelOnly: callCount = 1 + 2 * senses.count + senses.count * topicCount
+        case .notFound: callCount = 1
+        case nil: callCount = 0
+        }
+        let fullCardSeconds = fullCard?.seconds ?? (card?.path == .notFound ? wall.seconds : nil)
 
         let checks = checks(
             word: entry.word,
-            headwordTranslation: model.card?.headwordTranslation ?? "",
-            path: model.path,
-            error: model.errorText,
-            callFailures: model.callFailures,
+            path: card?.path,
+            error: error,
+            callFailures: callFailures,
             senses: senses,
-            fullCardSeconds: fullCard,
+            fullCardSeconds: fullCardSeconds,
             wallSeconds: wall.seconds
         )
 
         return WordRecord(
             number: entry.number,
             word: entry.word,
-            headwordTranslation: model.card?.headwordTranslation ?? "",
+            headwordTranslation: "",
             path: path,
-            wordNetNote: model.wordNetNote,
-            verificationNote: model.verificationNote,
-            translationNote: model.translationNote,
-            error: model.errorText,
-            refusals: refusals,
-            failures: failures,
-            callCount: model.callCount,
-            lookupSeconds: model.lookupElapsed?.seconds,
-            sensesSeconds: model.sensesElapsed?.seconds,
-            translationSeconds: model.translationElapsed?.seconds,
-            translationCalls: model.translationCalls,
-            translationStrings: model.translationStrings,
-            firstCardSeconds: model.firstCardElapsed?.seconds,
-            fullCardSeconds: fullCard,
+            wordNetNote: card.map { "path \($0.path.rawValue), \($0.senses.count) sense(s)" },
+            verificationNote: card?.path == .notFound ? "Not found. Add senses manually. (WordNet has no usable entry and the verifier rejected every model sense.)" : nil,
+            translationNote: translationNote,
+            error: error,
+            refusals: callFailures.filter(\.isRefusal).map(\.label),
+            failures: callFailures.filter { !$0.isRefusal }.map(\.label),
+            callCount: callCount,
+            lookupSeconds: nil,
+            sensesSeconds: nil,
+            translationSeconds: nil,
+            translationCalls: translated ? 1 : 0,
+            translationStrings: translated ? senses.count : 0,
+            firstCardSeconds: firstCard?.seconds,
+            fullCardSeconds: fullCardSeconds,
             wallSeconds: wall.seconds,
             senses: senses,
             checks: checks
@@ -434,7 +518,6 @@ final class RegressionRunnerTests: XCTestCase {
     // swiftlint:disable:next function_parameter_count
     private static func checks(
         word: String,
-        headwordTranslation: String,
         path: GenerationPath?,
         error: String?,
         callFailures: [CallFailure],
@@ -446,8 +529,9 @@ final class RegressionRunnerTests: XCTestCase {
         let names = MechanicalChecks.names
         let notFound = path == .notFound
 
-        // 1. generated without error. A writing/verification refusal with gloss fallback is a flagged pass;
-        //    a failed example call shows on the card, so it is a failure.
+        // 1. generated without error. A refused/failed definition call (gloss kept) is a flagged pass; a
+        //    skipped neutral example is a failure. Topic-example refusals are not visible to the runner (the
+        //    generator yields nothing and logs them); they show up as "no example for this topic".
         let exampleFailures = callFailures.filter { $0.label.hasPrefix("example") }
         let otherFailures = callFailures.filter { !$0.label.hasPrefix("example") }
         if let error {
@@ -477,13 +561,8 @@ final class RegressionRunnerTests: XCTestCase {
         if notFound || senses.isEmpty {
             checks.append(CheckRecord(name: names[2], passed: nil, detail: "no senses", flagged: false))
         } else {
+            // No headword translation since ADR 0001 / A9: only the per-sense translations are checked.
             var problems: [String] = []
-            let headword = headwordTranslation.trimmingCharacters(in: .whitespacesAndNewlines)
-            if headword.isEmpty {
-                problems.append("headword: empty")
-            } else if !MechanicalChecks.containsCyrillic(headword) {
-                problems.append("headword: no Cyrillic (\(headword))")
-            }
             for (index, sense) in senses.enumerated() {
                 let translation = sense.translation.trimmingCharacters(in: .whitespacesAndNewlines)
                 if translation.isEmpty || translation == "…" {

@@ -5,8 +5,10 @@ name: WordhoardSpike
 options:
   bundleIdPrefix: dev.wordhoard
   xcodeVersion: "27.0"
+  # iOS 27 like the product (ADR 0001 point 5): the regression runner links WordhoardCore, whose package
+  # platform is iOS 27.
   deploymentTarget:
-    iOS: "26.0"
+    iOS: "27.0"
   createIntermediateGroups: true
 
 settings:
@@ -17,11 +19,18 @@ settings:
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: ""
 
+# The product package. Only the regression runner links it (plan 2.2b): the spike app's own screens keep
+# the Phase 0 code and are not maintained. Linking it into the host app as well would put a second copy
+# of Core's SwiftData model classes into the process.
+packages:
+  WordhoardCore:
+    path: ../WordhoardCore
+
 targets:
   WordhoardSpike:
     type: application
     platform: iOS
-    deploymentTarget: "26.0"
+    deploymentTarget: "27.0"
     sources:
       - path: WordhoardSpike
       # The WordNet bundle, stoplist and license live in the product package since plan task 2.2
@@ -42,13 +51,13 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         ENABLE_USER_SCRIPT_SANDBOXING: YES
 
-  # Issue #14: on-device regression runner. A unit-test bundle hosted by the app so it can drive
-  # CardGenerationModel, WordNetLookup and SpikeTranslator in-process with the bundled resources.
-  # Run it on a phone, never on the simulator (no model, no language packs); see README.
+  # Issue #14: on-device regression runner. A unit-test bundle hosted by the app; since plan 2.2b it
+  # drives the product's FoundationModelsCardGenerator from WordhoardCore (its prompts, WordNet lookup
+  # and AppleTranslator) in-process. Run it on a phone, never on the simulator (no language packs); see README.
   WordhoardSpikeRegression:
     type: bundle.unit-test
     platform: iOS
-    deploymentTarget: "26.0"
+    deploymentTarget: "27.0"
     sources:
       - path: WordhoardSpikeRegression
       # The word list is parsed from the repo's docs at run time; it is copied into the test
@@ -57,6 +66,7 @@ targets:
         buildPhase: resources
     dependencies:
       - target: WordhoardSpike
+      - package: WordhoardCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.wordhoard.spike.regression
