@@ -33,15 +33,25 @@ public enum WordStoreError: Error, Equatable {
 /// Saves are explicit: every mutating method ends with a save, so a fresh `ModelContext` on the same
 /// container sees the change as soon as the method returns. Autosave is switched off on the context so
 /// that each save point is visible in this file, and so that the `.existing` and `emptyHeadword` paths
-/// provably write nothing. The store is the only writer to the main context in v1.
+/// provably write nothing.
+///
+/// The store is the only *saver* of the main context, not the only writer: SwiftUI bindings and in-place
+/// edits (W2) write to the same context, and SwiftData's `save()` is context-wide. Every mutating call
+/// and the first `settings()` call is therefore a commit point for all pending in-place edits, and the
+/// headword rules apply to every pending `Word`, whichever call flushes it: the headword is trimmed and
+/// `normalized` re-derived, and a blank headword on an already stored word is reverted to its last saved
+/// value, so no stored word ever has a stale duplicate key or an empty headword (C4; ruling on #30).
+/// Only `save(_:)` and `delete(_:)` bump `updatedAt`.
 ///
 /// SwiftData errors from fetch and save are logged and rethrown, never swallowed.
 @MainActor
 public final class WordStore {
+    private let container: ModelContainer
     private let context: ModelContext
     private let logger = Logger(subsystem: "Wordhoard", category: "store")
 
     public init(container: ModelContainer) {
+        self.container = container
         context = container.mainContext
         context.autosaveEnabled = false
     }
@@ -121,10 +131,13 @@ public final class WordStore {
     /// headword, bumps `updatedAt`, saves. Whether a renamed headword now collides with another word is
     /// the caller's to handle.
     ///
-    /// - Throws: `WordStoreError.emptyHeadword` when the trimmed headword is empty; nothing is saved.
+    /// - Throws: `WordStoreError.emptyHeadword` when the trimmed headword is empty; nothing is saved and
+    ///   the in-memory `headword` is reverted to its last saved value, so the card and list keep showing
+    ///   the previous headword and nothing blank is left pending.
     public func save(_ word: Word) throws {
         let trimmed = Self.trimmed(word.headword)
         guard !trimmed.isEmpty else {
+            try revertHeadwordToSavedValue(of: word)
             throw WordStoreError.emptyHeadword
         }
         word.headword = trimmed
@@ -156,13 +169,62 @@ public final class WordStore {
         return try context.fetch(descriptor).first
     }
 
+    /// Applies the headword rules to every pending `Word`, then commits the whole context.
     private func save() throws {
+        try applyHeadwordRulesToPendingWords()
         do {
             try context.save()
         } catch {
             logger.error("Save failed: \(error.localizedDescription, privacy: .public)")
             throw error
         }
+    }
+
+    /// Trims the headword and re-derives `normalized` for every inserted or changed `Word`, and reverts
+    /// a blank headword on an already stored word to its last saved value (ruling on #30). Does not touch
+    /// `updatedAt`. An inserted word with a blank headword cannot come from `add(_:)` and is left alone.
+    private func applyHeadwordRulesToPendingWords() throws {
+        let inserted = context.insertedModelsArray.compactMap { $0 as? Word }
+        let insertedIDs = Set(inserted.map(ObjectIdentifier.init))
+        let changed = context.changedModelsArray
+            .compactMap { $0 as? Word }
+            .filter { !insertedIDs.contains(ObjectIdentifier($0)) }
+
+        for word in inserted + changed {
+            let trimmed = Self.trimmed(word.headword)
+            if trimmed.isEmpty {
+                if insertedIDs.contains(ObjectIdentifier(word)) {
+                    continue
+                }
+                if try revertHeadwordToSavedValue(of: word) {
+                    logger.notice("Reverted a pending blank headword to its saved value for \(word.id)")
+                }
+                continue
+            }
+            if word.headword != trimmed {
+                word.headword = trimmed
+            }
+            let key = Word.normalize(trimmed)
+            if word.normalized != key {
+                word.normalized = key
+            }
+        }
+    }
+
+    /// Restores `word.headword` (and its key) from the last saved row, read through a throwaway context
+    /// so pending changes on the main context are not seen. Returns `false` when the word has never been
+    /// saved, in which case nothing changes.
+    @discardableResult
+    private func revertHeadwordToSavedValue(of word: Word) throws -> Bool {
+        let id = word.id
+        var descriptor = FetchDescriptor<Word>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        guard let saved = try ModelContext(container).fetch(descriptor).first else {
+            return false
+        }
+        word.headword = saved.headword
+        word.normalized = Word.normalize(saved.headword)
+        return true
     }
 
     /// Drops leading and trailing whitespace and newlines, using the same `Character.isWhitespace` test
