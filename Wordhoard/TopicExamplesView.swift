@@ -7,6 +7,8 @@ import WordhoardCore
 /// (only a stale route) shows the key as the title and an empty list.
 struct TopicExamplesView: View {
     @State private var model: TopicBrowseModel
+    /// Computed once per appear, after `load()`, so `body` never walks the hoard.
+    @State private var groups: [TopicWordGroup] = []
     private let key: GrammarTopicID
 
     init(key: GrammarTopicID, store: WordStore) {
@@ -19,7 +21,6 @@ struct TopicExamplesView: View {
     }
 
     var body: some View {
-        let groups = model.groups(for: key)
         List {
             ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
                 Section {
@@ -44,7 +45,10 @@ struct TopicExamplesView: View {
         .alert("Couldn't load your words", isPresented: isFailurePresented) {
             Button("OK", role: .cancel) {}
         }
-        .onAppear(perform: model.load)
+        .onAppear {
+            model.load()
+            groups = model.groups(for: key)
+        }
     }
 
     private var emptyState: some View {
