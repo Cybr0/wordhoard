@@ -44,7 +44,11 @@ final class WordhoardUITests: XCTestCase {
         )
 
         // 6.2 (#32): with the keyboard up, a drag down dismisses it and the search field can be reached.
-        app.swipeDown()
+        // A drag from the list into the keyboard, as a thumb would do it (interactive dismissal).
+        let list = app.collectionViews.firstMatch
+        list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+            .press(forDuration: 0.1, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.searchFields.firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.searchFields.firstMatch.isHittable)
         addField.tap()
