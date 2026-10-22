@@ -38,7 +38,9 @@ struct WordCardView: View {
 
     var body: some View {
         Group {
-            if model.isWordDeleted {
+            // The card that deletes the word keeps its content while it slides out; the model already
+            // refuses every edit, so only a deleted card still on screen afterwards shows the state.
+            if model.isWordDeleted, !isDismissing {
                 deletedState
             } else {
                 card
@@ -317,9 +319,10 @@ extension WordCardView {
     }
 
     /// An interactive Back can start this card's appearance, swallow the on-appear dismiss and then be
-    /// cancelled, leaving the card on top. Check again once the transition has settled, as a deliberate
-    /// retry past `dismissOnce()`; the task is cancelled if the card leaves the screen first, so it never
-    /// pops another screen.
+    /// cancelled, leaving the card on top. Check again once the transition has settled: a card still on
+    /// screen and deleted after 600 ms was not dismissed, so the earlier attempt is forgotten and the retry
+    /// goes through `dismissOnce()` like every other dismiss. The task is cancelled when the card leaves
+    /// the screen, so it never pops another screen.
     private func dismissIfStillDeleted() async {
         guard isOnScreen, model.isWordDeleted,
               await (try? Task.sleep(for: .milliseconds(600))) != nil,
@@ -327,7 +330,8 @@ extension WordCardView {
         else {
             return
         }
-        dismiss()
+        isDismissing = false
+        dismissOnce()
     }
 }
 
