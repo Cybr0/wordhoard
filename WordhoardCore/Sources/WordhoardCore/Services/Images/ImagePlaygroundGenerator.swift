@@ -12,7 +12,7 @@
     /// iOS 27 deprecates `ImageCreator` in favour of the interactive `ImagePlaygroundViewController` /
     /// `imagePlaygroundSheet`, which cannot make a picture in the background (I3). The members that touch
     /// it carry the same deprecation, so the warning stays inside this file and callers reach them
-    /// through the `ImageGenerator` protocol; the replacement is a decision for ADR 0002 (#47, #5).
+    /// through the `ImageGenerator` protocol; the replacement is a decision for ADR 0003 (#47, #5).
     ///
     /// **Isolation: none.** A stateless `Sendable` struct; each call makes its own `ImageCreator`.
     public struct ImagePlaygroundGenerator: ImageGenerator {
@@ -64,7 +64,7 @@
             }
         }
 
-        /// Provisional until the #5 device check (ADR 0002): a guardrail refusal that arrives as
+        /// Provisional until the #5 device check (ADR 0003): a guardrail refusal that arrives as
         /// `.creationFailed` stays `.failed`, which the card shows the same way (I4).
         @available(iOS, deprecated: 27.0, message: "ImageCreator; see the type comment")
         @available(macOS, deprecated: 27.0, message: "ImageCreator; see the type comment")
