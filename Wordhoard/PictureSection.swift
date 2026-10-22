@@ -33,6 +33,12 @@ struct PictureSection: View {
             }
             .accessibilityHint(Text("Picture actions"))
             .accessibilityIdentifier("wordCard.imageMenu")
+            if fileName == nil, let message {
+                message
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("wordCard.imageMessage")
+            }
         }
         .photosPicker(isPresented: $isPhotoPickerPresented, selection: $photoItem, matching: .images)
         .onChange(of: photoItem) { _, item in
@@ -58,6 +64,8 @@ struct PictureSection: View {
     @ViewBuilder private var slot: some View {
         if fileName != nil {
             pictureView
+        } else if model.word.imageStatus == .pending {
+            placeholder
         } else {
             Label("Add picture", systemImage: "photo.badge.plus")
                 .accessibilityIdentifier("wordCard.addPicture")
@@ -80,6 +88,34 @@ struct PictureSection: View {
             .accessibilityLabel(Text("Word picture"))
             .accessibilityAddTraits(.isImage)
             .accessibilityIdentifier("wordCard.image")
+    }
+
+    /// While the picture is being made (4.4); the menu stays available, so a photo can be picked instead.
+    private var placeholder: some View {
+        RoundedRectangle(cornerRadius: 12)
+            .fill(Color.secondary.opacity(0.15))
+            .frame(height: 180)
+            .overlay {
+                ProgressView {
+                    Text("Creating a picture…")
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("wordCard.imagePlaceholder")
+    }
+
+    /// One line under "Add picture" for a generation that ended without a picture (I4, I5).
+    private var message: Text? {
+        switch model.word.imageStatus {
+        case .skipped:
+            Text("No picture for this word")
+        case .refused, .failed:
+            Text("Couldn't create a picture")
+        case .unavailable:
+            Text("Image Playground isn't available on this iPhone")
+        case .pending, nil:
+            nil
+        }
     }
 
     // MARK: - Actions

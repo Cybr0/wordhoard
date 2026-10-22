@@ -29,6 +29,8 @@ public extension WordCardModel {
         guard !isWordDeleted, let imageStore else {
             return false
         }
+        // The user's picture wins over a generation in flight (4.4).
+        imageQueue?.cancel(word.id)
         // Named after the row it belongs to: `<ImageAsset.id>.jpg`.
         let asset = ImageAsset(fileName: "", source: source)
         let fileName: String
@@ -53,11 +55,13 @@ public extension WordCardModel {
         }
     }
 
-    /// Removes the picture and its file. A second call, or a word without a picture, does nothing.
+    /// Removes the picture and its file, cancels a pending generation and clears the picture status. A
+    /// second call, or a word with neither, does nothing.
     func removeImage() {
         guard !isWordDeleted else {
             return
         }
+        imageQueue?.cancel(word.id)
         do {
             if let fileName = try store.removeImage(from: word) {
                 deleteImageFile(fileName)
@@ -65,6 +69,19 @@ public extension WordCardModel {
         } catch {
             logger.error("Could not remove the picture: \(error.localizedDescription, privacy: .public)")
             failure = .saving
+        }
+    }
+
+    /// "Generate picture": queues a job that ignores the toggle and replaces any picture (4.4). A queue
+    /// error is logged; the card stays as it is.
+    func generateImage() {
+        guard !isWordDeleted else {
+            return
+        }
+        do {
+            try imageQueue?.enqueue(word, force: true)
+        } catch {
+            logger.error("Could not queue a picture: \(error.localizedDescription, privacy: .public)")
         }
     }
 

@@ -44,18 +44,40 @@ public final class WordListModel {
 
     public var failure: Failure?
 
+    /// "Generate pictures automatically" (S5; the interim More-menu toggle of plan 4.4 until 5.3): reads
+    /// and writes `UserSettings.autoGenerateImages` through the store. A read error shows as `true`, the
+    /// default; a write error is `failure = .saving`.
+    public var autoGenerateImages: Bool {
+        get {
+            (try? store.settings().autoGenerateImages) ?? true
+        }
+        set {
+            do {
+                if try store.settings().autoGenerateImages != newValue {
+                    try store.updateSettings { $0.autoGenerateImages = newValue }
+                }
+            } catch {
+                logger.error("Could not save the pictures toggle: \(error.localizedDescription, privacy: .public)")
+                failure = .saving
+            }
+        }
+    }
+
     /// What the last `importWords(_:)` did. The view shows it and sets it back to `nil` when the user
     /// dismisses the alert, as for `failure`; a failed import clears it.
     public var importSummary: ImportSummary?
 
     private let store: WordStore
     private let autofill: AutofillService?
+    private let imageQueue: ImageGenerationQueue?
     private let logger = Logger(subsystem: "Wordhoard", category: "list")
 
     /// `autofill` is queued a word on every `.created` add (C5); `nil` means nothing is filled in.
-    public init(store: WordStore, autofill: AutofillService? = nil) {
+    /// `imageQueue` likewise gets the automatic picture job (4.4), which it skips when the toggle is off.
+    public init(store: WordStore, autofill: AutofillService? = nil, imageQueue: ImageGenerationQueue? = nil) {
         self.store = store
         self.autofill = autofill
+        self.imageQueue = imageQueue
     }
 
     /// Re-reads `words` for the current `query`. On a store error `failure` becomes `.loading` and `words`
@@ -86,6 +108,7 @@ public final class WordListModel {
             reload()
             if case let .created(word) = result {
                 autofill?.enqueue(word)
+                queuePicture(for: word)
             }
             return result
         } catch WordStoreError.emptyHeadword {
@@ -119,6 +142,15 @@ public final class WordListModel {
             failure = .importing(nil)
         }
         reload()
+    }
+
+    /// The picture comes after the save and never fails the add: an error is logged only (I4).
+    private func queuePicture(for word: Word) {
+        do {
+            try imageQueue?.enqueue(word)
+        } catch {
+            logger.error("Could not queue a picture: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     private func resumeAutofill() {

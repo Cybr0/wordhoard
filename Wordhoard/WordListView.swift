@@ -17,6 +17,7 @@ struct WordListView: View {
     @FocusState private var isAddFieldFocused: Bool
     private let store: WordStore
     private let imageStore: ImageStore
+    private let imageQueue: ImageGenerationQueue
     private let autofill: AutofillService
     private let translator: any Translator
     private let isStorageUnavailable: Bool
@@ -26,14 +27,16 @@ struct WordListView: View {
     init(
         store: WordStore,
         imageStore: ImageStore,
+        imageQueue: ImageGenerationQueue,
         autofill: AutofillService,
         translator: any Translator,
         isStorageUnavailable: Bool,
         hooks: UITestingHooks = .none
     ) {
-        _model = State(initialValue: WordListModel(store: store, autofill: autofill))
+        _model = State(initialValue: WordListModel(store: store, autofill: autofill, imageQueue: imageQueue))
         self.store = store
         self.imageStore = imageStore
+        self.imageQueue = imageQueue
         self.autofill = autofill
         self.translator = translator
         self.isStorageUnavailable = isStorageUnavailable
@@ -105,9 +108,13 @@ struct WordListView: View {
         }
     }
 
-    /// The headword, with a small progress indicator while the word is waiting for or receiving its card.
+    /// The headword, with its thumbnail when it has a picture (I6) and a small progress indicator while the
+    /// word is waiting for or receiving its card.
     private func row(_ word: Word) -> some View {
         HStack {
+            if let fileName = word.image?.fileName {
+                RowThumbnail(imageStore: imageStore, fileName: fileName)
+            }
             Text(word.headword)
                 .accessibilityIdentifier("wordList.rowHeadword")
             if word.autofillState == .pending || word.autofillState == .filling {
@@ -289,7 +296,14 @@ extension WordListView {
     @ViewBuilder private func destination(_ route: Route) -> some View {
         switch route {
         case let .word(word):
-            WordCardView(word: word, store: store, imageStore: imageStore, autofill: autofill, translator: translator)
+            WordCardView(
+                word: word,
+                store: store,
+                imageStore: imageStore,
+                imageQueue: imageQueue,
+                autofill: autofill,
+                translator: translator
+            )
         case .topicSettings:
             GrammarTopicsView(store: store)
         case .topics:
@@ -307,6 +321,8 @@ extension WordListView {
                 path.append(.topicSettings)
             }
             .accessibilityIdentifier("wordList.topicSettings")
+            Toggle("Generate pictures automatically", systemImage: "photo", isOn: $model.autoGenerateImages)
+                .accessibilityIdentifier("wordList.autoImagesToggle")
             exportRow
             Button("Import…", systemImage: "square.and.arrow.down", action: startImport)
                 .accessibilityIdentifier("wordList.import")

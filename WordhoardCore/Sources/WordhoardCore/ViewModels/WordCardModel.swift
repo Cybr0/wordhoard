@@ -64,6 +64,9 @@ public final class WordCardModel {
     let store: WordStore
     /// `nil` in tests and previews that have no picture directory; picture actions then do nothing.
     let imageStore: ImageStore?
+    /// The picture queue (4.4): "Generate picture" goes to it; a chosen or removed picture and a deleted
+    /// word cancel its job. `nil` means no generation.
+    public let imageQueue: ImageGenerationQueue?
     let logger = Logger(subsystem: "Wordhoard", category: "card")
 
     /// Senses and examples this model hard-deleted, keyed by identity. The objects are retained so a
@@ -71,10 +74,16 @@ public final class WordCardModel {
     @ObservationIgnored
     private var removed: [ObjectIdentifier: AnyObject] = [:]
 
-    public init(word: Word, store: WordStore, imageStore: ImageStore? = nil) {
+    public init(
+        word: Word,
+        store: WordStore,
+        imageStore: ImageStore? = nil,
+        imageQueue: ImageGenerationQueue? = nil
+    ) {
         self.word = word
         self.store = store
         self.imageStore = imageStore
+        self.imageQueue = imageQueue
         senses = word.sortedSenses
     }
 
@@ -297,6 +306,7 @@ public final class WordCardModel {
     /// the same save, plan 4.1). Returns `true` when it was saved, so the view may pop; on an error
     /// `failure = .deleting` and the word stays.
     public func deleteWord() -> Bool {
+        imageQueue?.cancel(word.id)
         do {
             let fileName = try store.delete(word)
             if let fileName {

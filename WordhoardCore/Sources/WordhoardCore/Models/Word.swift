@@ -24,6 +24,9 @@ public final class Word {
     public var deletedAt: Date?
     /// Autofill progress (plan 2.3). Defaulted so a word created by anyone is a word to fill in.
     public var autofillState: AutofillState = AutofillState.pending
+    /// The generated picture's progress (plan 4.4); `nil` = nothing requested. Written through
+    /// `WordStore.setImageStatus(_:for:)`, cleared by `setImage` and `removeImage`.
+    public var imageStatus: ImageStatus?
 
     @Relationship(deleteRule: .nullify, inverse: \Tag.words)
     public var tags: [Tag] = []

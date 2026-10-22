@@ -14,6 +14,8 @@ struct WordCardView: View {
     /// The native language whose translation pack is missing, when the card has no translation because
     /// of it (A9, plan 2.10); checked with the generator's availability.
     @State private var missingPackLanguage: String?
+    /// Whether the picture generator and its prompt writer can both run now (plan 4.3/4.4).
+    @State private var canGeneratePicture = false
     /// Between this card's `onAppear` and `onDisappear`: only a card on screen may dismiss itself, so a
     /// covered card does not pop the one that deleted the word.
     @State private var isOnScreen = false
@@ -29,10 +31,16 @@ struct WordCardView: View {
         word: Word,
         store: WordStore,
         imageStore: ImageStore?,
+        imageQueue: ImageGenerationQueue?,
         autofill: AutofillService,
         translator: any Translator
     ) {
-        _model = State(initialValue: WordCardModel(word: word, store: store, imageStore: imageStore))
+        _model = State(initialValue: WordCardModel(
+            word: word,
+            store: store,
+            imageStore: imageStore,
+            imageQueue: imageQueue
+        ))
         self.autofill = autofill
         self.store = store
         self.translator = translator
@@ -119,7 +127,7 @@ struct WordCardView: View {
     private var card: some View {
         List {
             headwordSection
-            PictureSection(model: model, canGenerate: false, generate: {})
+            PictureSection(model: model, canGenerate: canGeneratePicture, generate: model.generateImage)
             if model.senses.isEmpty, !isFilling {
                 emptyState
             }
@@ -227,6 +235,13 @@ struct WordCardView: View {
 
     private func checkAvailability() async {
         isGeneratorAvailable = await autofill.generator.availability() == .available
+        if let queue = model.imageQueue {
+            let writer = await queue.promptWriter.availability
+            let generator = await queue.generator.availability
+            canGeneratePicture = writer == .available && generator == .available
+        } else {
+            canGeneratePicture = false
+        }
         guard let language = try? store.settings().nativeLanguage else {
             missingPackLanguage = nil
             return
@@ -345,47 +360,5 @@ extension WordCardView {
         }
         isDismissing = false
         dismissOnce()
-    }
-}
-
-/// A card over an in-memory store with one inserted and saved word, so the preview reads real
-/// relationships: two senses, one with a WordNet badge, a translation, synonyms and a topic example.
-@MainActor
-private func previewCard() -> WordCardView? {
-    guard let container = try? WordhoardContainer.makeInMemory() else {
-        return nil
-    }
-    let store = WordStore(container: container)
-    guard let word = try? store.add("book").word else {
-        return nil
-    }
-    let noun = Sense(
-        partOfSpeech: .noun,
-        definition: "A written or printed work consisting of pages bound together.",
-        order: 0,
-        senseSource: .wordnet,
-        translation: "книга",
-        synonyms: ["volume", "tome"]
-    )
-    noun.examples = [
-        Example(text: "She read a book on the train.", source: .auto, order: 0),
-        Example(text: "I have read this book twice.", source: .auto, grammarTopic: "en.present_perfect", order: 1),
-    ]
-    let verb = Sense(partOfSpeech: .verb, definition: "To reserve a seat, room or table.", order: 1)
-    word.senses = [noun, verb]
-    word.autofillState = .ready
-    try? store.save(word)
-    return WordCardView(
-        word: word,
-        store: store,
-        imageStore: nil,
-        autofill: AutofillService(store: store, generator: StubCardGenerator()),
-        translator: StubTranslator()
-    )
-}
-
-#Preview {
-    NavigationStack {
-        previewCard()
     }
 }

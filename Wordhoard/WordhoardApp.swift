@@ -20,6 +20,8 @@ struct WordhoardApp: App {
     private let isStorageUnavailable: Bool
     /// Word pictures as files (plan 4.1); a fresh temporary directory under `--ui-testing`.
     private let imageStore: ImageStore
+    /// Background pictures (plan 4.4); suspended until the launch orphan scan has finished.
+    private let imageQueue: ImageGenerationQueue
 
     init() {
         logger.info("Launching with WordhoardCore \(CoreInfo.version, privacy: .public)")
@@ -29,6 +31,13 @@ struct WordhoardApp: App {
         imageStore = Self.makeImageStore(logger: logger)
         translator = options.makeTranslator()
         autofill = AutofillService(store: store, generator: options.makeGenerator(translator: translator))
+        imageQueue = ImageGenerationQueue(
+            store: store,
+            imageStore: imageStore,
+            generator: options.makeImageGenerator(),
+            promptWriter: options.makeImagePromptWriter()
+        )
+        Self.connect(imageQueue, to: autofill, logger: logger)
         // Warm up the settings record now, before any in-place edit can be pending, so its first-use
         // save never becomes a surprise commit point from inside a card (1.4 ruling on #30).
         do {
@@ -42,7 +51,7 @@ struct WordhoardApp: App {
         Task.detached {
             await WordNetLookup.shared.warmUp()
         }
-        Self.removeOrphanedImages(store: store, imageStore: imageStore, logger: logger)
+        Self.removeOrphanedImages(store: store, imageStore: imageStore, queue: imageQueue, logger: logger)
     }
 
     var body: some Scene {
@@ -50,6 +59,7 @@ struct WordhoardApp: App {
             WordListView(
                 store: store,
                 imageStore: imageStore,
+                imageQueue: imageQueue,
                 autofill: autofill,
                 translator: translator,
                 isStorageUnavailable: isStorageUnavailable,
@@ -61,6 +71,32 @@ struct WordhoardApp: App {
             // Every foreground: a word added while the app was closed (the 5.1 intent) is filled now.
             if phase == .active {
                 resumeAutofill()
+            }
+            imageQueue.isSceneActive = phase == .active
+            if phase == .active {
+                resumePictures()
+            }
+        }
+    }
+
+    /// Queues every word whose picture is still pending (a kill, or a job put back in the background).
+    private func resumePictures() {
+        do {
+            try imageQueue.resumePending()
+        } catch {
+            logger.error("Could not resume pictures: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// A picture waits for its word's first card, so the prompt writer gets a definition (plan 4.4):
+    /// jobs for a word still being filled are put off and resumed when the fill settles.
+    private static func connect(_ queue: ImageGenerationQueue, to autofill: AutofillService, logger: Logger) {
+        queue.waitsFor = { $0.autofillState == .pending || $0.autofillState == .filling }
+        autofill.onFirstCardSettled = { [weak queue] _ in
+            do {
+                try queue?.resumePending()
+            } catch {
+                logger.error("Could not resume pictures: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -110,21 +146,38 @@ struct WordhoardApp: App {
     }
 
     /// The once-per-launch orphan scan (plan 4.1): the reference set is read on the main actor, the files
-    /// are scanned off it. Failures are logged, never shown.
-    private static func removeOrphanedImages(store: WordStore, imageStore: ImageStore, logger: Logger) {
-        let referenced: Set<String>
+    /// are scanned off it, and only then does the picture queue start (4.4). Failures are logged, never
+    /// shown; the queue starts either way.
+    private static func removeOrphanedImages(
+        store: WordStore,
+        imageStore: ImageStore,
+        queue: ImageGenerationQueue,
+        logger: Logger
+    ) {
+        queue.isSuspended = true
+        let referenced: Set<String>?
         do {
             referenced = try store.imageFileNames()
         } catch {
             logger.error("Could not read picture names: \(error.localizedDescription, privacy: .public)")
-            return
+            referenced = nil
         }
-        Task.detached(priority: .utility) {
+        Task { @MainActor in
+            if let referenced {
+                await Task.detached(priority: .utility) {
+                    do {
+                        try imageStore.removeOrphans(keeping: referenced)
+                    } catch {
+                        Logger(subsystem: "Wordhoard", category: "images")
+                            .error("Orphan scan failed: \(error.localizedDescription, privacy: .public)")
+                    }
+                }.value
+            }
+            queue.isSuspended = false
             do {
-                try imageStore.removeOrphans(keeping: referenced)
+                try queue.resumePending()
             } catch {
-                Logger(subsystem: "Wordhoard", category: "images")
-                    .error("Orphan scan failed: \(error.localizedDescription, privacy: .public)")
+                logger.error("Could not resume pictures: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
