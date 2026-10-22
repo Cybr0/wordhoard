@@ -27,6 +27,7 @@ struct ImageQueueFixture {
             generator: generator,
             promptWriter: writer
         )
+        queue.isSceneActive = true
     }
 
     func listModel() -> WordListModel {

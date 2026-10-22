@@ -13,10 +13,11 @@ import os
 /// which clears the status. Every other outcome is a status (`.skipped`, `.refused`, `.failed`,
 /// `.unavailable`) and never an alert (I4: the card simply has no picture). Cancellation writes nothing.
 ///
-/// Foreground only: the worker does not start a job while `isSceneActive` is `false` or `isSuspended` is
-/// `true` (the app suspends it until the launch orphan scan has finished), and a generator failure while
-/// the scene is not active puts the word back to `.pending` (`backgroundCreationForbidden`), to be resumed
-/// by `resumePending()` on the next `.active`.
+/// Foreground only: the worker does not start a job while `isSceneActive` is `false` (the default, since
+/// a Siri launch in the background never makes a scene active) or `isSuspended` is `true` (the app
+/// suspends it until the launch orphan scan has finished). A background refusal
+/// (`ImageGeneratorError.backgroundForbidden`), or any generator failure while the scene is not active,
+/// puts the word back to `.pending`, to be resumed by `resumePending()` on the next `.active`.
 @MainActor
 @Observable
 public final class ImageGenerationQueue {
@@ -27,9 +28,10 @@ public final class ImageGenerationQueue {
     public let generator: any ImageGenerator
     public let promptWriter: any ImagePromptWriter
 
-    /// Set by the app from the scene phase. Turning it on starts the worker if anything is queued.
+    /// Set by the app from the scene phase; `false` until then. Turning it on starts the worker if
+    /// anything is queued.
     @ObservationIgnored
-    public var isSceneActive = true {
+    public var isSceneActive = false {
         didSet { startWorkerIfNeeded() }
     }
 
@@ -198,8 +200,10 @@ public final class ImageGenerationQueue {
         } catch is CancellationError {
             return "cancelled"
         } catch {
-            let status = Self.status(for: error as? ImageGeneratorError)
-            return finish(id, with: status == .failed && !isSceneActive ? .pending : status)
+            let error = error as? ImageGeneratorError
+            let isBackground = error == .backgroundForbidden || !isSceneActive
+            let status = Self.status(for: error)
+            return finish(id, with: status == .failed && isBackground ? .pending : status)
         }
         return attach(asset, fileName: fileName, to: id)
     }
@@ -268,7 +272,7 @@ public final class ImageGenerationQueue {
             .unavailable
         case .refused:
             .refused
-        case .failed, nil:
+        case .backgroundForbidden, .failed, nil:
             .failed
         }
     }

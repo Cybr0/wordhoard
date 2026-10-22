@@ -165,6 +165,7 @@ struct ImageGenerationQueueTests {
             generator: StubImageGenerator(),
             promptWriter: StubImagePromptWriter()
         )
+        queue.isSceneActive = true
         try queue.resumePending()
         await queue.drain()
         #expect(word.image?.source == .generated)

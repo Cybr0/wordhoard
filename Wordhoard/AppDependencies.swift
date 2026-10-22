@@ -22,7 +22,8 @@ final class AppDependencies {
     let isStorageUnavailable: Bool
     /// Word pictures as files (plan 4.1); a fresh temporary directory under `--ui-testing`.
     let imageStore: ImageStore
-    /// Background pictures (plan 4.4); suspended until the launch orphan scan has finished.
+    /// Background pictures (plan 4.4); suspended until the launch orphan scan has finished, and inactive
+    /// until `WordhoardApp` reports an active scene, so a Siri background launch runs no job.
     let imageQueue: ImageGenerationQueue
     let autofill: AutofillService
     /// The card asks it whether the native language's pack is installed (plan 2.10).

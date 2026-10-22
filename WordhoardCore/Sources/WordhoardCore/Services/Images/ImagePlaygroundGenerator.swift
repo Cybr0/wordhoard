@@ -74,7 +74,9 @@
                 ImageGeneratorError.unavailable
             case .unsupportedLanguage, .unsupportedInputImage, .faceInImageTooSmall, .conceptsRequirePersonIdentity:
                 ImageGeneratorError.refused
-            case .creationFailed, .backgroundCreationForbidden:
+            case .backgroundCreationForbidden:
+                ImageGeneratorError.backgroundForbidden
+            case .creationFailed:
                 ImageGeneratorError.failed
             case .creationCancelled:
                 CancellationError()

@@ -16,7 +16,7 @@ struct WordhoardApp: App {
                     dependencies.resumeAutofill()
                 }
         }
-        .onChange(of: scenePhase) { _, phase in
+        .onChange(of: scenePhase, initial: true) { _, phase in
             dependencies.imageQueue.isSceneActive = phase == .active
             // Every foreground: a word added while the app was closed (the 5.1 intent) is filled now.
             if phase == .active {

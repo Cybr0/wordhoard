@@ -12,7 +12,10 @@ public enum ImageGeneratorError: Error, Equatable, Sendable {
     case unavailable
     /// The prompt or the result was refused.
     case refused
-    /// Anything else, including creation refused because the app was in the background.
+    /// Creation refused because the app was not in the foreground; the job is retried on the next
+    /// `.active`, never recorded as a failure.
+    case backgroundForbidden
+    /// Anything else.
     case failed
 }
 

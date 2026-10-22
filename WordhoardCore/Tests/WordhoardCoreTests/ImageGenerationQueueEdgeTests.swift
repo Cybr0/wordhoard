@@ -80,6 +80,41 @@ struct ImageGenerationQueueEdgeTests {
         #expect(fixture.generator.prompts.count == 1, "nothing starts in the background")
         #expect(pear.imageStatus == .pending)
     }
+
+    /// A Siri cold launch never makes a scene active, so the queue must not assume one (review must-fix 2).
+    @Test("a queue created inactive starts no job until the scene becomes active")
+    func aNewQueueStartsInactive() async throws {
+        let fixture = try ImageQueueFixture()
+        let word = try fixture.store.add("apple").word
+        try fixture.store.setImageStatus(.pending, for: word)
+        let launched = ImageGenerationQueue(
+            store: fixture.store,
+            imageStore: fixture.directory.store,
+            generator: fixture.generator,
+            promptWriter: fixture.writer
+        )
+        launched.isSuspended = true
+        try launched.resumePending()
+        launched.isSuspended = false
+        await launched.drain()
+        #expect(fixture.writer.calls.isEmpty, "a background launch starts nothing")
+        #expect(word.imageStatus == .pending)
+
+        launched.isSceneActive = true
+        await launched.drain()
+        #expect(word.image?.source == .generated)
+    }
+
+    @Test("Image Playground refusing a background creation leaves the word pending, even while active")
+    func aBackgroundRefusalStaysPending() async throws {
+        let fixture = try ImageQueueFixture(generator: StubImageGenerator(outcome: .backgroundForbidden))
+        let word = try fixture.add("apple")
+        await fixture.queue.drain()
+        #expect(fixture.generator.prompts.count == 1)
+        #expect(word.imageStatus == .pending)
+        #expect(try fixture.storedWord(word).imageStatus == .pending)
+        #expect(fixture.directory.allFiles.isEmpty)
+    }
 }
 
 /// Regression found in the simulator pass: the autofill hook can call `resumePending()` while the job

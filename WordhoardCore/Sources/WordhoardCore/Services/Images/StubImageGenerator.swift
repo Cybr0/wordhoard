@@ -5,12 +5,14 @@ import Synchronization
 import UniformTypeIdentifiers
 
 /// A deterministic `ImageGenerator` for tests and the `--stub-images` debug hook (plan 4.1): a 64 × 64
-/// solid-colour PNG, a refusal or a failure, after an optional delay. Records every prompt it was asked
-/// for; an unavailable stub throws `.unavailable` without recording or consulting `outcome`.
+/// solid-colour PNG, a refusal, a background refusal or a failure, after an optional delay. Records
+/// every prompt it was asked for; an unavailable stub throws `.unavailable` without recording or
+/// consulting `outcome`.
 public final class StubImageGenerator: ImageGenerator {
     public enum Outcome: Sendable, Equatable {
         case image
         case refused
+        case backgroundForbidden
         case failed
     }
 
@@ -69,6 +71,8 @@ public final class StubImageGenerator: ImageGenerator {
             return try ImageResult(data: Self.solidPNG(), style: nil)
         case .refused:
             throw ImageGeneratorError.refused
+        case .backgroundForbidden:
+            throw ImageGeneratorError.backgroundForbidden
         case .failed:
             throw ImageGeneratorError.failed
         }

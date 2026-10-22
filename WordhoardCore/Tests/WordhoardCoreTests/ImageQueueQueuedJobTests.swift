@@ -43,6 +43,7 @@ struct ImageQueueQueuedJobTests {
             generator: fixture.generator,
             promptWriter: fixture.writer
         )
+        relaunched.isSceneActive = true
         try relaunched.resumePending()
         await relaunched.drain()
         #expect(fixture.writer.calls.isEmpty)
