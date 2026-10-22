@@ -78,6 +78,15 @@ struct WordCardView: View {
             // The service merges senses behind the model's back; re-read them when a fill ends or starts.
             model.reloadSenses()
         }
+        .onAppear {
+            // The same word's card can be on the stack twice (card → badge → topic → example): the
+            // other one may have deleted the word or changed its senses while this one was covered.
+            if word.deletedAt != nil {
+                dismiss()
+            } else {
+                model.reloadSenses()
+            }
+        }
         .task(checkAvailability)
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {

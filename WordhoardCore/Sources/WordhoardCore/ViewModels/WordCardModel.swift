@@ -118,7 +118,7 @@ public final class WordCardModel {
 
     /// No provenance mark: part of speech is part of the sense's identity, not a regenerable field.
     public func setPartOfSpeech(_ partOfSpeech: PartOfSpeech, for sense: Sense) {
-        guard !isRemoved(sense), sense.partOfSpeech != partOfSpeech else {
+        guard isLive(sense), sense.partOfSpeech != partOfSpeech else {
             return
         }
         sense.partOfSpeech = partOfSpeech
@@ -126,7 +126,7 @@ public final class WordCardModel {
     }
 
     public func setDefinition(_ text: String, for sense: Sense) {
-        guard !isRemoved(sense), sense.definition != text else {
+        guard isLive(sense), sense.definition != text else {
             return
         }
         sense.definition = text
@@ -138,7 +138,7 @@ public final class WordCardModel {
     /// edit also clears `translationIsFallback`: the text is now the user's, not a translated definition.
     public func setTranslation(_ text: String, for sense: Sense) {
         let translation = Self.trimmed(text).isEmpty ? nil : text
-        guard !isRemoved(sense), sense.translation != translation else {
+        guard isLive(sense), sense.translation != translation else {
             return
         }
         sense.translation = translation
@@ -150,7 +150,7 @@ public final class WordCardModel {
     /// Stores `splitList(text)`.
     public func setSynonyms(_ text: String, for sense: Sense) {
         let synonyms = Self.splitList(text)
-        guard !isRemoved(sense), sense.synonyms != synonyms else {
+        guard isLive(sense), sense.synonyms != synonyms else {
             return
         }
         sense.synonyms = synonyms
@@ -161,7 +161,7 @@ public final class WordCardModel {
     /// Stores `splitList(text)`.
     public func setAntonyms(_ text: String, for sense: Sense) {
         let antonyms = Self.splitList(text)
-        guard !isRemoved(sense), sense.antonyms != antonyms else {
+        guard isLive(sense), sense.antonyms != antonyms else {
             return
         }
         sense.antonyms = antonyms
@@ -176,7 +176,7 @@ public final class WordCardModel {
     /// types into becomes `.user` as it is committed.
     @discardableResult
     public func addSense() -> Sense {
-        let sense = Sense(partOfSpeech: .other, order: senses.count)
+        let sense = Sense(partOfSpeech: .other, order: word.senses.count)
         word.senses.append(sense)
         save()
         reloadSenses()
@@ -187,10 +187,10 @@ public final class WordCardModel {
     /// examples through the store, whose save commits both in one transaction: the store never holds a
     /// gap in `order`. A second call for the same sense does nothing.
     public func removeSense(_ sense: Sense) {
-        guard !isRemoved(sense) else {
+        guard isLive(sense) else {
             return
         }
-        let remaining = senses.filter { $0.id != sense.id }
+        let remaining = word.sortedSenses.filter { $0.id != sense.id }
         removed[ObjectIdentifier(sense)] = sense
         sense.examples.forEach { removed[ObjectIdentifier($0)] = $0 }
         _ = renumber(remaining)
@@ -207,6 +207,11 @@ public final class WordCardModel {
     /// Reorders `senses` with the semantics of SwiftUI's `onMove` (`destination` is a position in the
     /// list before the move) and renumbers every sense. Out-of-range offsets are ignored.
     public func moveSenses(fromOffsets source: IndexSet, toOffset destination: Int) {
+        // Offsets into a list that still holds a sense another card removed are stale: reload, drop the move.
+        guard senses.allSatisfy(isLive) else {
+            reloadSenses()
+            return
+        }
         guard renumber(Self.moved(senses, fromOffsets: source, toOffset: destination)) else {
             return
         }
@@ -220,7 +225,7 @@ public final class WordCardModel {
     /// Returns the example; for a removed sense the example is created but not attached or saved.
     @discardableResult
     public func addExample(to sense: Sense) -> Example {
-        guard !isRemoved(sense) else {
+        guard isLive(sense) else {
             return Example(text: "", source: .user, grammarTopic: nil, order: 0)
         }
         let example = Example(text: "", source: .user, grammarTopic: nil, order: sense.examples.count)
@@ -230,7 +235,7 @@ public final class WordCardModel {
     }
 
     public func setExampleText(_ text: String, for example: Example) {
-        guard !isRemoved(example), example.text != text else {
+        guard isLive(example), example.text != text else {
             return
         }
         example.text = text
@@ -241,7 +246,7 @@ public final class WordCardModel {
     /// Renumbers its sense's remaining examples, then hard-deletes `example` through the store in the
     /// same save, as `removeSense(_:)` does. A second call for the same example does nothing.
     public func removeExample(_ example: Example) {
-        guard !isRemoved(example) else {
+        guard isLive(example) else {
             return
         }
         let remaining = example.sense?.sortedExamples.filter { $0.id != example.id } ?? []
@@ -257,7 +262,7 @@ public final class WordCardModel {
 
     /// Reorders `sense`'s examples with the semantics of `moveSenses(fromOffsets:toOffset:)`.
     public func moveExamples(in sense: Sense, fromOffsets source: IndexSet, toOffset destination: Int) {
-        guard !isRemoved(sense),
+        guard isLive(sense),
               renumber(Self.moved(sense.sortedExamples, fromOffsets: source, toOffset: destination))
         else {
             return
@@ -303,13 +308,10 @@ public final class WordCardModel {
         sense.fieldSources[field.rawValue] = .user
     }
 
-    private func isRemoved(_ object: AnyObject) -> Bool {
-        removed[ObjectIdentifier(object)] != nil
-    }
-
     /// Re-reads `senses` from the word. The model calls it after its own structural changes; the card view
     /// calls it when `AutofillService` has merged a card into this word (plan 2.3), which adds senses
-    /// behind the model's back.
+    /// behind the model's back, and when the card appears again, since another card for the same word
+    /// may have changed them meanwhile.
     public func reloadSenses() {
         senses = word.sortedSenses
     }
@@ -371,5 +373,25 @@ public final class WordCardModel {
             return ""
         }
         return String(text[first ... last])
+    }
+}
+
+// MARK: - Liveness
+
+extension WordCardModel {
+    private func isRemoved(_ object: AnyObject) -> Bool {
+        removed[ObjectIdentifier(object)] != nil
+    }
+
+    /// Whether `sense` is still one of the word's senses. A second card on the same word can hard-delete
+    /// it behind this model's back, which `removed` does not see and `isDeleted` does not report; only
+    /// the word's live relationship is read, never the sense's own attributes.
+    private func isLive(_ sense: Sense) -> Bool {
+        !isRemoved(sense) && word.senses.contains { $0 === sense }
+    }
+
+    /// Whether `example` still belongs to one of the word's senses; see `isLive(_:)` for a sense.
+    private func isLive(_ example: Example) -> Bool {
+        !isRemoved(example) && word.senses.contains { $0.examples.contains { $0 === example } }
     }
 }
