@@ -76,8 +76,16 @@ struct PictureSection: View {
         } else if model.word.imageStatus == .pending {
             placeholder
         } else {
-            Label("Add picture", systemImage: "photo.badge.plus")
-                .accessibilityIdentifier("wordCard.addPicture")
+            // Text and icon laid out by hand: the icon is decorative, so VoiceOver never reads its symbol name.
+            HStack(alignment: .firstTextBaseline) {
+                Image(systemName: "photo.badge.plus")
+                    .accessibilityHidden(true)
+                Text("Add picture")
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("wordCard.addPicture")
         }
     }
 

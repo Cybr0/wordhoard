@@ -27,11 +27,12 @@ struct SenseSection: View {
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier(identifier("translationNote"))
             }
-            CommittingTextField(Text("Synonyms, separated by commas"), value: joined(sense.synonyms)) { text in
+            // Short placeholders keep the definition's size at AX5; the stored "big, large" shows the commas.
+            CommittingTextField(Text("Synonyms"), value: joined(sense.synonyms)) { text in
                 model.setSynonyms(text, for: sense)
             }
             .accessibilityIdentifier(identifier("synonyms"))
-            CommittingTextField(Text("Antonyms, separated by commas"), value: joined(sense.antonyms)) { text in
+            CommittingTextField(Text("Antonyms"), value: joined(sense.antonyms)) { text in
                 model.setAntonyms(text, for: sense)
             }
             .accessibilityIdentifier(identifier("antonyms"))
@@ -42,8 +43,10 @@ struct SenseSection: View {
             .onMove { source, destination in
                 model.moveExamples(in: sense, fromOffsets: source, toOffset: destination)
             }
-            Button("Add example", systemImage: "plus") {
+            Button {
                 model.addExample(to: sense)
+            } label: {
+                AddRowLabel(title: Text("Add example"))
             }
             .accessibilityIdentifier(identifier("addExample"))
         } header: {
@@ -107,29 +110,46 @@ struct SenseSection: View {
                 model.removeSense(sense)
             }
         } label: {
+            // 6.1: a 44 pt target around the 18 pt symbol.
             Image(systemName: "ellipsis.circle")
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
         .accessibilityLabel("Sense actions")
         .accessibilityIdentifier(identifier("menu"))
     }
 
+    /// A neutral example is its text field; a tagged one adds the badge link (3.3), and the two are one
+    /// accessibility element read "text, topic" (6.1).
+    @ViewBuilder
     private func exampleRow(_ example: Example, position: Int) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            CommittingTextField(Text("Example sentence"), value: example.text, axis: .vertical) { text in
-                model.setExampleText(text, for: example)
-            }
-            .accessibilityIdentifier(identifier("example.\(position).text"))
-            if let topic = example.grammarTopic.flatMap(GrammarCatalog.english.topic(for:)) {
+        if let topic = example.grammarTopic.flatMap(GrammarCatalog.english.topic(for:)) {
+            HStack(alignment: .firstTextBaseline) {
+                exampleField(example, position: position)
                 // Plan 3.3: the badge opens the topic's examples; plain style keeps the hit area the badge's own.
                 NavigationLink(value: Route.topic(topic.key)) {
+                    // 6.1: the padding makes the hit area 44 pt tall; the capsule stays its own size.
                     badge(Text(verbatim: topic.name))
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .navigationLinkIndicatorVisibility(.hidden)
-                .accessibilityLabel(Text(verbatim: topic.name))
                 .accessibilityIdentifier(identifier("example.\(position).topicBadge"))
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(Text(example.text))
+            .accessibilityValue(Text(verbatim: topic.name))
+        } else {
+            exampleField(example, position: position)
         }
+    }
+
+    private func exampleField(_ example: Example, position: Int) -> some View {
+        CommittingTextField(Text("Example sentence"), value: example.text, axis: .vertical) { text in
+            model.setExampleText(text, for: example)
+        }
+        .accessibilityIdentifier(identifier("example.\(position).text"))
     }
 
     /// The part of speech goes through the model like every other edit; the binding never writes to
@@ -150,12 +170,15 @@ struct SenseSection: View {
         }
     }
 
+    /// Primary text in an outlined capsule on the row's own background, so the badge passes the contrast
+    /// audit at every size (6.1).
     private func badge(_ text: Text) -> some View {
         text
-            .font(.caption)
+            .font(.footnote)
+            .foregroundStyle(Color.primary)
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
-            .background(.quaternary, in: Capsule())
+            .overlay(Capsule().strokeBorder(.secondary))
     }
 
     private func removeExamples(at offsets: IndexSet) {

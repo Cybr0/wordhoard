@@ -140,6 +140,10 @@ struct WordListView: View {
                 .accessibilityIdentifier("wordList.emptyState")
             }
         }
+        // No fixed row height: at AX5 the title and description wrap in full (6.1, #32).
+        .frame(maxWidth: .infinity)
+        .fixedSize(horizontal: false, vertical: true)
+        .listRowInsets(EdgeInsets())
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
     }

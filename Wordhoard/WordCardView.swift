@@ -75,11 +75,8 @@ struct WordCardView: View {
                 }
             }
         }
-        .confirmationDialog(
-            Text("Delete “\(word.headword)”?"),
-            isPresented: $isDeleteDialogPresented,
-            titleVisibility: .visible
-        ) {
+        // An alert, not a confirmation dialog: it renders a labelled Cancel on every size class (6.1, #35).
+        .alert(Text("Delete “\(word.headword)”?"), isPresented: $isDeleteDialogPresented) {
             Button("Delete", role: .destructive, action: deleteWord)
                 .accessibilityIdentifier("wordCard.deleteConfirm")
             Button("Cancel", role: .cancel) {}
@@ -135,8 +132,10 @@ struct WordCardView: View {
                 SenseSection(model: model, sense: sense, index: index, count: model.senses.count)
             }
             Section {
-                Button("Add sense", systemImage: "plus") {
+                Button {
                     model.addSense()
+                } label: {
+                    AddRowLabel(title: Text("Add sense"))
                 }
                 .accessibilityIdentifier("wordCard.addSense")
             }
@@ -147,7 +146,8 @@ struct WordCardView: View {
 
     private var headwordSection: some View {
         Section {
-            CommittingTextField(Text(verbatim: word.headword), value: word.headword) { text in
+            // "Headword" is the placeholder and so the label: VoiceOver reads "Headword, book" (6.1, #35).
+            CommittingTextField(Text("Headword"), value: word.headword) { text in
                 model.setHeadword(text)
             }
             .textInputAutocapitalization(.never)

@@ -23,11 +23,13 @@
 		4290E5140E56259CCD584960 /* IntentUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C3D2473CEA8FAA2C25CDE06 /* IntentUITests.swift */; };
 		452233B39E8A2483A5316AF4 /* UITestingHooks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F0C5C2F44B6F6351C45A4E /* UITestingHooks.swift */; };
 		45AAEEAD9618661829030008 /* LaunchOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02F90EAB0084C7A7B0FBA59 /* LaunchOptions.swift */; };
+		4851654B1120DF72FFFDF622 /* AddRowLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77ED2429FF77CAD51A49A46A /* AddRowLabel.swift */; };
 		56FB8F1CA011C0B3309320FD /* Route.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50556055263A1744476025E /* Route.swift */; };
 		600B84B53823E0F1C0F8DD2E /* WordhoardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */; };
 		602F850428DDF030CDE35610 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1437D8589C028134C6C6A34A /* AboutView.swift */; };
 		68D9EE33FCEB1C6AD21C95B3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BBA99CD5A9F465DF31925B1 /* SettingsView.swift */; };
 		6CC1F6B2E9ADDF6627B7ACC6 /* LanguageSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B4E07D8AE7A02E315B84C92 /* LanguageSettingsView.swift */; };
+		701CC7FE0D9B7DD18073187A /* AccessibilityAuditUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 248A811CC585FAC368F87B22 /* AccessibilityAuditUITests.swift */; };
 		7557171B4D49C1463DCE6985 /* TranslationLanguageSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5573608CDE2C8B8DE9B9175A /* TranslationLanguageSource.swift */; };
 		8C3B499067641BB31A762797 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8DDA685CA7599AFA87A612C6 /* Assets.xcassets */; };
 		9968065F2C4DF2AFC034C06C /* ExportFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86FE5FD03CDF1DD697988B70 /* ExportFile.swift */; };
@@ -63,6 +65,7 @@
 		1437D8589C028134C6C6A34A /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		1B9CCB57EA7B6ACE7050B537 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		209C88D9788EA67B237B9C6D /* CommittingTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommittingTextField.swift; sourceTree = "<group>"; };
+		248A811CC585FAC368F87B22 /* AccessibilityAuditUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityAuditUITests.swift; sourceTree = "<group>"; };
 		259F134727C3AEDF07B46CD7 /* RowThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RowThumbnail.swift; sourceTree = "<group>"; };
 		2F0BC92B96E3686BFC861CDC /* PictureSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureSection.swift; sourceTree = "<group>"; };
 		33106C603F8F27F7485EA7B4 /* WordhoardCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = WordhoardCore; path = WordhoardCore; sourceTree = SOURCE_ROOT; };
@@ -75,6 +78,7 @@
 		6939ECFE69CB45510CB67036 /* GrammarTopicsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrammarTopicsView.swift; sourceTree = "<group>"; };
 		775698D0C1A408DBF3625CC2 /* TopicsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicsView.swift; sourceTree = "<group>"; };
 		7787DE0F3E0FE43BEA8269BD /* SenseSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SenseSection.swift; sourceTree = "<group>"; };
+		77ED2429FF77CAD51A49A46A /* AddRowLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddRowLabel.swift; sourceTree = "<group>"; };
 		7B4E07D8AE7A02E315B84C92 /* LanguageSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageSettingsView.swift; sourceTree = "<group>"; };
 		7BBA99CD5A9F465DF31925B1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		86FE5FD03CDF1DD697988B70 /* ExportFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportFile.swift; sourceTree = "<group>"; };
@@ -144,6 +148,7 @@
 		1816CF811E18261F0D387586 /* WordhoardUITests */ = {
 			isa = PBXGroup;
 			children = (
+				248A811CC585FAC368F87B22 /* AccessibilityAuditUITests.swift */,
 				9C3D2473CEA8FAA2C25CDE06 /* IntentUITests.swift */,
 				5D74224E637F2533716E63A3 /* OnboardingUITests.swift */,
 				EDE139E6317E445D587E63D7 /* SettingsUITests.swift */,
@@ -194,6 +199,7 @@
 				0130D00FAFD8FF9C88142601 /* Resources */,
 				686BAEF4747AC44A622C6315 /* Services */,
 				077561267D06CDB05A6E05E6 /* Settings */,
+				77ED2429FF77CAD51A49A46A /* AddRowLabel.swift */,
 				AD2ED4EFBE801A95AA358F82 /* AppDependencies.swift */,
 				EE023D5680CA1F64C997D3F7 /* CameraPicker.swift */,
 				209C88D9788EA67B237B9C6D /* CommittingTextField.swift */,
@@ -321,6 +327,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				602F850428DDF030CDE35610 /* AboutView.swift in Sources */,
+				4851654B1120DF72FFFDF622 /* AddRowLabel.swift in Sources */,
 				38A44D618B2E71201651FA12 /* AddWordIntent.swift in Sources */,
 				024ED85666D8DDBE6DB6A835 /* AppDependencies.swift in Sources */,
 				F047CB3FEA73AFE5A4E93379 /* CameraPicker.swift in Sources */,
@@ -357,6 +364,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				701CC7FE0D9B7DD18073187A /* AccessibilityAuditUITests.swift in Sources */,
 				4290E5140E56259CCD584960 /* IntentUITests.swift in Sources */,
 				E5B7E06B7591878004BAA259 /* OnboardingUITests.swift in Sources */,
 				D610F9AFAE9148CA7C2E2360 /* SettingsUITests.swift in Sources */,
