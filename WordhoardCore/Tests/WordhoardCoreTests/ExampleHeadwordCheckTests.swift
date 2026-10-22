@@ -85,7 +85,7 @@ struct ExampleHeadwordCheckTests {
         let (neutralGenerator, neutralCalls) = makeHowever(
             neutralAnswers: [Self.withoutHeadword, Self.withoutHeadword], topicAnswers: [Self.withHeadword]
         )
-        let dropped = try await neutralGenerator.generateCard(makeRequest("however"))
+        let dropped = try await neutralGenerator.generateCard(makeRequest("however", native: nil))
         #expect(dropped.path == .stoplist)
         #expect(dropped.senses.count == 1, "the card is still returned")
         #expect(dropped.senses.first?.neutralExample == nil)
@@ -109,7 +109,7 @@ struct ExampleHeadwordCheckTests {
         #expect(topicCalls(lateCalls).map(\.retry) == [false, true])
 
         let (neutralRefusal, _) = makeHowever(neutralAnswers: [.doesNotFit], topicAnswers: [Self.withHeadword])
-        let neutralCard = try await neutralRefusal.generateCard(makeRequest("however"))
+        let neutralCard = try await neutralRefusal.generateCard(makeRequest("however", native: nil))
         #expect(neutralCard.senses.first?.neutralExample == nil)
         #expect(neutralCard.notes == [.exampleRefused(senseIndex: 0, topic: nil)], "a neutral skip reads as a refusal")
 

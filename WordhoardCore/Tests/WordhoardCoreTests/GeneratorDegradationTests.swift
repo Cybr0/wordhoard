@@ -18,6 +18,7 @@ struct GeneratorDegradationTests {
                 }
                 return "def:\(sense.gloss)"
             },
+            proposeTranslation: { _, _, _ in "книга" },
             writeExample: { _, partOfSpeech, definition, topic, _ in
                 if topic == nil, partOfSpeech == .noun, definition.hasPrefix("def:a written") {
                     throw ModelCallError.failed("timeout")
@@ -25,7 +26,8 @@ struct GeneratorDegradationTests {
                 return .text("I \(partOfSpeech.rawValue) the book")
             }
         ))
-        let card = try await makeGenerator(calls).generateCard(makeRequest("book"))
+        let translator = StubTranslator(table: ["книга": "book"])
+        let card = try await makeGenerator(calls, translator: translator).generateCard(makeRequest("book"))
 
         #expect(card.path == .wordnet)
         #expect(card.senses.count == 4)
@@ -37,7 +39,7 @@ struct GeneratorDegradationTests {
             .definitionRefused(senseIndex: 2),
             .exampleRefused(senseIndex: 0, topic: nil),
         ])
-        #expect(card.senses[2].translation == "ru:book", "a refused definition does not stop the translation")
+        #expect(card.senses[2].translation == "книга", "a refused definition does not stop the translation")
         #expect(calls.calls(.writeDefinition).count == 4)
         #expect(calls.calls(.writeExample).count == 4, "a refusal never stops the remaining calls")
     }
@@ -45,7 +47,7 @@ struct GeneratorDegradationTests {
     @Test("an empty neutral example is a skipped example with a note, not a sentence")
     func anEmptyNeutralExampleIsSkipped() async throws {
         let calls = ScriptedModelCalls(script: .init(writeExample: { _, _, _, _, _ in .doesNotFit }))
-        let card = try await makeGenerator(calls).generateCard(makeRequest("book"))
+        let card = try await makeGenerator(calls).generateCard(makeRequest("book", native: nil))
         #expect(card.senses.allSatisfy { $0.neutralExample == nil })
         #expect(card.notes == (0 ..< 4).map { .exampleRefused(senseIndex: $0, topic: nil) })
     }

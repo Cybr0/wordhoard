@@ -8,8 +8,9 @@ import Foundation
 ///    `.translationUnavailable`: nothing could be verified, and unverified model text is never shown.
 /// 2. One `proposeTranslation` call per sense, serial: a 1–3-word equivalent.
 /// 3. **One** back-translation batch (native → English) of every proposal. A proposal is accepted when
-///    it is written in one script and the English contains the headword or one of that sense's
-///    synonyms by lemma (`HeadwordMatcher.containsLemma`).
+///    it is written in one script, does not itself contain the headword by lemma, its English is not
+///    the proposal handed back unchanged (`comparable`), and the English contains the headword or one
+///    of that sense's synonyms by lemma (`HeadwordMatcher.containsLemma`).
 /// 4. **One** second batch translates the definitions of every sense without an accepted proposal
 ///    (rejected, refused or failed) → `translationIsFallback = true`, `.translationFallback`.
 ///
@@ -72,10 +73,12 @@ extension FoundationModelsCardGenerator {
             return nil
         }
         return proposals.filter { index, proposal in
-            guard Self.isSingleScript(proposal) else { return false }
-            return back[proposal].map { english in
-                Self.confirms(english, headword: card.headword, synonyms: card.senses[index].synonyms)
-            } ?? false
+            guard Self.isSingleScript(proposal),
+                  !HeadwordMatcher.containsLemma(of: card.headword, in: proposal),
+                  let english = back[proposal],
+                  Self.comparable(english) != Self.comparable(proposal)
+            else { return false }
+            return Self.confirms(english, headword: card.headword, synonyms: card.senses[index].synonyms)
         }
     }
 
@@ -158,6 +161,16 @@ extension FoundationModelsCardGenerator {
     /// Whether the English back-translation names the headword or a synonym of the sense, by lemma.
     static func confirms(_ backTranslation: String, headword: String, synonyms: [String]) -> Bool {
         ([headword] + synonyms).contains { HeadwordMatcher.containsLemma(of: $0, in: backTranslation) }
+    }
+
+    /// `text` case- and width-folded, whitespace collapsed, trimmed, edge punctuation stripped; diacritics
+    /// kept, since a framework pass-through keeps them (es *menú* → *menu* is a real translation).
+    public static func comparable(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .widthInsensitive], locale: nil)
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+            .trimmingCharacters(in: .punctuationCharacters)
+            .trimmingCharacters(in: .whitespaces)
     }
 
     /// `texts` without repeats, first occurrence kept.

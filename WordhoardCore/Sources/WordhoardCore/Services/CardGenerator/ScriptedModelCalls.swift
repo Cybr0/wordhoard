@@ -48,8 +48,8 @@ public final class ScriptedModelCalls: ModelCalls {
 
     /// The answers. Defaults: no proposed senses, every verdict yes, the first four candidates (rank 1
     /// of every part of speech first, as the round-robin lists them), `"def:<gloss>"`, the proposal
-    /// `"<native>:<headword>"` (the default `StubTranslator` back-translates it to text that still
-    /// contains the headword, so it is accepted),
+    /// `"<native>:<headword>"` (it contains the headword, so the generator rejects it and falls back
+    /// to the translated definition; script a native word and a `StubTranslator` table to accept one),
     /// `"I <part of speech> the <headword>"` for every example (it contains the headword, so the
     /// generator's headword check passes). The example closure's last argument is `mustContainHeadword`.
     public struct Script: Sendable {

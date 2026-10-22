@@ -67,16 +67,52 @@ struct TranslationProposalTests {
             if sense.gloss == Self.reserveGloss {
                 throw ModelCallError.refused
             }
-            return "ru:book"
+            return "книга"
         }))
-        let refusedTranslator = StubTranslator()
+        let refusedTranslator = StubTranslator(table: ["книга": "book"])
         let refused = try await makeGenerator(refusing, translator: refusedTranslator).generateCard(makeRequest("book"))
         #expect(refused.senses[3].translation == "ru:\(refused.senses[3].definition)")
         #expect(refused.senses[3].translationIsFallback)
-        #expect(refused.senses[0 ..< 3].allSatisfy { $0.translation == "ru:book" && !$0.translationIsFallback })
+        #expect(refused.senses[0 ..< 3].allSatisfy { $0.translation == "книга" && !$0.translationIsFallback })
         #expect(refused.notes == [.translationFallback(senseIndex: 3, rejectedProposal: nil)])
         #expect(refusedTranslator.batches.count == 2, "two batches per word, not per sense")
         #expect(refusedTranslator.batches.last?.texts == [refused.senses[3].definition])
+    }
+
+    @Test("a proposal the back-translation hands back unchanged, or that contains the headword, falls back")
+    func englishProposalsFallBackToTheTranslatedDefinition() async throws {
+        for proposal in ["book", "Book"] {
+            let calls = ScriptedModelCalls(script: .init(proposeTranslation: { _, _, _ in proposal }))
+            let translator = StubTranslator(table: [proposal: "book"])
+            let card = try await makeGenerator(calls, translator: translator).generateCard(makeRequest("book"))
+
+            #expect(card.senses.count == 4)
+            #expect(card.senses.allSatisfy { $0.translation == "ru:\($0.definition)" }, "\(proposal)")
+            let flagged = card.senses.allSatisfy(\.translationIsFallback)
+            #expect(flagged)
+            #expect(card.notes == card.senses.indices.map {
+                .translationFallback(senseIndex: $0, rejectedProposal: proposal)
+            })
+            #expect(translator.batches.count == 2)
+        }
+
+        let calls = ScriptedModelCalls(script: .init(proposeTranslation: { _, _, _ in "Hotel" }))
+        let translator = StubTranslator(table: ["Hotel": "hotel"], prefix: "de:")
+        let hotel = try await makeGenerator(calls, translator: translator)
+            .generateCard(makeRequest("hotel", native: "de"))
+        #expect(!hotel.senses.isEmpty)
+        #expect(hotel.senses.allSatisfy { $0.translation == "de:\($0.definition)" && $0.translationIsFallback })
+        #expect(hotel.notes.contains(.translationFallback(senseIndex: 0, rejectedProposal: "Hotel")))
+        #expect(translator.batches.count == 2)
+    }
+
+    @Test("the pass-through comparison folds case, width, spacing and edge punctuation, never diacritics")
+    func passThroughComparisonFolding() {
+        typealias Generator = FoundationModelsCardGenerator
+        #expect(Generator.comparable("  Book. ") == Generator.comparable("book"))
+        #expect(Generator.comparable("ｂｏｏｋ") == Generator.comparable("book"))
+        #expect(Generator.comparable("look   up!") == Generator.comparable("Look up"))
+        #expect(Generator.comparable("menú") != Generator.comparable("menu"))
     }
 
     @Test("several rejected senses share the one definition batch")
