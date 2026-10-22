@@ -47,8 +47,9 @@ public enum WordStoreError: Error, Equatable {
 @MainActor
 public final class WordStore {
     private let container: ModelContainer
-    private let context: ModelContext
-    private let logger = Logger(subsystem: "Wordhoard", category: "store")
+    /// Internal, not private, so the store's extensions in other files (topic reads, pictures) share it.
+    let context: ModelContext
+    let logger = Logger(subsystem: "Wordhoard", category: "store")
 
     public init(container: ModelContainer) {
         self.container = container
@@ -229,8 +230,9 @@ public final class WordStore {
         return try context.fetch(descriptor).first
     }
 
-    /// Applies the headword rules to every pending `Word`, then commits the whole context.
-    private func save() throws {
+    /// Applies the headword rules to every pending `Word`, then commits the whole context. Internal for
+    /// the store's extensions; every save in the module goes through it.
+    func save() throws {
         try applyHeadwordRulesToPendingWords()
         do {
             try context.save()

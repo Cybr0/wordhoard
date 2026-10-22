@@ -28,19 +28,20 @@ public struct TopicWordGroup: Identifiable {
     }
 }
 
-/// State for browsing by grammar topic (G3, B2, G4; plan 3.3): the Topics screen's two sections and one
-/// topic's examples grouped by word.
+/// State for browsing by grammar topic (G3, B2, G4; plans 3.3, 3.4): the Topics screen's two sections and
+/// one topic's examples grouped by word.
 ///
-/// **Isolation: `@MainActor`**, like the `WordStore` it reads. No new store API and no query on
-/// `Example`: `load()` walks `store.words()` (active words, newest first) and their relationships in
-/// memory. Counting rule: every example whose `grammarTopic` equals a catalog key, whatever its `source`;
-/// keys the catalog does not know are counted and listed nowhere.
+/// **Isolation: `@MainActor`**, like the `WordStore` it reads. `load()` asks the store for one count per
+/// catalog topic (`WordStore.exampleCounts(for:)`) and `groups(for:)` fetches only that topic's examples
+/// (`WordStore.examples(forTopic:)`), so neither walks the hoard (#61). Counting rule: every example whose
+/// `grammarTopic` equals a catalog key, whatever its `source`, on an active word; keys the catalog does
+/// not know are counted and listed nowhere.
 @MainActor
 @Observable
 public final class TopicBrowseModel {
     /// Something the store could not do. The view shows an alert and sets this back to `nil` on dismiss.
     public enum Failure: Equatable, Sendable {
-        /// `load()` could not read; the previous rows are kept.
+        /// `load()` or `groups(for:)` could not read; the previous rows or groups are kept.
         case loading
     }
 
@@ -55,18 +56,21 @@ public final class TopicBrowseModel {
 
     public var failure: Failure?
 
-    /// The words the last `load()` read; `groups(for:)` is computed from them.
-    private var words: [Word] = []
+    /// The last groups read per key, returned again when a later read fails.
+    @ObservationIgnored
+    private var lastGroups: [GrammarTopicID: [TopicWordGroup]] = [:]
 
     private let readActiveTopics: @MainActor () throws -> [GrammarTopicID]
-    private let readWords: @MainActor () throws -> [Word]
+    private let readCounts: @MainActor ([GrammarTopicID]) throws -> [GrammarTopicID: Int]
+    private let readExamples: @MainActor (GrammarTopicID) throws -> [Example]
     private let logger = Logger(subsystem: "Wordhoard", category: "topics")
 
     public convenience init(store: WordStore, catalog: GrammarCatalog = .english) {
         self.init(
             catalog: catalog,
             activeTopics: { try store.settings().activeGrammarTopics },
-            words: { try store.words() }
+            exampleCounts: { try store.exampleCounts(for: $0) },
+            examples: { try store.examples(forTopic: $0) }
         )
     }
 
@@ -74,53 +78,98 @@ public final class TopicBrowseModel {
     package init(
         catalog: GrammarCatalog,
         activeTopics: @escaping @MainActor () throws -> [GrammarTopicID],
-        words: @escaping @MainActor () throws -> [Word]
+        exampleCounts: @escaping @MainActor ([GrammarTopicID]) throws -> [GrammarTopicID: Int],
+        examples: @escaping @MainActor (GrammarTopicID) throws -> [Example]
     ) {
         self.catalog = catalog
         readActiveTopics = activeTopics
-        readWords = words
+        readCounts = exampleCounts
+        readExamples = examples
     }
 
-    /// Re-reads the settings and the words and recounts. On error `failure = .loading` and the previous
-    /// rows and groups are kept.
+    /// The 3.3 test seam: every read derived from a list of words walked in memory, so a test can make
+    /// the word read fail. Production uses the store's queries through `init(store:catalog:)`.
+    package convenience init(
+        catalog: GrammarCatalog,
+        activeTopics: @escaping @MainActor () throws -> [GrammarTopicID],
+        words: @escaping @MainActor () throws -> [Word]
+    ) {
+        let matching = { @MainActor (key: GrammarTopicID) throws -> [Example] in
+            try words().flatMap { word in
+                word.senses.flatMap { sense in sense.examples.filter { $0.grammarTopic == key } }
+            }
+        }
+        self.init(
+            catalog: catalog,
+            activeTopics: activeTopics,
+            exampleCounts: { keys in
+                try Dictionary(uniqueKeysWithValues: keys.map { try ($0, matching($0).count) })
+            },
+            examples: matching
+        )
+    }
+
+    /// Re-reads the settings and the counts. On error `failure = .loading` and the previous rows are kept.
     public func load() {
         let activeKeys: Set<GrammarTopicID>
-        let words: [Word]
+        let counts: [GrammarTopicID: Int]
         do {
             activeKeys = try Set(readActiveTopics())
-            words = try readWords()
+            counts = try readCounts(catalog.topics.map(\.key))
         } catch {
             logger.error("Could not load topics: \(error.localizedDescription, privacy: .public)")
             failure = .loading
             return
         }
-        var counts: [GrammarTopicID: Int] = [:]
-        for word in words {
-            for sense in word.senses {
-                for example in sense.examples {
-                    if let key = example.grammarTopic {
-                        counts[key, default: 0] += 1
-                    }
-                }
-            }
-        }
         let rows = catalog.topics.map { TopicRow(topic: $0, exampleCount: counts[$0.key] ?? 0) }
         active = rows.filter { activeKeys.contains($0.id) }
         other = rows.filter { !activeKeys.contains($0.id) && $0.exampleCount > 0 }
-        self.words = words
     }
 
-    /// The words from the last `load()` that have at least one example with `key`, newest first, each
-    /// with only those examples in sense then example order. A key the catalog does not know → `[]`.
+    /// The words that have at least one example with `key`, newest first (`createdAt` descending, `id` as
+    /// tie-break, as `WordStore.words()`), each with only those examples in sense then example order. A key
+    /// the catalog does not know → `[]`. On error `failure = .loading` and the last groups for `key` are
+    /// returned.
     public func groups(for key: GrammarTopicID) -> [TopicWordGroup] {
         guard catalog.topic(for: key) != nil else {
             return []
         }
-        return words.compactMap { word in
-            let examples = word.sortedSenses.flatMap { sense in
-                sense.sortedExamples.filter { $0.grammarTopic == key }
-            }
-            return examples.isEmpty ? nil : TopicWordGroup(word: word, examples: examples)
+        let examples: [Example]
+        do {
+            examples = try readExamples(key)
+        } catch {
+            logger.error("Could not load the topic's examples: \(error.localizedDescription, privacy: .public)")
+            failure = .loading
+            return lastGroups[key] ?? []
         }
+        // Only the fetched examples are read, so a word's other senses and examples stay faults.
+        var byWord: [UUID: (word: Word, examples: [Positioned])] = [:]
+        for example in examples {
+            guard let sense = example.sense, let word = sense.word, word.deletedAt == nil else {
+                continue
+            }
+            let positioned = Positioned(sense: sense.order, order: example.order, example: example)
+            byWord[word.id, default: (word, [])].examples.append(positioned)
+        }
+        let ordered = byWord.values.sorted { lhs, rhs in
+            lhs.word.createdAt != rhs.word.createdAt
+                ? lhs.word.createdAt > rhs.word.createdAt
+                : lhs.word.id.uuidString < rhs.word.id.uuidString
+        }
+        let groups = ordered.map { entry in
+            TopicWordGroup(
+                word: entry.word,
+                examples: entry.examples.sorted { ($0.sense, $0.order) < ($1.sense, $1.order) }.map(\.example)
+            )
+        }
+        lastGroups[key] = groups
+        return groups
+    }
+
+    /// An example with the two positions `groups(for:)` sorts by.
+    private struct Positioned {
+        let sense: Int
+        let order: Int
+        let example: Example
     }
 }
