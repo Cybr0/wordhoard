@@ -300,7 +300,8 @@ xcodebuild test -project spike/WordhoardSpike.xcodeproj -scheme WordhoardSpikeRe
 `-destination 'platform=iOS,name=<device name>'` works too, but the UDID avoids the curly apostrophe
 in "Tim’s iPhone". A full run is 22 words × 15–30 s; run it in the background and poll the log.
 Smoke run on a subset: `TEST_RUNNER_REGRESSION_WORDS="book,however"` (xcodebuild strips the
-`TEST_RUNNER_` prefix). Pull the report with
+`TEST_RUNNER_` prefix). Example-call window (plan 2.8): `TEST_RUNNER_EXAMPLE_CONCURRENCY=1` or `=3`
+(default 3); the report's `pipeline` line records it. Pull the report with
 `sed -n '/=== REPORT BEGIN ===/,/=== REPORT END ===/p' /tmp/regression.log`, or from the
 `.xcresult` attachments.
 

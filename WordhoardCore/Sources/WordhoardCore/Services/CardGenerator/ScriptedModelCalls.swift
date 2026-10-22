@@ -3,8 +3,9 @@ import Synchronization
 
 /// A `ModelCalls` for tests: every method answers from a `Script` closure and records the call.
 ///
-/// **Isolation: none.** A `Sendable` class whose recorded calls sit behind a `Mutex`, so tests read
-/// them synchronously. A script closure throws `ModelCallError` to play a refusal or a failure for
+/// **Isolation: none.** A `Sendable` class whose recorded calls and in-flight counts sit behind a
+/// `Mutex`, so tests read them synchronously. A script closure throws `ModelCallError` to play a refusal or a failure
+/// for
 /// exactly the call it recognises (by headword, gloss, definition or topic); everything else answers.
 /// Anything else a closure throws (not a `ModelCallError`) passes through, like cancellation would.
 public final class ScriptedModelCalls: ModelCalls {
@@ -34,7 +35,7 @@ public final class ScriptedModelCalls: ModelCalls {
         }
     }
 
-    public enum Method: Equatable, Sendable {
+    public enum Method: Hashable, Sendable {
         case proposeSenses
         case verify
         case selectSenses
@@ -84,22 +85,37 @@ public final class ScriptedModelCalls: ModelCalls {
     private let storedAvailability: CardGeneratorAvailability
     private let script: Script
     private let delay: Duration
-    private let recorded = Mutex<[Call]>([])
+    private let delays: [Method: Duration]
+    private let state = Mutex(State())
 
-    /// `delay` is slept before every call (after it is recorded), so a test can cancel mid-stream.
+    private struct State {
+        var calls: [Call] = []
+        var inFlight: [Method: Int] = [:]
+        var maxInFlight: [Method: Int] = [:]
+    }
+
+    /// `delay` is slept in every call (after it is recorded), so a test can cancel mid-stream;
+    /// `delays` overrides it per method (plan 2.8: only `writeExample` slow).
     public init(
         availability: CardGeneratorAvailability = .available,
         script: Script = Script(),
-        delay: Duration = .zero
+        delay: Duration = .zero,
+        delays: [Method: Duration] = [:]
     ) {
         storedAvailability = availability
         self.script = script
         self.delay = delay
+        self.delays = delays
     }
 
-    /// Every call, in order.
+    /// Every call, in order of start.
     public var calls: [Call] {
-        recorded.withLock { $0 }
+        state.withLock(\.calls)
+    }
+
+    /// The most calls of `method` that were in flight at once (plan 2.8).
+    public func maxInFlight(_ method: Method) -> Int {
+        state.withLock { $0.maxInFlight[method] ?? 0 }
     }
 
     /// The recorded calls of one method, in order.
@@ -112,23 +128,27 @@ public final class ScriptedModelCalls: ModelCalls {
     }
 
     public func proposeSenses(headword: String, wordClass: FunctionWordClass?) async throws -> [ProposedSense] {
-        try await record(.proposeSenses(headword: headword, wordClass: wordClass))
-        return try script.proposeSenses(headword)
+        try await perform(.proposeSenses(headword: headword, wordClass: wordClass)) {
+            try script.proposeSenses(headword)
+        }
     }
 
     public func verify(headword: String, sense: ProposedSense, wordClass: FunctionWordClass?) async throws -> Bool {
-        try await record(.verify(headword: headword, sense: sense, wordClass: wordClass))
-        return try script.verify(headword, sense)
+        try await perform(.verify(headword: headword, sense: sense, wordClass: wordClass)) {
+            try script.verify(headword, sense)
+        }
     }
 
     public func selectSenses(headword: String, candidates: [WordNetSense]) async throws -> [Int] {
-        try await record(.selectSenses(headword: headword, candidates: candidates))
-        return try script.selectSenses(headword, candidates)
+        try await perform(.selectSenses(headword: headword, candidates: candidates)) {
+            try script.selectSenses(headword, candidates)
+        }
     }
 
     public func writeDefinition(headword: String, sense: WordNetSense) async throws -> String {
-        try await record(.writeDefinition(headword: headword, sense: sense))
-        return try script.writeDefinition(headword, sense)
+        try await perform(.writeDefinition(headword: headword, sense: sense)) {
+            try script.writeDefinition(headword, sense)
+        }
     }
 
     public func writeExample(
@@ -138,20 +158,33 @@ public final class ScriptedModelCalls: ModelCalls {
         topic: GrammarTopic?,
         mustContainHeadword: Bool
     ) async throws -> ExampleAnswer {
-        try await record(.writeExample(
+        try await perform(.writeExample(
             headword: headword,
             partOfSpeech: partOfSpeech,
             definition: definition,
             topic: topic,
             mustContainHeadword: mustContainHeadword
-        ))
-        return try script.writeExample(headword, partOfSpeech, definition, topic, mustContainHeadword)
+        )) {
+            try script.writeExample(headword, partOfSpeech, definition, topic, mustContainHeadword)
+        }
     }
 
-    /// Records, then sleeps `delay` (a cancelled sleep throws `CancellationError`, as the real call would).
-    private func record(_ call: Call) async throws {
-        recorded.withLock { $0.append(call) }
-        guard delay > .zero else { return }
-        try await Task.sleep(for: delay)
+    /// Records the call and counts it in flight, sleeps its delay (a cancelled sleep throws
+    /// `CancellationError`, as the real call would), answers, and counts it out again.
+    private func perform<Answer>(_ call: Call, answer: () throws -> Answer) async throws -> Answer {
+        state.withLock { state in
+            state.calls.append(call)
+            let inFlight = state.inFlight[call.method, default: 0] + 1
+            state.inFlight[call.method] = inFlight
+            state.maxInFlight[call.method] = max(state.maxInFlight[call.method] ?? 0, inFlight)
+        }
+        defer {
+            state.withLock { $0.inFlight[call.method, default: 1] -= 1 }
+        }
+        let wait = delays[call.method] ?? delay
+        if wait > .zero {
+            try await Task.sleep(for: wait)
+        }
+        return try answer()
     }
 }

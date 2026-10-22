@@ -146,7 +146,8 @@ struct GeneratorDegradationTests {
     @Test("no topics → an empty stream; a cancelled consumer stops the producer's calls")
     func topicStreamHandlesNoTopicsAndCancellation() async throws {
         let calls = ScriptedModelCalls(delay: .milliseconds(20))
-        let generator = makeGenerator(calls)
+        // Serial, so "cancelled within sense 0" is exact; the window is covered in ExampleConcurrencyTests.
+        let generator = makeGenerator(calls, maxConcurrentExampleCalls: 1)
         let card = try await generator.generateCard(makeRequest("book"))
 
         let none = try await collectExamples(generator.generateTopicExamples(for: card, request: makeRequest("book")))

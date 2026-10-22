@@ -338,7 +338,11 @@ final class RegressionRunnerTests: XCTestCase {
         let commit = ProcessInfo.processInfo.environment["GIT_COMMIT"]
         var records: [WordRecord] = []
         let clock = ContinuousClock()
-        let generator = FoundationModelsCardGenerator()
+        // Plan 2.8: `TEST_RUNNER_EXAMPLE_CONCURRENCY=1|3` compares the example-call window on the phone.
+        let concurrency = ProcessInfo.processInfo.environment["EXAMPLE_CONCURRENCY"].flatMap(Int.init)
+            ?? FoundationModelsCardGenerator.defaultMaxConcurrentExampleCalls
+        print("regression: example concurrency \(concurrency)")
+        let generator = FoundationModelsCardGenerator(maxConcurrentExampleCalls: concurrency)
 
         for entry in words {
             print("regression: ▶ \(entry.number). \(entry.word)")
@@ -383,7 +387,7 @@ final class RegressionRunnerTests: XCTestCase {
             device: "\(device.model) \(Self.hardwareIdentifier())",
             system: "\(device.systemName) \(device.systemVersion)",
             commit: commit,
-            pipeline: "WordhoardCore.FoundationModelsCardGenerator (stoplist → WordNet → definition call per sense → Translation en→ru, one batch → neutral example per sense → topic examples; model-only fallback with verifier)",
+            pipeline: "WordhoardCore.FoundationModelsCardGenerator (stoplist → WordNet → sense selection when > 4 → definition call per sense → Translation en→ru → neutral example per sense → topic examples, \(concurrency) example calls in flight; model-only fallback with verifier)",
             topics: topics.map(\.key),
             maxSensesPerPartOfSpeech: WordNetLookup.maxSensesPerPartOfSpeech,
             maxSensesTotal: WordNetLookup.maxSensesTotal,

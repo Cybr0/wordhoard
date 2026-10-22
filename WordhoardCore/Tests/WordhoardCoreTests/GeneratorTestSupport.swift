@@ -24,9 +24,12 @@ func makeRequest(_ headword: String, native: String? = "ru", topics: [GrammarTop
 func makeGenerator(
     _ calls: ScriptedModelCalls,
     translator: StubTranslator = StubTranslator(),
-    lookup: WordNetLookup = .shared
+    lookup: WordNetLookup = .shared,
+    maxConcurrentExampleCalls: Int = FoundationModelsCardGenerator.defaultMaxConcurrentExampleCalls
 ) -> FoundationModelsCardGenerator {
-    FoundationModelsCardGenerator(calls: calls, lookup: lookup, translator: translator)
+    FoundationModelsCardGenerator(
+        calls: calls, lookup: lookup, translator: translator, maxConcurrentExampleCalls: maxConcurrentExampleCalls
+    )
 }
 
 func collectExamples(

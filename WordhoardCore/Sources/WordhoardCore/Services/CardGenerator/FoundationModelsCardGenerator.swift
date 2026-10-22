@@ -3,14 +3,15 @@ import os
 
 /// The production `CardGenerator` (ADR 0001 points 1–4; requirements A1, A2, A6, A9).
 ///
-/// **Isolation: none.** A `Sendable` class of three `let` collaborators; its methods are
-/// `nonisolated` and run off the main actor. Senses come from `WordNetLookup` when the bundle knows
-/// the lemma (the model picks ≤ 4 when it lists more, plan 2.6), otherwise from a verified model proposal; the model
-/// (`ModelCalls`) writes prose only,
-/// one sense per call; translations come from `Translator`, never from the model. Per-field failures
-/// are `GenerationNote`s on a card that is still produced; only the model-only senses call can fail
-/// the card. Every example is checked for the headword and retried once (2.9). Serial in 2.2 (plan
-/// 2.8 raises the example concurrency).
+/// **Isolation: none.** A `Sendable` class of `let` collaborators; its methods are `nonisolated` and
+/// run off the main actor. Senses come from `WordNetLookup` when the bundle knows the lemma (the model
+/// picks ≤ 4 when it lists more, plan 2.6), otherwise from a verified model proposal; the model
+/// (`ModelCalls`) writes prose only, one sense per call; translations come from `Translator`, never
+/// from the model. Per-field failures are `GenerationNote`s on a card that is still produced; only the
+/// model-only senses call can fail the card. Every example is checked for the headword and retried
+/// once (2.9). Example calls (neutral and topic) run up to `maxConcurrentExampleCalls` at a time, one
+/// fresh session each (plan 2.8); every other call is serial. The stages live in sibling extension
+/// files: `+Senses` (inventory), `+Examples` (both example stages).
 public final class FoundationModelsCardGenerator: CardGenerator {
     static let logger = Logger(subsystem: "Wordhoard", category: "autofill")
     /// The learning language, the source of every translation (requirements §1: English only in v1).
@@ -20,15 +21,23 @@ public final class FoundationModelsCardGenerator: CardGenerator {
     let calls: any ModelCalls
     let lookup: WordNetLookup
     let translator: any Translator
+    /// At least 1. Neutral examples of one card and the topic stream each keep this many calls in flight.
+    let maxConcurrentExampleCalls: Int
+
+    /// The example-call window the app uses (plan 2.8). A constant, not a setting; the device
+    /// measurement (#43) decides whether it stays 3 or becomes 1.
+    public static let defaultMaxConcurrentExampleCalls = 3
 
     public init(
         calls: any ModelCalls = FoundationModelCalls(),
         lookup: WordNetLookup = .shared,
-        translator: any Translator = AppleTranslator()
+        translator: any Translator = AppleTranslator(),
+        maxConcurrentExampleCalls: Int = FoundationModelsCardGenerator.defaultMaxConcurrentExampleCalls
     ) {
         self.calls = calls
         self.lookup = lookup
         self.translator = translator
+        self.maxConcurrentExampleCalls = max(1, maxConcurrentExampleCalls)
     }
 
     public func availability() async -> CardGeneratorAvailability {
@@ -74,17 +83,7 @@ public final class FoundationModelsCardGenerator: CardGenerator {
             let task = Task {
                 do {
                     try await checkAvailability()
-                    let headword = Self.trimmed(request.headword)
-                    for (senseIndex, sense) in card.senses.enumerated() {
-                        for topic in request.topics {
-                            try Task.checkCancellation()
-                            if let example = try await topicExample(
-                                headword: headword, senseIndex: senseIndex, sense: sense, topic: topic
-                            ) {
-                                continuation.yield(example)
-                            }
-                        }
-                    }
+                    try await streamTopicExamples(for: card, request: request) { continuation.yield($0) }
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
@@ -96,7 +95,7 @@ public final class FoundationModelsCardGenerator: CardGenerator {
 
     // MARK: - Step 1: availability
 
-    private func checkAvailability() async throws {
+    func checkAvailability() async throws {
         if case let .unavailable(reason) = await calls.availability() {
             throw CardGeneratorError.unavailable(reason)
         }
@@ -128,113 +127,7 @@ public final class FoundationModelsCardGenerator: CardGenerator {
         }
     }
 
-    // MARK: - Step 6: neutral examples
-
-    /// One example per sense, serial, through `requestExample`. Refused, failed or "does not fit" →
-    /// no example and `.exampleRefused`; written twice without the headword → no example and
-    /// `.exampleDropped`; the card is still returned (A6).
-    private func writeNeutralExamples(_ card: inout GeneratedCard) async throws {
-        for index in card.senses.indices {
-            try Task.checkCancellation()
-            switch try await requestExample(headword: card.headword, sense: card.senses[index], topic: nil) {
-            case let .text(text):
-                card.senses[index].neutralExample = GeneratedExample(text: text, grammarTopic: nil)
-            case .doesNotFit:
-                Self.logger.notice("neutral example \(index, privacy: .public) came back as not fitting")
-                card.notes.append(.exampleRefused(senseIndex: index, topic: nil))
-            case let .failed(error):
-                Self.logger.notice(
-                    "neutral example \(index, privacy: .public) skipped: \(String(describing: error), privacy: .public)"
-                )
-                card.notes.append(.exampleRefused(senseIndex: index, topic: nil))
-            case .dropped:
-                Self.logger.notice("neutral example \(index, privacy: .public) dropped: no headword after a retry")
-                card.notes.append(.exampleDropped(senseIndex: index, topic: nil))
-            }
-        }
-    }
-
-    // MARK: - Stage 2: topic examples
-
-    /// One slot through `requestExample`; the example carries the requested key, never anything the
-    /// model said. Anything but a sentence → nil, logged (the card is finished, so there is no note to
-    /// attach it to).
-    private func topicExample(
-        headword: String,
-        senseIndex: Int,
-        sense: GeneratedSense,
-        topic: GrammarTopic
-    ) async throws -> GeneratedTopicExample? {
-        switch try await requestExample(headword: headword, sense: sense, topic: topic) {
-        case let .text(text):
-            return GeneratedTopicExample(
-                senseIndex: senseIndex,
-                example: GeneratedExample(text: text, grammarTopic: topic.key)
-            )
-        case .doesNotFit:
-            return nil
-        case let .failed(error):
-            Self.logger.notice(
-                """
-                topic example \(senseIndex, privacy: .public)/\(topic.key, privacy: .public) skipped: \
-                \(String(describing: error), privacy: .public)
-                """
-            )
-            return nil
-        case .dropped:
-            Self.logger.notice(
-                "topic example \(senseIndex, privacy: .public)/\(topic.key, privacy: .public) dropped: no headword"
-            )
-            return nil
-        }
-    }
-
-    // MARK: - One example, checked
-
-    /// One `writeExample` call. A sentence without the headword (`HeadwordMatcher`) is asked for once
-    /// more with the "must contain the word" line; a second miss drops it. `.doesNotFit` is final on
-    /// either call. Cancellation passes through.
-    private func requestExample(
-        headword: String,
-        sense: GeneratedSense,
-        topic: GrammarTopic?
-    ) async throws -> ExampleOutcome {
-        do {
-            for mustContainHeadword in [false, true] {
-                try Task.checkCancellation()
-                let answer = try await calls.writeExample(
-                    headword: headword,
-                    partOfSpeech: sense.partOfSpeech,
-                    definition: sense.definition,
-                    topic: topic,
-                    mustContainHeadword: mustContainHeadword
-                )
-                guard case let .text(text) = answer else { return .doesNotFit }
-                if HeadwordMatcher.contains(headword: headword, in: text) {
-                    return .text(text)
-                }
-                let slot = topic?.key ?? "neutral"
-                Self.logger.debug("example \(slot, privacy: .public) lacks the headword; retry \(mustContainHeadword)")
-            }
-            return .dropped
-        } catch let error as ModelCallError {
-            return .failed(error)
-        }
-    }
-
     static func trimmed(_ headword: String) -> String {
         headword.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-}
-
-/// How one example slot of `FoundationModelsCardGenerator` ended.
-private enum ExampleOutcome {
-    /// A sentence that contains the headword.
-    case text(String)
-    /// The model set `fits` to false; never retried.
-    case doesNotFit
-    /// Two sentences, neither with the headword (2.9).
-    case dropped
-    /// The call was refused or failed.
-    case failed(ModelCallError)
 }
