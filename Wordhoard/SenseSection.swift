@@ -20,6 +20,13 @@ struct SenseSection: View {
                 model.setTranslation(text, for: sense)
             }
             .accessibilityIdentifier(identifier("translation"))
+            if sense.translationIsFallback {
+                // Plan 2.10: the proposed equivalent was not confirmed, so this is the definition translated.
+                Text("Translated from the definition")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier(identifier("translationNote"))
+            }
             CommittingTextField(Text("Synonyms, separated by commas"), value: joined(sense.synonyms)) { text in
                 model.setSynonyms(text, for: sense)
             }

@@ -157,7 +157,13 @@
     "This file was made by a newer version of Wordhoard. Update the app and try again." : {
       "extractionState" : "manual"
     },
+    "Translated from the definition" : {
+
+    },
     "Translation" : {
+
+    },
+    "Translations need the %@ pack. Download it in Settings › Translate." : {
 
     },
     "Try again" : {

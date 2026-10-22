@@ -14,6 +14,8 @@ struct WordhoardApp: App {
     private let container: ModelContainer
     private let store: WordStore
     private let autofill: AutofillService
+    /// The card asks it whether the native language's pack is installed (plan 2.10).
+    private let translator: any Translator
     /// `true` when the on-disk store could not be opened and `container` is an in-memory fallback.
     private let isStorageUnavailable: Bool
 
@@ -22,7 +24,8 @@ struct WordhoardApp: App {
         let options = LaunchOptions.fromLaunchArguments()
         (container, isStorageUnavailable) = Self.makeContainer(logger: logger)
         store = WordStore(container: container)
-        autofill = AutofillService(store: store, generator: options.makeGenerator())
+        translator = options.makeTranslator()
+        autofill = AutofillService(store: store, generator: options.makeGenerator(translator: translator))
         // Warm up the settings record now, before any in-place edit can be pending, so its first-use
         // save never becomes a surprise commit point from inside a card (1.4 ruling on #30).
         do {
@@ -43,6 +46,7 @@ struct WordhoardApp: App {
             WordListView(
                 store: store,
                 autofill: autofill,
+                translator: translator,
                 isStorageUnavailable: isStorageUnavailable,
                 hooks: UITestingHooks.fromLaunchArguments()
             )

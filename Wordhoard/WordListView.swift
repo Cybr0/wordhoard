@@ -15,14 +15,22 @@ struct WordListView: View {
     @FocusState private var isAddFieldFocused: Bool
     private let store: WordStore
     private let autofill: AutofillService
+    private let translator: any Translator
     private let isStorageUnavailable: Bool
     private let hooks: UITestingHooks
     private let logger = Logger(subsystem: "Wordhoard", category: "transfer")
 
-    init(store: WordStore, autofill: AutofillService, isStorageUnavailable: Bool, hooks: UITestingHooks = .none) {
+    init(
+        store: WordStore,
+        autofill: AutofillService,
+        translator: any Translator,
+        isStorageUnavailable: Bool,
+        hooks: UITestingHooks = .none
+    ) {
         _model = State(initialValue: WordListModel(store: store, autofill: autofill))
         self.store = store
         self.autofill = autofill
+        self.translator = translator
         self.isStorageUnavailable = isStorageUnavailable
         self.hooks = hooks
     }
@@ -51,7 +59,7 @@ struct WordListView: View {
             .searchable(text: $model.query)
             .navigationTitle("Wordhoard")
             .navigationDestination(for: Word.self) { word in
-                WordCardView(word: word, store: store, autofill: autofill)
+                WordCardView(word: word, store: store, autofill: autofill, translator: translator)
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -100,21 +108,6 @@ struct WordListView: View {
                     .accessibilityIdentifier("wordList.rowProgress")
             }
         }
-    }
-
-    private static let storageNoticeBody: LocalizedStringKey =
-        "Your words can't be stored on this device right now. Anything you add will be lost when the app closes."
-
-    private var storageNotice: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Storage unavailable")
-                .font(.headline)
-            Text(Self.storageNoticeBody)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("wordList.storageNotice")
     }
 
     /// Either the no-words state (nothing stored, nothing searched) or the system no-results state.
@@ -288,5 +281,24 @@ struct WordListView: View {
             // Capture is instant (C5): stay on the list and keep the keyboard up for the next word.
             isAddFieldFocused = true
         }
+    }
+}
+
+// MARK: - Storage notice
+
+extension WordListView {
+    private static let storageNoticeBody: LocalizedStringKey =
+        "Your words can't be stored on this device right now. Anything you add will be lost when the app closes."
+
+    private var storageNotice: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Storage unavailable")
+                .font(.headline)
+            Text(Self.storageNoticeBody)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("wordList.storageNotice")
     }
 }
