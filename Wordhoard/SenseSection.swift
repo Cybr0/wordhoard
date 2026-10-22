@@ -120,8 +120,14 @@ struct SenseSection: View {
             }
             .accessibilityIdentifier(identifier("example.\(position).text"))
             if let topic = example.grammarTopic.flatMap(GrammarCatalog.english.topic(for:)) {
-                badge(Text(verbatim: topic.name))
-                    .accessibilityIdentifier(identifier("example.\(position).topicBadge"))
+                // Plan 3.3: the badge opens the topic's examples; plain style keeps the hit area the badge's own.
+                NavigationLink(value: Route.topic(topic.key)) {
+                    badge(Text(verbatim: topic.name))
+                }
+                .buttonStyle(.plain)
+                .navigationLinkIndicatorVisibility(.hidden)
+                .accessibilityLabel(Text(verbatim: topic.name))
+                .accessibilityIdentifier(identifier("example.\(position).topicBadge"))
             }
         }
     }

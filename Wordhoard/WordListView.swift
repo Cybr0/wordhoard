@@ -63,6 +63,12 @@ struct WordListView: View {
             .navigationDestination(for: Route.self, destination: destination)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button("Topics", systemImage: "tag") {
+                        path.append(.topics)
+                    }
+                    .accessibilityIdentifier("wordList.topics")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     moreMenu
                 }
             }
@@ -132,31 +138,6 @@ struct WordListView: View {
     /// Mirrors `WordStore.search`: a query that normalizes to nothing lists every word, so it is not a search.
     private var isFiltering: Bool {
         !Word.normalize(model.query).isEmpty
-    }
-
-    /// Every screen the stack can push; cards reached from a topic screen are the same card.
-    @ViewBuilder private func destination(_ route: Route) -> some View {
-        switch route {
-        case let .word(word):
-            WordCardView(word: word, store: store, autofill: autofill, translator: translator)
-        case .topicSettings:
-            GrammarTopicsView(store: store)
-        }
-    }
-
-    // MARK: - More menu (topics, export and import)
-
-    private var moreMenu: some View {
-        Menu("More", systemImage: "ellipsis.circle") {
-            Button("Topics I'm learning", systemImage: "checklist") {
-                path.append(.topicSettings)
-            }
-            .accessibilityIdentifier("wordList.topicSettings")
-            exportRow
-            Button("Import…", systemImage: "square.and.arrow.down", action: startImport)
-                .accessibilityIdentifier("wordList.import")
-        }
-        .accessibilityIdentifier("wordList.moreMenu")
     }
 
     /// The share sheet in production; under the UI-test hook, a plain button that writes the file to the
@@ -295,6 +276,39 @@ struct WordListView: View {
             // Capture is instant (C5): stay on the list and keep the keyboard up for the next word.
             isAddFieldFocused = true
         }
+    }
+}
+
+// MARK: - Destinations and the More menu
+
+extension WordListView {
+    /// Every screen the stack can push; cards reached from a topic screen are the same card.
+    @ViewBuilder private func destination(_ route: Route) -> some View {
+        switch route {
+        case let .word(word):
+            WordCardView(word: word, store: store, autofill: autofill, translator: translator)
+        case .topicSettings:
+            GrammarTopicsView(store: store)
+        case .topics:
+            TopicsView(store: store)
+        case let .topic(key):
+            TopicExamplesView(key: key, store: store)
+        }
+    }
+
+    // MARK: - More menu (topics, export and import)
+
+    private var moreMenu: some View {
+        Menu("More", systemImage: "ellipsis.circle") {
+            Button("Topics I'm learning", systemImage: "checklist") {
+                path.append(.topicSettings)
+            }
+            .accessibilityIdentifier("wordList.topicSettings")
+            exportRow
+            Button("Import…", systemImage: "square.and.arrow.down", action: startImport)
+                .accessibilityIdentifier("wordList.import")
+        }
+        .accessibilityIdentifier("wordList.moreMenu")
     }
 }
 

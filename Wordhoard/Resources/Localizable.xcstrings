@@ -1,6 +1,28 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%lld examples" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld example"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld examples"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Add a word" : {
 
     },
@@ -32,6 +54,12 @@
 
     },
     "Cancel" : {
+
+    },
+    "Choose the grammar topics you're learning. Autofill writes one example per topic for every new word." : {
+
+    },
+    "Choose topics" : {
 
     },
     "Conjunction" : {
@@ -79,6 +107,9 @@
     "Example sentence" : {
 
     },
+    "Examples tagged with this topic will appear here." : {
+
+    },
     "Export…" : {
 
     },
@@ -109,7 +140,13 @@
     "Move up" : {
 
     },
+    "No examples for %@ yet" : {
+
+    },
     "No senses yet" : {
+
+    },
+    "No topics yet" : {
 
     },
     "No words yet" : {
@@ -125,6 +162,9 @@
 
     },
     "Other" : {
+
+    },
+    "Other topics" : {
 
     },
     "Part of speech" : {
@@ -171,6 +211,9 @@
     },
     "This file was made by a newer version of Wordhoard. Update the app and try again." : {
       "extractionState" : "manual"
+    },
+    "Topics" : {
+
     },
     "Topics I'm learning" : {
 

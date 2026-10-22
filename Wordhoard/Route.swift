@@ -6,4 +6,6 @@ import WordhoardCore
 enum Route: Hashable {
     case word(Word)
     case topicSettings
+    case topics
+    case topic(GrammarTopicID)
 }
