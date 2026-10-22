@@ -31,7 +31,7 @@ struct WordhoardApp: App {
         do {
             let settings = try store.settings()
             if let tag = options.nativeLanguage, settings.nativeLanguage != tag {
-                try store.transaction { _ in settings.nativeLanguage = tag }
+                try store.updateSettings { $0.nativeLanguage = tag }
             }
         } catch {
             logger.error("Could not load settings: \(error.localizedDescription, privacy: .public)")

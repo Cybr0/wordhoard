@@ -28,6 +28,9 @@
     "Apple Intelligence isn't available on this device. Fill in the card by hand." : {
 
     },
+    "Autofill writes one extra example per active topic for every sense, so more topics mean slower cards." : {
+
+    },
     "Cancel" : {
 
     },
@@ -43,6 +46,9 @@
     "Couldn't import" : {
 
     },
+    "Couldn't load your settings" : {
+
+    },
     "Couldn't load your words" : {
 
     },
@@ -50,6 +56,12 @@
 
     },
     "Couldn't save your changes" : {
+
+    },
+    "Couldn't save your settings" : {
+
+    },
+    "Default" : {
 
     },
     "Definition" : {
@@ -127,6 +139,9 @@
     "Remove sense" : {
 
     },
+    "Reset to default" : {
+
+    },
     "Sense actions" : {
 
     },
@@ -156,6 +171,9 @@
     },
     "This file was made by a newer version of Wordhoard. Update the app and try again." : {
       "extractionState" : "manual"
+    },
+    "Topics I'm learning" : {
+
     },
     "Translated from the definition" : {
 
