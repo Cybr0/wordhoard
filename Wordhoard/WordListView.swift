@@ -16,6 +16,7 @@ struct WordListView: View {
     @State private var isReadFailurePresented = false
     @FocusState private var isAddFieldFocused: Bool
     private let store: WordStore
+    private let imageStore: ImageStore
     private let autofill: AutofillService
     private let translator: any Translator
     private let isStorageUnavailable: Bool
@@ -24,6 +25,7 @@ struct WordListView: View {
 
     init(
         store: WordStore,
+        imageStore: ImageStore,
         autofill: AutofillService,
         translator: any Translator,
         isStorageUnavailable: Bool,
@@ -31,6 +33,7 @@ struct WordListView: View {
     ) {
         _model = State(initialValue: WordListModel(store: store, autofill: autofill))
         self.store = store
+        self.imageStore = imageStore
         self.autofill = autofill
         self.translator = translator
         self.isStorageUnavailable = isStorageUnavailable
@@ -286,7 +289,7 @@ extension WordListView {
     @ViewBuilder private func destination(_ route: Route) -> some View {
         switch route {
         case let .word(word):
-            WordCardView(word: word, store: store, autofill: autofill, translator: translator)
+            WordCardView(word: word, store: store, imageStore: imageStore, autofill: autofill, translator: translator)
         case .topicSettings:
             GrammarTopicsView(store: store)
         case .topics:

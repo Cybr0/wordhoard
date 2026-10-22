@@ -49,6 +49,7 @@ struct WordhoardApp: App {
         WindowGroup {
             WordListView(
                 store: store,
+                imageStore: imageStore,
                 autofill: autofill,
                 translator: translator,
                 isStorageUnavailable: isStorageUnavailable,

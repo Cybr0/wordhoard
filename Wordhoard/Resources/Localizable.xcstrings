@@ -29,6 +29,9 @@
     "Add example" : {
 
     },
+    "Add picture" : {
+
+    },
     "Add sense" : {
 
     },
@@ -56,6 +59,9 @@
     "Cancel" : {
 
     },
+    "Choose photo…" : {
+
+    },
     "Choose the grammar topics you're learning. Autofill writes one example per topic for every new word." : {
 
     },
@@ -63,6 +69,9 @@
 
     },
     "Conjunction" : {
+
+    },
+    "Couldn't create a picture" : {
 
     },
     "Couldn't delete the word" : {
@@ -80,6 +89,9 @@
     "Couldn't load your words" : {
 
     },
+    "Couldn't save the picture" : {
+
+    },
     "Couldn't save the word" : {
 
     },
@@ -87,6 +99,9 @@
 
     },
     "Couldn't save your settings" : {
+
+    },
+    "Creating a picture…" : {
 
     },
     "Default" : {
@@ -122,6 +137,12 @@
     "Filling in…" : {
 
     },
+    "Generate picture" : {
+
+    },
+    "Image Playground isn't available on this iPhone" : {
+
+    },
     "Import finished" : {
 
     },
@@ -141,6 +162,9 @@
 
     },
     "No examples for %@ yet" : {
+
+    },
+    "No picture for this word" : {
 
     },
     "No senses yet" : {
@@ -173,7 +197,13 @@
     "Phrase" : {
 
     },
+    "Picture actions" : {
+
+    },
     "Preposition" : {
+
+    },
+    "Remove picture" : {
 
     },
     "Remove sense" : {
@@ -189,6 +219,9 @@
 
     },
     "Synonyms, separated by commas" : {
+
+    },
+    "Take photo…" : {
 
     },
     "The file couldn't be read." : {
@@ -234,6 +267,9 @@
 
     },
     "Verb" : {
+
+    },
+    "Word picture" : {
 
     },
     "WordNet" : {

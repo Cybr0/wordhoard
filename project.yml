@@ -45,6 +45,7 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         # Portrait only; landscape is revisited in 6.1 if Dynamic Type needs it.
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSCameraUsageDescription: "Wordhoard uses the camera to take a picture for a word card."
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
 

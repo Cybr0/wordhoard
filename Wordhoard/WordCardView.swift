@@ -25,8 +25,14 @@ struct WordCardView: View {
     private let store: WordStore
     private let translator: any Translator
 
-    init(word: Word, store: WordStore, autofill: AutofillService, translator: any Translator) {
-        _model = State(initialValue: WordCardModel(word: word, store: store))
+    init(
+        word: Word,
+        store: WordStore,
+        imageStore: ImageStore?,
+        autofill: AutofillService,
+        translator: any Translator
+    ) {
+        _model = State(initialValue: WordCardModel(word: word, store: store, imageStore: imageStore))
         self.autofill = autofill
         self.store = store
         self.translator = translator
@@ -113,6 +119,7 @@ struct WordCardView: View {
     private var card: some View {
         List {
             headwordSection
+            PictureSection(model: model, canGenerate: false, generate: {})
             if model.senses.isEmpty, !isFilling {
                 emptyState
             }
@@ -269,13 +276,19 @@ struct WordCardView: View {
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
     }
+}
 
+// MARK: - Failures and delete
+
+extension WordCardView {
     private var failureTitle: Text {
         switch model.failure {
         case .saving:
             Text("Couldn't save your changes")
         case .deleting:
             Text("Couldn't delete the word")
+        case .savingImage:
+            Text("Couldn't save the picture")
         case nil:
             Text(verbatim: "")
         }
@@ -365,6 +378,7 @@ private func previewCard() -> WordCardView? {
     return WordCardView(
         word: word,
         store: store,
+        imageStore: nil,
         autofill: AutofillService(store: store, generator: StubCardGenerator()),
         translator: StubTranslator()
     )
