@@ -89,4 +89,39 @@ struct WordCardModelSharedWordTests {
         #expect(try storedSenses() == ["a:0", "c:1", ":2"])
         #expect(try storedExamples() == ["a one", "c one"])
     }
+
+    @Test("after the other card deletes the word, every edit on this card does nothing")
+    func editsAfterTheOtherCardDeletedTheWordDoNothing() throws {
+        let word = try makeBook()
+        let lower = WordCardModel(word: word, store: store)
+        let sense = lower.senses[1]
+        let example = try #require(sense.examples.first)
+
+        try store.delete(word)
+        let deletedAt = try #require(word.deletedAt)
+        let updatedAt = word.updatedAt
+        #expect(lower.isWordDeleted)
+
+        commitEverything(on: lower, sense: sense, example: example)
+        lower.moveSenses(fromOffsets: [2], toOffset: 0)
+        lower.addSense()
+        #expect(lower.setHeadword("notebook") == nil)
+        #expect(lower.deleteWord(), "deleting again stays idempotent")
+
+        #expect(lower.failure == nil)
+        #expect(word.headword == "book")
+        #expect(word.deletedAt == deletedAt)
+        #expect(word.updatedAt == updatedAt, "nothing was saved")
+        #expect(lower.senses.map(\.definition) == ["a", "b", "c"])
+        #expect(sense.definition == "b")
+        #expect(sense.translation == nil)
+        #expect(sense.synonyms.isEmpty)
+        #expect(sense.antonyms.isEmpty)
+        #expect(sense.partOfSpeech == .noun)
+        #expect(sense.fieldSources.isEmpty)
+        #expect(example.text == "b one")
+        #expect(example.source == .auto)
+        #expect(try storedSenses() == ["a:0", "b:1", "c:2"])
+        #expect(try storedExamples() == ["a one", "b one", "c one"])
+    }
 }

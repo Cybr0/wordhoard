@@ -52,6 +52,12 @@ public final class WordCardModel {
     /// `nil` after an accepted or unchanged headword commit.
     public private(set) var headwordRejection: HeadwordRejection?
 
+    /// Whether the word is soft-deleted, here or by another card for the same word. Observable through
+    /// `word`. While it is `true` every mutation is a no-op except `deleteWord()`, which stays idempotent.
+    public var isWordDeleted: Bool {
+        word.deletedAt != nil
+    }
+
     private let store: WordStore
     private let logger = Logger(subsystem: "Wordhoard", category: "card")
 
@@ -74,7 +80,8 @@ public final class WordCardModel {
     /// - Another active word has the same `Word.normalize` key: returns `.collision`, nothing is
     ///   assigned or saved, so a duplicate key is never even pending.
     /// - Blank: the store rejects the save and has already restored the saved headword; returns `.empty`.
-    /// - Otherwise the headword is assigned and saved; returns `nil`.
+    /// - Otherwise the headword is assigned and saved; returns `nil`. On a deleted word nothing is
+    ///   assigned or saved: blank and collision are still reported, anything else returns `nil`.
     ///
     /// The result is also published as `headwordRejection`. A save or lookup error becomes
     /// `failure = .saving` and returns `nil`.
@@ -99,6 +106,10 @@ public final class WordCardModel {
                 failure = .saving
                 return nil
             }
+        }
+        // A late commit on a deleted word (here or on another card) assigns and saves nothing.
+        guard !isWordDeleted else {
+            return trimmed.isEmpty ? reject(.empty) : nil
         }
         word.headword = trimmed
         do {
@@ -173,9 +184,13 @@ public final class WordCardModel {
 
     /// Appends a hand-entered sense: `.other`, no source, empty fields and no provenance keys, so an
     /// untouched new sense is `.auto` everywhere and the generator may fill it (2.4); each field the user
-    /// types into becomes `.user` as it is committed.
+    /// types into becomes `.user` as it is committed. For a deleted word the sense is created but not
+    /// attached or saved.
     @discardableResult
     public func addSense() -> Sense {
+        guard !isWordDeleted else {
+            return Sense(partOfSpeech: .other, order: 0)
+        }
         let sense = Sense(partOfSpeech: .other, order: word.senses.count)
         word.senses.append(sense)
         save()
@@ -316,45 +331,6 @@ public final class WordCardModel {
         senses = word.sortedSenses
     }
 
-    /// Sets `order` to the position in `items` where it differs. Returns whether anything changed.
-    private func renumber(_ items: [Sense]) -> Bool {
-        var changed = false
-        for (position, sense) in items.enumerated() where sense.order != position {
-            sense.order = position
-            changed = true
-        }
-        return changed
-    }
-
-    private func renumber(_ items: [Example]) -> Bool {
-        var changed = false
-        for (position, example) in items.enumerated() where example.order != position {
-            example.order = position
-            changed = true
-        }
-        return changed
-    }
-
-    /// `items` with the elements at `source` moved so the first of them lands where `destination`
-    /// pointed before the move: SwiftUI's `onMove` contract. Offsets outside `items` are dropped and
-    /// `destination` is clamped, so a stale index from the view can never trap.
-    private static func moved<Element>(
-        _ items: [Element],
-        fromOffsets source: IndexSet,
-        toOffset destination: Int
-    ) -> [Element] {
-        let offsets = source.filter(items.indices.contains)
-        let target = min(max(destination, 0), items.count)
-        let moving = offsets.map { items[$0] }
-        var remaining = items
-        for offset in offsets.reversed() {
-            remaining.remove(at: offset)
-        }
-        let insertAt = target - offsets.filter { $0 < target }.count
-        remaining.insert(contentsOf: moving, at: insertAt)
-        return remaining
-    }
-
     private func save() {
         do {
             try store.save(word)
@@ -385,13 +361,14 @@ extension WordCardModel {
 
     /// Whether `sense` is still one of the word's senses. A second card on the same word can hard-delete
     /// it behind this model's back, which `removed` does not see and `isDeleted` does not report; only
-    /// the word's live relationship is read, never the sense's own attributes.
+    /// the word's live relationship is read, never the sense's own attributes. Nothing on a deleted word
+    /// is live, so every sense and example edit is a no-op once the word is deleted.
     private func isLive(_ sense: Sense) -> Bool {
-        !isRemoved(sense) && word.senses.contains { $0 === sense }
+        !isWordDeleted && !isRemoved(sense) && word.senses.contains { $0 === sense }
     }
 
     /// Whether `example` still belongs to one of the word's senses; see `isLive(_:)` for a sense.
     private func isLive(_ example: Example) -> Bool {
-        !isRemoved(example) && word.senses.contains { $0.examples.contains { $0 === example } }
+        !isWordDeleted && !isRemoved(example) && word.senses.contains { $0.examples.contains { $0 === example } }
     }
 }
