@@ -32,6 +32,8 @@ public final class WordCardModel {
         case saving
         /// `deleteWord()` could not save; the word is still active.
         case deleting
+        /// `setImage(data:source:)` could not decode, write or save the picture; nothing changed.
+        case savingImage
     }
 
     /// Why the last headword commit was not applied. Not a `Failure`: the word is intact.
@@ -58,17 +60,30 @@ public final class WordCardModel {
         word.deletedAt != nil
     }
 
-    private let store: WordStore
-    private let logger = Logger(subsystem: "Wordhoard", category: "card")
+    /// Internal for the model's extensions (pictures); nothing outside the module sees it.
+    let store: WordStore
+    /// `nil` in tests and previews that have no picture directory; picture actions then do nothing.
+    let imageStore: ImageStore?
+    /// The picture queue (4.4): "Generate picture" goes to it; a chosen or removed picture and a deleted
+    /// word cancel its job. `nil` means no generation.
+    public let imageQueue: ImageGenerationQueue?
+    let logger = Logger(subsystem: "Wordhoard", category: "card")
 
     /// Senses and examples this model hard-deleted, keyed by identity. The objects are retained so a
     /// new object can never reuse a removed one's `ObjectIdentifier`; reading their attributes traps.
     @ObservationIgnored
     private var removed: [ObjectIdentifier: AnyObject] = [:]
 
-    public init(word: Word, store: WordStore) {
+    public init(
+        word: Word,
+        store: WordStore,
+        imageStore: ImageStore? = nil,
+        imageQueue: ImageGenerationQueue? = nil
+    ) {
         self.word = word
         self.store = store
+        self.imageStore = imageStore
+        self.imageQueue = imageQueue
         senses = word.sortedSenses
     }
 
@@ -287,11 +302,16 @@ public final class WordCardModel {
 
     // MARK: - Word
 
-    /// Soft-deletes the word (W3). Returns `true` when it was saved, so the view may pop; on an error
+    /// Soft-deletes the word (W3) and, after the save, deletes its picture file (the asset row went in
+    /// the same save, plan 4.1). Returns `true` when it was saved, so the view may pop; on an error
     /// `failure = .deleting` and the word stays.
     public func deleteWord() -> Bool {
+        imageQueue?.cancel(word.id)
         do {
-            try store.delete(word)
+            let fileName = try store.delete(word)
+            if let fileName {
+                deleteImageFile(fileName)
+            }
             return true
         } catch {
             logger.error("Could not delete the word: \(error.localizedDescription, privacy: .public)")

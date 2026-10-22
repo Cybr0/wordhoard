@@ -24,13 +24,16 @@ public final class Word {
     public var deletedAt: Date?
     /// Autofill progress (plan 2.3). Defaulted so a word created by anyone is a word to fill in.
     public var autofillState: AutofillState = AutofillState.pending
+    /// The generated picture's progress (plan 4.4); `nil` = nothing requested. Written through
+    /// `WordStore.setImageStatus(_:for:)`, cleared by `setImage` and `removeImage`.
+    public var imageStatus: ImageStatus?
 
     @Relationship(deleteRule: .nullify, inverse: \Tag.words)
     public var tags: [Tag] = []
 
-    /// The cascade fires only when the `Word` is deleted. Assigning a new asset here does not delete
-    /// the previous one; it is left with `word == nil`, and the caller (plan task 4.1) must delete the
-    /// old record and its file explicitly.
+    /// The cascade fires only when the `Word` is hard-deleted. Never assign it directly: assigning a new
+    /// asset does not delete the previous one. `WordStore.setImage(_:for:)`, `removeImage(from:)` and
+    /// `delete(_:)` keep one row per word and hand back the replaced file's name (plan 4.1).
     @Relationship(deleteRule: .cascade, inverse: \ImageAsset.word)
     public var image: ImageAsset?
 

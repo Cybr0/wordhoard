@@ -23,16 +23,34 @@
         }
       }
     },
+    "%lld of %lld" : {
+
+    },
+    "About" : {
+
+    },
+    "About Wordhoard" : {
+
+    },
     "Add a word" : {
 
     },
+    "Add a word to Wordhoard" : {
+
+    },
     "Add example" : {
+
+    },
+    "Add picture" : {
 
     },
     "Add sense" : {
 
     },
     "Added %lld, updated %lld, skipped %lld." : {
+
+    },
+    "Added “%@” to your hoard." : {
 
     },
     "Adding examples…" : {
@@ -44,7 +62,10 @@
     "Adverb" : {
 
     },
-    "Antonyms, separated by commas" : {
+    "Antonyms" : {
+
+    },
+    "Apache License 2.0" : {
 
     },
     "Apple Intelligence isn't available on this device. Fill in the card by hand." : {
@@ -56,6 +77,12 @@
     "Cancel" : {
 
     },
+    "Changes apply to new autofill only. Existing cards keep their translations." : {
+
+    },
+    "Choose photo…" : {
+
+    },
     "Choose the grammar topics you're learning. Autofill writes one example per topic for every new word." : {
 
     },
@@ -63,6 +90,12 @@
 
     },
     "Conjunction" : {
+
+    },
+    "Continue" : {
+
+    },
+    "Couldn't create a picture" : {
 
     },
     "Couldn't delete the word" : {
@@ -74,19 +107,40 @@
     "Couldn't import" : {
 
     },
+    "Couldn't load the grammar topics." : {
+
+    },
     "Couldn't load your settings" : {
 
     },
     "Couldn't load your words" : {
 
     },
+    "Couldn't save the picture" : {
+
+    },
     "Couldn't save the word" : {
+
+    },
+    "Couldn't save the word." : {
 
     },
     "Couldn't save your changes" : {
 
     },
+    "Couldn't save your choice" : {
+
+    },
     "Couldn't save your settings" : {
+
+    },
+    "Creating a picture…" : {
+
+    },
+    "Data" : {
+
+    },
+    "Data sources" : {
 
     },
     "Default" : {
@@ -102,6 +156,9 @@
 
     },
     "Delete “%@”?" : {
+
+    },
+    "Done" : {
 
     },
     "Example sentence" : {
@@ -122,16 +179,37 @@
     "Filling in…" : {
 
     },
+    "Generate images automatically" : {
+
+    },
+    "Generate picture" : {
+
+    },
+    "Grammar" : {
+
+    },
+    "Headword" : {
+
+    },
+    "Image Playground isn't available on this iPhone" : {
+
+    },
+    "Images" : {
+
+    },
     "Import finished" : {
 
     },
     "Import…" : {
 
     },
-    "Model" : {
+    "License" : {
 
     },
-    "More" : {
+    "Loading languages…" : {
+
+    },
+    "Model" : {
 
     },
     "Move down" : {
@@ -140,13 +218,22 @@
     "Move up" : {
 
     },
+    "Native language" : {
+
+    },
     "No examples for %@ yet" : {
+
+    },
+    "No picture for this word" : {
 
     },
     "No senses yet" : {
 
     },
     "No topics yet" : {
+
+    },
+    "No translation" : {
 
     },
     "No words yet" : {
@@ -161,6 +248,12 @@
     "OK" : {
 
     },
+    "Open English WordNet 2024 — CC BY 4.0, derived from Princeton WordNet" : {
+
+    },
+    "Open English WordNet license" : {
+
+    },
     "Other" : {
 
     },
@@ -173,7 +266,13 @@
     "Phrase" : {
 
     },
+    "Picture actions" : {
+
+    },
     "Preposition" : {
+
+    },
+    "Remove picture" : {
 
     },
     "Remove sense" : {
@@ -182,19 +281,34 @@
     "Reset to default" : {
 
     },
+    "Saves a word to your Wordhoard list." : {
+
+    },
     "Sense actions" : {
+
+    },
+    "Settings" : {
+
+    },
+    "Source code and license" : {
 
     },
     "Storage unavailable" : {
 
     },
-    "Synonyms, separated by commas" : {
+    "Synonyms" : {
+
+    },
+    "Take photo…" : {
 
     },
     "The file couldn't be read." : {
 
     },
     "The headword can't be empty." : {
+
+    },
+    "The license text couldn't be loaded." : {
 
     },
     "The word and all its senses will be removed." : {
@@ -215,6 +329,9 @@
     "This word was deleted." : {
 
     },
+    "Topic: %@" : {
+
+    },
     "Topics" : {
 
     },
@@ -227,6 +344,9 @@
     "Translation" : {
 
     },
+    "Translation isn't available for %@ yet. You can type translations yourself." : {
+
+    },
     "Translations need the %@ pack. Download it in Settings › Translate." : {
 
     },
@@ -236,16 +356,46 @@
     "Verb" : {
 
     },
+    "Welcome to Wordhoard" : {
+
+    },
+    "Which word?" : {
+
+    },
+    "Word" : {
+
+    },
+    "Word picture" : {
+
+    },
     "WordNet" : {
 
     },
     "Wordhoard" : {
 
     },
+    "Wordhoard %@" : {
+
+    },
+    "Wordhoard is open source under the Apache License 2.0." : {
+
+    },
+    "Wordhoard makes a picture for each new word on your iPhone. You can always add a photo yourself." : {
+
+    },
+    "Wordhoard writes definitions and examples on your iPhone and translates them with Apple's on-device Translation. Choose the language translations should be in. You can change this later in Settings." : {
+
+    },
     "Words you add will appear here." : {
 
     },
     "Your words can't be stored on this device right now. Anything you add will be lost when the app closes." : {
+
+    },
+    "Your words, senses and settings as one JSON file. Importing merges by word and never deletes anything." : {
+
+    },
+    "“%@” is already in your hoard." : {
 
     },
     "“%@” is already in your words." : {

@@ -32,6 +32,11 @@ public final class AutofillService {
     private let catalog: GrammarCatalog
     private let logger = Logger(subsystem: "Wordhoard", category: "autofill")
 
+    /// Called with the word's id when its first card has been committed, or the fill ended `failed` or
+    /// `unavailable`: the picture queue (4.4) waits for that so its prompt gets a definition.
+    @ObservationIgnored
+    public var onFirstCardSettled: (@MainActor (UUID) -> Void)?
+
     @ObservationIgnored
     private var queue: [UUID] = []
     @ObservationIgnored
@@ -143,6 +148,7 @@ public final class AutofillService {
         }
 
         guard let request = makeRequest(for: word) else {
+            onFirstCardSettled?(id)
             return
         }
         let card: GeneratedCard
@@ -155,10 +161,13 @@ public final class AutofillService {
                 return
             }
             record(error, for: id)
+            onFirstCardSettled?(id)
             return
         }
 
-        guard let senseIDs = commit(card, to: id) else {
+        let committed = commit(card, to: id)
+        onFirstCardSettled?(id)
+        guard let senseIDs = committed else {
             return
         }
         guard !senseIDs.isEmpty, !request.topics.isEmpty else {

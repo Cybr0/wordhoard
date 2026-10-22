@@ -50,12 +50,15 @@ public final class WordListModel {
 
     private let store: WordStore
     private let autofill: AutofillService?
+    private let imageQueue: ImageGenerationQueue?
     private let logger = Logger(subsystem: "Wordhoard", category: "list")
 
     /// `autofill` is queued a word on every `.created` add (C5); `nil` means nothing is filled in.
-    public init(store: WordStore, autofill: AutofillService? = nil) {
+    /// `imageQueue` likewise gets the automatic picture job (4.4), which it skips when the toggle is off.
+    public init(store: WordStore, autofill: AutofillService? = nil, imageQueue: ImageGenerationQueue? = nil) {
         self.store = store
         self.autofill = autofill
+        self.imageQueue = imageQueue
     }
 
     /// Re-reads `words` for the current `query`. On a store error `failure` becomes `.loading` and `words`
@@ -86,6 +89,7 @@ public final class WordListModel {
             reload()
             if case let .created(word) = result {
                 autofill?.enqueue(word)
+                queuePicture(for: word)
             }
             return result
         } catch WordStoreError.emptyHeadword {
@@ -108,8 +112,7 @@ public final class WordListModel {
     ///   rolled back.
     public func importWords(_ data: Data) {
         do {
-            importSummary = try Importer.import(data, into: store)
-            resumeAutofill()
+            importSummary = try Importer.importAndFill(data, into: store, autofill: autofill)
         } catch let error as ImportError {
             importSummary = nil
             failure = .importing(error)
@@ -121,11 +124,12 @@ public final class WordListModel {
         reload()
     }
 
-    private func resumeAutofill() {
+    /// The picture comes after the save and never fails the add: an error is logged only (I4).
+    private func queuePicture(for word: Word) {
         do {
-            try autofill?.resumeAfterLaunch()
+            try imageQueue?.enqueue(word)
         } catch {
-            logger.error("Could not queue imported words: \(error.localizedDescription, privacy: .public)")
+            logger.error("Could not queue a picture: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

@@ -2,8 +2,8 @@ import Foundation
 import Observation
 import os
 
-/// State for the settings screens (G2, S2; plans 3.1 and 5.3). 3.1 ships the grammar-topic subset; 5.3
-/// adds the native language, the images toggle and the transfer members.
+/// State for the settings screens (S1–S3, S5, G2; plans 3.1 and 5.3): the grammar topics (3.1), the
+/// native language, the images toggle and export / import (5.3).
 ///
 /// **Isolation: `@MainActor`**, like the `WordStore` it wraps. Every write goes through
 /// `WordStore.updateSettings(_:)` and re-reads the record afterwards, so what is published is what was
@@ -23,6 +23,9 @@ public final class SettingsModel {
         case loading
         /// A change could not be saved; the published state was re-read from the record.
         case saving
+        /// An import was refused (the `ImportError`'s description) or could not be saved (`nil`).
+        /// Nothing was written either way.
+        case importing(String?)
     }
 
     public let catalog: GrammarCatalog
@@ -30,20 +33,35 @@ public final class SettingsModel {
     /// The active topics the catalog knows. Unknown stored keys never appear here.
     public private(set) var activeTopics: Set<GrammarTopicID> = []
 
+    /// The stored native language; `nil` is "No translation".
+    public private(set) var nativeLanguage: String?
+
+    /// "Generate images automatically" (S5).
+    public private(set) var autoGenerateImages = true
+
+    /// What the last `importWords(_:)` did; the view sets it back to `nil` when the alert is dismissed.
+    public var importSummary: ImportSummary?
+
     public var failure: Failure?
 
     private let store: WordStore
+    private let autofill: AutofillService?
     private let logger = Logger(subsystem: "Wordhoard", category: "settings")
 
-    public init(store: WordStore, catalog: GrammarCatalog = .english) {
+    /// `autofill` fills imported words that have no senses (1.7); `nil` leaves them pending.
+    public init(store: WordStore, catalog: GrammarCatalog = .english, autofill: AutofillService? = nil) {
         self.store = store
         self.catalog = catalog
+        self.autofill = autofill
     }
 
     /// Re-reads the record, so a change made elsewhere (an import, 1.7) shows when the screen appears.
     public func load() {
         do {
-            activeTopics = try knownKeys(in: store.settings().activeGrammarTopics)
+            let settings = try store.settings()
+            activeTopics = knownKeys(in: settings.activeGrammarTopics)
+            nativeLanguage = settings.nativeLanguage
+            autoGenerateImages = settings.autoGenerateImages
         } catch {
             logger.error("Could not load settings: \(error.localizedDescription, privacy: .public)")
             failure = .loading
@@ -82,7 +100,63 @@ public final class SettingsModel {
         write(topics, replacing: stored)
     }
 
+    // MARK: - Language, images, onboarding
+
+    /// The language new autofill translates into (S1); `nil` is "No translation". Existing cards keep
+    /// their translations. An unchanged value saves nothing.
+    public func setNativeLanguage(_ tag: String?) {
+        change(\.nativeLanguage, to: tag)
+    }
+
+    /// Whether new words get a picture automatically (S5); read by the picture queue on every add.
+    public func setAutoGenerateImages(_ isOn: Bool) {
+        change(\.autoGenerateImages, to: isOn)
+    }
+
+    /// Marks the first-launch sheet as done without asking: the `--ui-testing` preset (5.2).
+    public func markOnboardingCompleted() {
+        change(\.hasCompletedOnboarding, to: true)
+    }
+
+    // MARK: - Export and import (S3)
+
+    /// The whole hoard as the 1.7 JSON file.
+    public func exportData(appVersion: String) throws -> Data {
+        try Exporter.export(from: store, exportedAt: .now, appVersion: appVersion)
+    }
+
+    /// Merges an export file (1.7) and re-reads the settings, which the file may have changed. Publishes
+    /// `importSummary` on success, else `failure = .importing`; returns the summary.
+    @discardableResult
+    public func importWords(_ data: Data) -> ImportSummary? {
+        do {
+            importSummary = try Importer.importAndFill(data, into: store, autofill: autofill)
+        } catch let error as ImportError {
+            importSummary = nil
+            failure = .importing(error.errorDescription)
+        } catch {
+            logger.error("Could not import the file: \(error.localizedDescription, privacy: .public)")
+            importSummary = nil
+            failure = .importing(nil)
+        }
+        load()
+        return importSummary
+    }
+
     // MARK: - Helpers
+
+    private func change<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<UserSettings, Value>, to value: Value) {
+        do {
+            let settings = try store.settings()
+            if settings[keyPath: keyPath] != value {
+                try store.updateSettings { $0[keyPath: keyPath] = value }
+            }
+        } catch {
+            logger.error("Could not save settings: \(error.localizedDescription, privacy: .public)")
+            failure = .saving
+        }
+        load()
+    }
 
     private func storedTopics() -> [GrammarTopicID]? {
         do {

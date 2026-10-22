@@ -43,6 +43,10 @@ ci_scripts/.env
 .env
 .env.*
 
+# Archives and export options stay local (plan 6.5); the signing team is never committed.
+ExportOptions.plist
+*.xcarchive
+
 # App Store Connect / fastlane (if ever added)
 fastlane/report.xml
 fastlane/Preview.html

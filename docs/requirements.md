@@ -1,6 +1,6 @@
 # Wordhoard — Requirements
 
-*Status: draft, pre-development; Phase 0 spike closed by ADR 0001 (verdict: adjust). Last updated: 2026-10-21 (Phase 2 schema additions, plan 2.3 / 2.10).*
+*Status: draft; Phase 0 spike closed by ADR 0001 (verdict: adjust); v1 built through plan Phase 6 (PR #63), awaiting the owner's device checks and TestFlight month. Last updated: 2026-10-23 (Phases 4–6 as shipped: `imageStatus`, `hasCompletedOnboarding`, `WORDHOARD_PCC`, §8 scope, ADRs 0002–0004).*
 
 Wordhoard is a personal English vocabulary app for iOS. You capture a word, the app fills in the rest (definition, translation, synonyms, examples tied to grammar topics, a picture), and later helps you remember it. Everything runs on the device; there is no backend.
 
@@ -79,7 +79,7 @@ Priorities: **M** = must have for v1, **S** = should have, **L** = later.
 | A7 | Generated content is shown as editable draft. The small on-device model will sometimes be wrong, especially for rare words, idioms and translations; the UI should not present it as authoritative. | M |
 | A8 | Pluggable model layer: the autofill code talks to a small internal protocol (`CardGenerator`), so the Private Cloud Compute tier (A10), a cloud model (Claude, OpenAI, …) or the iOS 27 third-party provider API can be plugged in later without rewriting the feature. | S |
 | A9 | **Translations come from Apple's Translation framework, never from the model** (ADR 0001; the model's Russian contained non-words). Target shape (plan 2.10, #22): per sense, a 1–3-word equivalent in the native language (book → книга / бронировать) that the model proposes and the framework confirms by back-translation; a rejected proposal falls back to the framework's translation of the learner definition and is flagged as a fallback. Until #22 lands, the per-sense learner definition is translated by the framework. Synonyms and antonyms are not translated; there is no card-level headword translation (wrong for phrasal verbs and idioms). If the language pack is not installed, the field stays empty with a one-line note — the model is never the fallback. | M |
-| A10 | **Private Cloud Compute tier** (`PrivateCloudComputeLanguageModel`, 32K context): used for the model calls of A1/A2/A9 when the build carries the `com.apple.developer.private-cloud-compute` entitlement, the device is online and the Settings toggle "Use Apple's server model when online" is on. Gated by a build-time flag tied to the provisioning profile, never by `availability` alone — without the entitlement the first request crashes (ADR 0001, #15). Degradation order: PCC → on-device + WordNet → manual. Compiled out until the entitlement is granted. | S |
+| A10 | **Private Cloud Compute tier** (`PrivateCloudComputeLanguageModel`, 32K context): used for the model calls of A1/A2/A9 when the build carries the `com.apple.developer.private-cloud-compute` entitlement, the device is online and the Settings toggle "Use Apple's server model when online" is on. Gated by the Swift compilation condition `WORDHOARD_PCC`, which only a build configuration whose provisioning profile carries the entitlement may define, never by `availability` alone — without the entitlement the first request crashes (ADR 0001, #15). The `#if WORDHOARD_PCC` branch lives in the one session factory (`FoundationModelCalls.swift`); no build defines the flag in v1, so the tier and its Settings toggle are compiled out until the entitlement is granted. Degradation order: PCC → on-device + WordNet → manual. | S |
 
 ### 4.3 Word card
 
@@ -96,9 +96,9 @@ Priorities: **M** = must have for v1, **S** = should have, **L** = later.
 
 | # | Requirement | Pri |
 |---|---|---|
-| I1 | Generate an illustration on device with the Image Playground framework (`ImageCreator`). The prompt is a short visual description produced by the language model, not the raw word. | M |
+| I1 | Generate an illustration on device with the Image Playground framework (`ImageCreator`). The prompt is a short visual description produced by the language model, not the raw word. On by default as a provisional choice; `ImageCreator` is deprecated in the iOS 27 SDK and confined to one type; the verdict (on by default / opt-in / dropped) waits for the #5 device table (ADR 0003, proposed). | M |
 | I2 | Fallback / alternative: pick from photo library or take a photo. | M |
-| I3 | Image generation runs in the background after the card is saved; the card shows a placeholder until ready. | M |
+| I3 | Image generation runs in the background after the card is saved; the card shows a placeholder until ready. Applies to every newly created word, typed or added by Siri, while the S5 toggle is on; imported words and words whose picture the user removed are not queued (plan 4.4, 5.1). | M |
 | I4 | If Image Playground is unavailable (device, region, or the model refuses the prompt), the card simply has no image and offers I2. | M |
 | I5 | Abstract words ("however", "despite") may get no image by design. The language model may return "no suitable image" and the app respects that. | S |
 | I6 | Images are stored as files in the app container, referenced from the database; thumbnails cached. | M |
@@ -165,6 +165,9 @@ Word
   autofillState: enum (pending, filling, ready, failed, unavailable)
                       (default pending; written by the autofill queue only, plan 2.3;
                        not exported — import derives ready/pending from the senses)
+  imageStatus: enum? (pending, skipped, refused, failed, unavailable; nil = nothing
+                      requested; setting or removing a picture clears it; written by
+                      the picture queue, plan 4.4; not exported)
 
 Sense
   id: UUID
@@ -215,7 +218,10 @@ UserSettings           (single record)
   nativeLanguage: String?  (BCP-47, e.g. "ru", "es", "zh-Hans"; nil = no translation)
   learningLanguage: String (always "en" in v1)
   activeGrammarTopics: [GrammarTopicID]
-  autoGenerateImages: Bool
+  autoGenerateImages: Bool     (default true, S5)
+  hasCompletedOnboarding: Bool (default false; set by the first-launch sheet, S1,
+                                plan 5.2; nativeLanguage == nil cannot mean "not asked"
+                                because "No translation" is also nil; not exported)
 ```
 
 Design notes:
@@ -228,6 +234,7 @@ Design notes:
 - **Review events are a log**, so two devices reviewing offline merge cleanly once sync exists.
 - **Sense provenance and gloss are kept** (`senseSource`, `gloss`) so the card can show the WordNet / model badge (W1), regeneration can rewrite a definition from the same gloss, and a refused writing call can fall back to the gloss (A6). Regeneration matches a WordNet sense by part of speech + gloss and a model sense by part of speech in order; a hand-entered sense (`senseSource == nil`) is never matched or modified (plan 2.4).
 - **Autofill state lives on the word** (`autofillState`) so a kill mid-generation is recoverable: `filling` is written before the model is called and `ready` in the same commit as the generated senses, so a stored word is either untouched or complete; `filling` found at launch is re-queued (C5, A6, plan 2.3).
+- **The picture goes with the word.** Soft-deleting a word hard-deletes its `ImageAsset` row and the file (#46, plan 4.1), the one exception to soft delete; files nothing references are removed by a launch-time orphan scan. `imageStatus` is persisted so a kill during generation resumes and the I5 "no suitable image" outcome is remembered (plan 4.4).
 
 ---
 
@@ -235,7 +242,7 @@ Design notes:
 
 | Area | Requirement |
 |---|---|
-| **Privacy** | No third-party network calls. The only network use is Apple's Private Cloud Compute for autofill (Apple-operated, requests not retained, no account data from the app), and only when the PCC entitlement is present; a Settings toggle ("Use Apple's server model when online", default on) lets the user keep everything on device. No analytics, no crash-reporting SDKs from third parties. Privacy policy can honestly say "we collect nothing". |
+| **Privacy** | No third-party network calls. The only network use is Apple's Private Cloud Compute for autofill (Apple-operated, requests not retained, no account data from the app), and only when the PCC entitlement is present; a Settings toggle ("Use Apple's server model when online", default on; present only in a `WORDHOARD_PCC` build, A10) lets the user keep everything on device. No analytics, no crash-reporting SDKs from third parties. Privacy policy can honestly say "we collect nothing". |
 | **Offline** | Everything works offline, including autofill and image generation (both on device). |
 | **Availability fallback** | Every AI feature checks availability at runtime (`SystemLanguageModel.default.availability`, Image Playground availability) and degrades to manual entry. The app must be fully usable on an iPhone without Apple Intelligence. |
 | **Performance** | Saving a word is instant (< 100 ms perceived). Autofill target: **first card** (senses, definitions, translations, one neutral example per sense) median ≤ 10 s on supported devices; the measured median is 7.6–9.9 s on an iPhone 15 Pro Max (ADR 0001). Topic examples arrive afterwards in the background; a 4-sense word currently takes 35–43 s for the full card (≈ 20 model calls at 1.6–1.8 s each), target ≤ 25 s or documented as the device floor (plan 2.8). Image generation may take longer; it never blocks the UI. |
@@ -252,18 +259,18 @@ Design notes:
 |---|---|---|
 | UI | SwiftUI, iOS 27+ | Target platform; modern APIs. |
 | Persistence | SwiftData | Native, simple, CloudKit-ready. No server, so no need for GRDB-level control. |
-| Autofill | Foundation Models framework, guided generation, **one small call per field group per sense** (ADR 0001) | Two tiers behind one `CardGenerator`: **on-device** `SystemLanguageModel` (4K context, offline, always available — the floor) and **Private Cloud Compute** `PrivateCloudComputeLanguageModel` (32K context, reasoning, network, per-user daily quota, no developer cost; A10). A single call for the whole card overflowed the 4K context and mis-tagged grammar (#4), so each call is small and uses a fresh session; the caller assigns grammar topics. PCC requires the managed entitlement `com.apple.developer.private-cloud-compute`; without it the first request **crashes**, so the PCC backend is gated by a build flag tied to the provisioning profile, never by `availability` alone. Degradation order: PCC → on-device + WordNet → manual. |
+| Autofill | Foundation Models framework, guided generation, **one small call per field group per sense** (ADR 0001) | Two tiers behind one `CardGenerator`: **on-device** `SystemLanguageModel` (4K context, offline, always available — the floor) and **Private Cloud Compute** `PrivateCloudComputeLanguageModel` (32K context, reasoning, network, per-user daily quota, no developer cost; A10). A single call for the whole card overflowed the 4K context and mis-tagged grammar (#4), so each call is small and uses a fresh session; the caller assigns grammar topics. PCC requires the managed entitlement `com.apple.developer.private-cloud-compute`; without it the first request **crashes**, so the PCC backend is gated by the compilation condition `WORDHOARD_PCC` (A10), never by `availability` alone. Degradation order: PCC → on-device + WordNet → manual. |
 | Sense inventory | Open English WordNet **2024** bundle (CC BY 4.0; JSON, 15 492 477 bytes; up to 2 senses per part of speech, 4 in all; one example per synset) + function-word stoplist (385 lemmas) | The on-device model invents or duplicates senses (spike, #4/#11); WordNet supplies senses, POS, synonyms, antonyms and one example per synset; the model only writes learner prose for a given sense. Model-only fallback with a verifier for stoplist words and lemmas WordNet lacks (A1). Converter: `spike/tools/convert_oewn.py`. Attribution: `NOTICE`, `OEWN-LICENSE.txt` in the bundle, About screen (S6). |
 | Translation | Apple Translation framework (`TranslationSession`, on device); the model only *proposes* per-sense equivalents that the framework verifies (A9, #22) | Model translation produced non-words (spike, #11); bare-word framework translation of synonyms produced the wrong part of speech (#14), so synonyms are not translated. Covers the native languages in S1; no Uzbek. |
 | Prompt QA | On-device regression runner in `spike/WordhoardSpikeRegression` over `docs/regression-words.md` | Spike code kept as a tool, not a product codebase (ADR 0001). Every prompt change ships with a run; thresholds in plan Phase 2 exit criteria. |
-| Images | Image Playground framework (`ImageCreator`) + PhotosPicker + camera | On device, free. |
+| Images | Image Playground framework (`ImageCreator`, deprecated in the iOS 27 SDK, confined to `ImagePlaygroundGenerator`) + PhotosPicker + camera | On device, free. The SDK's replacements are interactive only, so background generation (I3) depends on the deprecated API (ADR 0003). |
 | Siri | App Intents / App Shortcuts | The only supported way to add Siri phrases. |
 | Speech | AVSpeechSynthesizer | Offline pronunciation without audio assets. The model's IPA is not used (wrong on the spike, ADR 0001). |
 | Payments | StoreKit 2, consumable tip products, `ProductView` | Tip jar. |
 | Sync (later) | SwiftData + CloudKit | Free, no backend, same Apple ID across devices. |
 | Spaced repetition (later) | FSRS (Swift port) | Modern algorithm, open source. |
 
-Architecture: plain MVVM-ish SwiftUI with a thin service layer (`AutofillService`, `ImageService`, `WordStore`). The autofill service is behind a protocol (`CardGenerator`); v1 ships the on-device Foundation Models implementation (WordNet lookup + per-sense model calls + Translation framework); the PCC implementation is compiled in only with the entitlement (A10).
+Architecture: plain MVVM-ish SwiftUI with a thin service layer (`AutofillService`, `ImageGenerationQueue` over `ImageStore` and `ImageGenerator`, `WordStore`), created once in the app's `AppDependencies` and shared with the Siri intent (plan 5.1). The autofill service is behind a protocol (`CardGenerator`); v1 ships the on-device Foundation Models implementation (WordNet lookup + per-sense model calls + Translation framework); the PCC implementation is compiled in only with the entitlement (A10).
 
 ---
 
@@ -271,13 +278,13 @@ Architecture: plain MVVM-ish SwiftUI with a thin service layer (`AutofillService
 
 ### v1 — "It fills itself in"
 
-Capture (C1, C2, C4, C5) · Autofill (A1, A2, A4, A6, A7, A9) · Card (W1–W3) · Images (I1–I4, I6; still unvalidated — see §10 Q4) · Grammar topics (G1, G2, G4) · List & search (B1) · Settings (S1–S3, S6).
+Capture (C1, C2, C4, C5) · Autofill (A1, A2, A4, A6, A7, A9; A5 card-level only, plan 2.5) · Card (W1–W3) · Images (I1–I6; still unvalidated on device — see §10 Q4, ADR 0003) · Grammar topics (G1–G4; G3 browse by topic, plan 3.3) · List & search (B1; B2 by grammar topic only, through topic browse, plan 3.3) · Settings (S1–S3, S5, S6; S5 toggle per plan 4.4 / 5.3).
 
 Done when: the author uses it daily for a month and prefers it to a spreadsheet.
 
 ### v1.1 — Polish
 
-Share sheet (C3), capture note (C6), tags (W4), TTS (W5), regenerate (A5), browse by topic (G3, B2), tip jar (S4), image toggle (S5), Private Cloud Compute tier (A10, once the entitlement is granted), App Store release, landing page.
+Share sheet (C3, plan 5.4, #42), capture note (C6), tags (W4) and filter by tag (B2), TTS (W5), per-sense and per-field regenerate (A5), tip jar (S4), Private Cloud Compute tier (A10, once the entitlement is granted), App Store release, landing page.
 
 ### v2 — Learning
 
@@ -293,7 +300,7 @@ Widget (C7), word forms (W6), full-text search (B3), Russian UI, iOS 27 third-pa
 
 - **Free app, no feature gates.** Costs are limited to the Apple Developer Program fee (~$99/year), since AI runs on device.
 - **Tip jar** via consumable in-app purchases (StoreKit). Tips may unlock cosmetic thanks (alternate app icons, a "Supporter" badge). Inside the app, donations go through Apple only; the landing page may link to other donation methods, but the app must not link to the landing page's donation section.
-- **Open source** under a permissive license, decided at first release. The code is open; the name *Wordhoard*, the icon and other brand assets are not covered by the code license.
+- **Open source** under the Apache License 2.0 (`LICENSE`, shown in full on the About screen, plan 6.3). The code is open; the name *Wordhoard*, the icon and other brand assets are not covered by the code license.
 - **Landing page** on GitHub Pages: description, App Store badge, support/privacy pages (both required by App Store Connect), optional donation links.
 - A paid "Pro" one-time purchase remains possible later if the app ever gains features that cost the developer money (cloud model, own sync server). Going from free to free+Pro is acceptable; the reverse is not.
 
@@ -308,15 +315,15 @@ These decide whether the plan holds. Each was to be answered by the Phase 0 spik
 2. **Translation quality.** Russian is not an officially supported Apple Intelligence language. If translations are poor, options are: skip translation in autofill (manual only), use Apple's Translation framework (on device, supports Russian), or a cloud model later.
    → Answer: the model produced non-words; Apple's Translation framework is the only translation path, with the model limited to proposing per-sense equivalents that the framework verifies (ADR 0001, A9, #22).
 3. **Siri recognition.** Does Siri reliably capture an English word when the device/Siri language is Russian, and vice versa? Also: does the two-step "add a word → which word?" dialog feel acceptable?
-   → Answer: not tested in Phase 0 (#6 was not run). Open; becomes the first step of plan 5.1 (ADR 0001).
+   → Answer: not tested in Phase 0 (#6 was not run). The intent shipped in plan 5.1 (PR #63) with English phrases only; recognition with English and Russian Siri waits for the owner's #6 table (ADR 0004, proposed).
 4. **Image Playground.** Is it available in the author's region and on the author's device? How often does it refuse prompts? Are the available styles acceptable for vocabulary cards?
-   → Answer: not tested in Phase 0 (#5 was not run). Open; becomes the first step of plan 4.2, which may still end in "images opt-in or dropped" (ADR 0001).
+   → Answer: not tested in Phase 0 (#5 was not run). Phase 4 (PR #63) shipped pictures on by default as a provisional choice; the simulator always reports Image Playground unavailable, so availability, refusals, styles and speed wait for the owner's #5 table, which may still end in "opt-in" or "dropped" (ADR 0003, proposed).
 5. **Latency.** How long does a full card (multiple senses, several examples) take to generate on an iPhone 15 Pro vs 17 Pro? Does it need to be split into several smaller generations (senses first, then examples per sense) to show progress?
    → Answer: it must be split — one call overflowed the 4K context. On an iPhone 15 Pro Max the first card takes a median 7.6–9.9 s, the full card a median 12.5–14.3 s and 35–43 s for 3–4-sense words (≈ 1.6–1.8 s per call); topic examples therefore run in the background (ADR 0001, §6 Performance, #20). Not measured on a 17 Pro.
 6. **IPA.** Can the model produce correct IPA, or should pronunciation be text-to-speech only?
    → Answer: text-to-speech only; the model's IPA was wrong (`/ˈhʌvər/`) (ADR 0001, A3, W5).
 7. **Free vs paid developer account.** Confirm that Foundation Models, Image Playground and App Intents all work when the app is signed with a free personal team (no CloudKit, no push).
-   → Answer: the on-device Foundation Models model works with a free personal team (every spike run); Private Cloud Compute does not — it needs a managed entitlement and therefore a paid account (ADR 0001, #15). Image Playground and App Intents were not tested; checked in plan 4.2 and 5.1.
+   → Answer: the on-device Foundation Models model works with a free personal team (every spike run); Private Cloud Compute does not — it needs a managed entitlement and therefore a paid account (ADR 0001, #15). Image Playground and App Intents were not tested; they are [device] steps of plan 4.2 (#5) and 5.1 (#7), still pending (ADR 0003, ADR 0004).
 
 ---
 

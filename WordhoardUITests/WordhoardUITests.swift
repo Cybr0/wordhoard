@@ -43,6 +43,16 @@ final class WordhoardUITests: XCTestCase {
             "the add field should be cleared after adding, was \(String(describing: addField.value))"
         )
 
+        // 6.2 (#32): with the keyboard up, a drag down dismisses it and the search field can be reached.
+        // A drag from the list into the keyboard, as a thumb would do it (interactive dismissal).
+        let list = app.collectionViews.firstMatch
+        list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+            .press(forDuration: 0.1, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.searchFields.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.searchFields.firstMatch.isHittable)
+        addField.tap()
+
         // Same word, different case and a trailing space: the existing card opens instead of a new row (C4).
         addField.typeText("Book \n")
         let cardHeadword = app.textFields["wordCard.headword"]
@@ -55,9 +65,9 @@ final class WordhoardUITests: XCTestCase {
         XCTAssertTrue(isEmpty(addField))
     }
 
-    /// CLAUDE.md's third reserved flow: export → relaunch (empty in-memory store) → import. The debug
-    /// launch arguments replace only the two system sheets; menu, model, importer, alert and reload are
-    /// the production path.
+    /// CLAUDE.md's third reserved flow: export → relaunch (empty in-memory store) → import, from
+    /// Settings → Data (plan 5.3). The debug launch arguments replace only the two system sheets; the
+    /// rows, model, importer, alert and reload are the production path.
     @MainActor
     func testExportThenImportRestoresTheWordList() throws {
         let fileURL = FileManager.default.temporaryDirectory
@@ -75,8 +85,8 @@ final class WordhoardUITests: XCTestCase {
         let rows = app.staticTexts.matching(identifier: "wordList.rowHeadword")
         XCTAssertTrue(rows.element(boundBy: 1).waitForExistence(timeout: 5))
 
-        app.buttons["wordList.moreMenu"].tap()
-        let exportButton = app.buttons["wordList.export"]
+        app.buttons["wordList.settings"].tap()
+        let exportButton = app.buttons["settings.export"]
         XCTAssertTrue(exportButton.waitForExistence(timeout: 5))
         exportButton.tap()
 
@@ -90,8 +100,8 @@ final class WordhoardUITests: XCTestCase {
         app = launchApp(arguments: ["--ui-testing-import-path", fileURL.path()])
         XCTAssertTrue(app.staticTexts["No words yet"].waitForExistence(timeout: 5))
 
-        app.buttons["wordList.moreMenu"].tap()
-        let importButton = app.buttons["wordList.import"]
+        app.buttons["wordList.settings"].tap()
+        let importButton = app.buttons["settings.import"]
         XCTAssertTrue(importButton.waitForExistence(timeout: 5))
         importButton.tap()
 
@@ -99,6 +109,7 @@ final class WordhoardUITests: XCTestCase {
         XCTAssertTrue(alert.waitForExistence(timeout: 5))
         XCTAssertTrue(alert.staticTexts["Added 2, updated 0, skipped 0."].exists)
         alert.buttons["OK"].tap()
+        app.buttons["settings.done"].tap()
 
         let restored = app.staticTexts.matching(identifier: "wordList.rowHeadword")
         XCTAssertTrue(restored.element(boundBy: 1).waitForExistence(timeout: 5))
