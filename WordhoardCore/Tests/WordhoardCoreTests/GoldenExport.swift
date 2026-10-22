@@ -96,7 +96,9 @@ enum GoldenExport {
               "partOfSpeech" : "verb",
               "synonyms" : [
                 "reserve"
-              ]
+              ],
+              "translation" : "заранее заказать место",
+              "translationIsFallback" : true
             }
           ],
           "tagIDs" : [

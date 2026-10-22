@@ -49,10 +49,13 @@ public final class WordListModel {
     public var importSummary: ImportSummary?
 
     private let store: WordStore
+    private let autofill: AutofillService?
     private let logger = Logger(subsystem: "Wordhoard", category: "list")
 
-    public init(store: WordStore) {
+    /// `autofill` is queued a word on every `.created` add (C5); `nil` means nothing is filled in.
+    public init(store: WordStore, autofill: AutofillService? = nil) {
         self.store = store
+        self.autofill = autofill
     }
 
     /// Re-reads `words` for the current `query`. On a store error `failure` becomes `.loading` and `words`
@@ -68,7 +71,8 @@ public final class WordListModel {
 
     /// Submits `draft` to `WordStore.add(_:)` (C1, C4, C5).
     ///
-    /// - `.created`: the draft and the query are cleared and `words` is re-read, so the new word is first.
+    /// - `.created`: the draft and the query are cleared, `words` is re-read, so the new word is first, and
+    ///   the word is handed to `autofill` (the save is already done; filling in happens afterwards, C5).
     /// - `.existing`: the draft and the query are cleared and `words` is re-read all the same, so the list
     ///   behind the pushed card is current; the view navigates to the returned word.
     /// - Blank draft: the draft is cleared, nothing is added, `failure` stays as it was; returns `nil`.
@@ -80,6 +84,9 @@ public final class WordListModel {
             draft = ""
             query = ""
             reload()
+            if case let .created(word) = result {
+                autofill?.enqueue(word)
+            }
             return result
         } catch WordStoreError.emptyHeadword {
             draft = ""
@@ -94,13 +101,15 @@ public final class WordListModel {
     /// Merges an export file into the store (S3) through `Importer`, then re-reads `words` whatever the
     /// outcome, so a partially matched file and a refused one both leave the list current.
     ///
-    /// - Success: `importSummary` is set; `failure` is left as it was.
+    /// - Success: `importSummary` is set; `failure` is left as it was; `autofill` sweeps the store, so
+    ///   imported words without senses (saved `pending`) are filled in now, not at the next foreground.
     /// - `ImportError`: `failure = .importing(error)`, `importSummary = nil`; the store is unchanged.
     /// - Any other error: logged, `failure = .importing(nil)`, `importSummary = nil`; the transaction was
     ///   rolled back.
     public func importWords(_ data: Data) {
         do {
             importSummary = try Importer.import(data, into: store)
+            resumeAutofill()
         } catch let error as ImportError {
             importSummary = nil
             failure = .importing(error)
@@ -110,5 +119,13 @@ public final class WordListModel {
             failure = .importing(nil)
         }
         reload()
+    }
+
+    private func resumeAutofill() {
+        do {
+            try autofill?.resumeAfterLaunch()
+        } catch {
+            logger.error("Could not queue imported words: \(error.localizedDescription, privacy: .public)")
+        }
     }
 }

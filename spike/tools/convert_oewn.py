@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Convert an Open English WordNet WN-LMF release into the compact JSON bundle the spike reads.
+"""Convert an Open English WordNet WN-LMF release into the compact JSON bundle the app reads.
 
 Usage:
     python3 -I spike/tools/convert_oewn.py <english-wordnet-2024.xml.gz> <oewn-2024.json>
     python3 -I spike/tools/convert_oewn.py --check <oewn-2024.json>
+
+The bundle lives at WordhoardCore/Sources/WordhoardCore/Resources/WordNet/oewn-2024.json (read by
+WordNetLookup in the product package and copied into the spike's app bundle); this script stays in
+spike/tools because it is not needed at build time.
 
 The first form reads the gzipped WN-LMF XML from the GitHub release
 (https://github.com/globalwordnet/english-wordnet, tag `2024-edition`, asset
 `english-wordnet-2024.xml.gz`, CC BY 4.0) and writes the bundle. The second form
 loads a bundle and prints, for every word in `docs/regression-words.md`, whether the
 lemma is found and the senses the app would show. If a `function-words.txt` sits next
-to the bundle (it does in the app's Resources folder) the check applies the same
+to the bundle (it does in Resources/WordNet) the check applies the same
 stoplist as the app: those words never reach WordNet and go to the model-only path.
 
 Standard library only (system python3 is 3.9). Run with `-I` because the release is
@@ -18,11 +22,14 @@ untrusted input; the script never executes anything from it.
 
 What is kept, per lemma (lowercased, multi-word lemmas with single spaces):
   - senses grouped by part of speech, in WordNet sense order, at most TOP per part
-    of speech (the app shows every kept sense: up to TOP per part of speech)
+    of speech (plan 2.6: the app shows the model's pick of <= 4 among them, falling back
+    to FALLBACK_TOP per part of speech when the selection call fails)
   - per sense: synset index and the antonym lemmas (SenseRelation relType="antonym")
 Per synset (deduplicated, stored once): the Definition text, the member lemmas when
 there is more than one, and up to EXAMPLES_PER_SYNSET of its Example sentences (they
-go into the model's writing prompt so a terse gloss is not misread). Everything else in
+go into the model's writing prompt so a terse gloss is not misread). With
+EXAMPLE_MAX_RANK set, a synset keeps its examples only when some kept sense points to
+it at that rank or better (plan 2.6: the size lever if the bundle exceeds 20 MB). Everything else in
 the release (ILI, pronunciations, subcats, all other relations, synsets no kept sense
 points to) is dropped.
 
@@ -61,9 +68,14 @@ POS_KEYS = {"n": "n", "v": "v", "a": "a", "s": "a", "r": "r"}
 POS_NAMES = {"n": "noun", "v": "verb", "a": "adjective", "r": "adverb"}
 # Display order of the parts of speech; learner's dictionaries list nouns before verbs.
 POS_ORDER = ["n", "v", "a", "r"]
-# Senses kept and shown per part of speech (issue #11, decision 1: missing a real sense
-# costs more than showing a spare one). For "book": noun, noun, verb engage, verb reserve.
-TOP = 2
+# Senses kept per part of speech (plan 2.6, #18): the model picks <= 4 of them for the card.
+TOP = 5
+# The app's fallback selection when the selection call fails (WordNetLookup.maxSensesPerPartOfSpeech;
+# issue #11, decision 1). For "book": noun, noun, verb engage, verb reserve.
+FALLBACK_TOP = 2
+# None keeps examples for every kept synset; 2 keeps them only for synsets used at rank 1 or 2
+# (the first lever if the bundle goes over 20 MB, before dropping senses).
+EXAMPLE_MAX_RANK = None
 # Example sentences kept per synset (the first in the release is the canonical one). Two per
 # synset pushed the bundle to 15.1 MB, over the 15 MB target; one keeps it at 14.8 MB.
 EXAMPLES_PER_SYNSET = 1
@@ -148,6 +160,7 @@ def convert(input_path, output_path):
     # Keep the top TOP senses per part of speech; collect the synsets they point to.
     kept = {}  # key -> pos -> [(synset_id, [antonym forms])]
     seen = set()
+    example_synsets = set()
     dropped_unknown = 0
     for key, groups in grouped.items():
         kept_groups = {}
@@ -166,6 +179,8 @@ def convert(input_path, output_path):
                     rows.append((synset_id, antonyms))
             rows = rows[:TOP]
             seen.update(synset_id for synset_id, _antonyms in rows)
+            example_rows = rows if EXAMPLE_MAX_RANK is None else rows[:EXAMPLE_MAX_RANK]
+            example_synsets.update(synset_id for synset_id, _antonyms in example_rows)
             if rows:
                 kept_groups[pos] = rows
         if kept_groups:
@@ -179,6 +194,8 @@ def convert(input_path, output_path):
         if synset_id not in seen:
             continue
         gloss, member_ids, examples = synsets[synset_id]
+        if synset_id not in example_synsets:
+            examples = []
         members = []
         for member_id in member_ids:
             form = entry_form_by_id.get(member_id)
@@ -236,7 +253,7 @@ def synset_parts(row):
 TOP_TOTAL = 4  # WordNetLookup.maxSensesTotal
 
 
-def top_senses(groups, limit=TOP, total=TOP_TOTAL):
+def top_senses(groups, limit=FALLBACK_TOP, total=TOP_TOTAL):
     """Same policy as WordNetLookup.swift: up to `limit` senses per part of speech and `total`
     in all — rank 1 of every part of speech (in POS_ORDER) before any rank 2 — shown grouped
     by part of speech in POS_ORDER, each part's senses in WordNet rank order."""
@@ -289,7 +306,8 @@ def check(bundle_path):
         by_pos = ", ".join(f"{len(groups[pos])} {POS_NAMES[pos]}" for pos in POS_ORDER if groups.get(pos))
         shown = top_senses(groups)
         print(f"{word}: found, {total} sense{'s' if total != 1 else ''} in bundle ({by_pos}); "
-              f"card shows {len(shown)} (up to {TOP} per part of speech, {TOP_TOTAL} in all):")
+              f"fallback shows {len(shown)} (up to {FALLBACK_TOP} per part of speech, {TOP_TOTAL} in all; "
+              f"the model picks from {min(total, 10)} candidates when there are more than {TOP_TOTAL}):")
         for rank, (pos, sense) in enumerate(shown, start=1):
             index, antonyms = sense_parts(sense)
             gloss, members, examples = synset_parts(synsets[index])

@@ -1,6 +1,6 @@
 # Wordhoard — Requirements
 
-*Status: draft, pre-development; Phase 0 spike closed by ADR 0001 (verdict: adjust). Last updated: 2026-10-11.*
+*Status: draft, pre-development; Phase 0 spike closed by ADR 0001 (verdict: adjust). Last updated: 2026-10-21 (Phase 2 schema additions, plan 2.3 / 2.10).*
 
 Wordhoard is a personal English vocabulary app for iOS. You capture a word, the app fills in the rest (definition, translation, synonyms, examples tied to grammar topics, a picture), and later helps you remember it. Everything runs on the device; there is no backend.
 
@@ -162,6 +162,9 @@ Word
   senses: [Sense]     (ordered)
   createdAt, updatedAt: Date
   deletedAt: Date?    (soft delete; needed for sync later)
+  autofillState: enum (pending, filling, ready, failed, unavailable)
+                      (default pending; written by the autofill queue only, plan 2.3;
+                       not exported — import derives ready/pending from the senses)
 
 Sense
   id: UUID
@@ -172,6 +175,9 @@ Sense
   gloss: String?                       (WordNet gloss the definition was written from)
   definition: String
   translation: String?
+  translationIsFallback: Bool  (default false; true when translation is the framework's
+                                translation of the definition because the proposed
+                                equivalent failed back-translation, A9 / plan 2.10)
   synonyms: [String]
   antonyms: [String]
   examples: [Example] (ordered)
@@ -220,7 +226,8 @@ Design notes:
 - **Grammar topics are a static catalog**, referenced by string key, so the catalog can grow with app updates without data migration. Keys are namespaced by learning language (`en.present_perfect`) because grammar catalogs are language-specific.
 - **`learningLanguage` is stored but fixed to `"en"` in v1.** It costs nothing now and means that adding another learning language later is a content task (a new grammar catalog, prompts, a test word list), not a data migration.
 - **Review events are a log**, so two devices reviewing offline merge cleanly once sync exists.
-- **Sense provenance and gloss are kept** (`senseSource`, `gloss`) so the card can show the WordNet / model badge (W1), regeneration can rewrite a definition from the same gloss, and a refused writing call can fall back to the gloss (A6).
+- **Sense provenance and gloss are kept** (`senseSource`, `gloss`) so the card can show the WordNet / model badge (W1), regeneration can rewrite a definition from the same gloss, and a refused writing call can fall back to the gloss (A6). Regeneration matches a WordNet sense by part of speech + gloss and a model sense by part of speech in order; a hand-entered sense (`senseSource == nil`) is never matched or modified (plan 2.4).
+- **Autofill state lives on the word** (`autofillState`) so a kill mid-generation is recoverable: `filling` is written before the model is called and `ready` in the same commit as the generated senses, so a stored word is either untouched or complete; `filling` found at launch is re-queued (C5, A6, plan 2.3).
 
 ---
 

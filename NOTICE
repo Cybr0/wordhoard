@@ -13,8 +13,8 @@ Open English WordNet (2024 edition)
   https://en-word.net · https://github.com/globalwordnet/english-wordnet
   License: Creative Commons Attribution 4.0 International (CC BY 4.0)
   Derived from Princeton WordNet (WordNet License). Attribution to both is
-  required. Full text: spike/WordhoardSpike/Resources/OEWN-LICENSE.txt
-  (moves to the app's Resources with plan task 2.2).
+  required. Full text: WordhoardCore/Sources/WordhoardCore/Resources/WordNet/OEWN-LICENSE.txt
+  (shipped inside the app bundle next to the data).
 
 Apple frameworks (Foundation Models, Translation, Image Playground, SwiftData,
 App Intents) are used under the Apple Developer Program License Agreement and

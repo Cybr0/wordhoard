@@ -14,7 +14,12 @@ let package = Package(
             name: "WordhoardCore",
             // `.copy` keeps the directory, so the loader path `GrammarCatalog/<language>.json` is the
             // same on the macOS host (`swift test`) and inside the app bundle built by Xcode.
-            resources: [.copy("Resources/GrammarCatalog")],
+            resources: [
+                .copy("Resources/GrammarCatalog"),
+                // The Open English WordNet bundle, the function-word stoplist and the CC BY 4.0 license
+                // (NOTICE), read by `WordNetLookup` as `WordNet/<name>`; one copy in git, shared with the spike.
+                .copy("Resources/WordNet"),
+            ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

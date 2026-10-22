@@ -1,16 +1,30 @@
 import SwiftUI
 import WordhoardCore
 
-/// The word card (W1, W2, W3): the headword, one section per sense and the add, remove, reorder and
-/// delete actions. Talks only to `WordCardModel`; every edit is held in a field's local state and
-/// committed through one model setter when the edit ends.
+/// The word card (W1, W2, W3): the headword, the autofill status row (C5, A6), one section per sense and
+/// the add, remove, reorder and delete actions. Talks only to `WordCardModel` for edits; every edit is
+/// held in a field's local state and committed through one model setter when the edit ends. The
+/// `AutofillService` is read for progress and asked to retry; it never mutates the card from here.
 struct WordCardView: View {
     @State private var model: WordCardModel
     @State private var isDeleteDialogPresented = false
+    /// Whether the generator can run now; checked on appear and on every foreground (A6). Until it
+    /// says `.available`, no fill-in button is offered.
+    @State private var isGeneratorAvailable = false
+    /// The native language whose translation pack is missing, when the card has no translation because
+    /// of it (A9, plan 2.10); checked with the generator's availability.
+    @State private var missingPackLanguage: String?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
+    private let autofill: AutofillService
+    private let store: WordStore
+    private let translator: any Translator
 
-    init(word: Word, store: WordStore) {
+    init(word: Word, store: WordStore, autofill: AutofillService, translator: any Translator) {
         _model = State(initialValue: WordCardModel(word: word, store: store))
+        self.autofill = autofill
+        self.store = store
+        self.translator = translator
     }
 
     private var word: Word {
@@ -20,7 +34,7 @@ struct WordCardView: View {
     var body: some View {
         List {
             headwordSection
-            if model.senses.isEmpty {
+            if model.senses.isEmpty, !isFilling {
                 emptyState
             }
             ForEach(Array(model.senses.enumerated()), id: \.element.id) { index, sense in
@@ -60,6 +74,18 @@ struct WordCardView: View {
         .alert(failureTitle, isPresented: isFailurePresented) {
             Button("OK", role: .cancel) {}
         }
+        .onChange(of: word.autofillState) { _, _ in
+            // The service merges senses behind the model's back; re-read them when a fill ends or starts.
+            model.reloadSenses()
+        }
+        .task(checkAvailability)
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task {
+                    await checkAvailability()
+                }
+            }
+        }
     }
 
     private var headwordSection: some View {
@@ -77,7 +103,104 @@ struct WordCardView: View {
                     .foregroundStyle(.red)
                     .accessibilityIdentifier("wordCard.headwordMessage")
             }
+            statusRow
+            translationPackNote
         }
+    }
+
+    /// One line when the native language is set, the card has senses but no translation, and the
+    /// pack is not installed: the fields stay empty rather than show model text (A9).
+    @ViewBuilder private var translationPackNote: some View {
+        if let language = missingPackLanguage, isUntranslated {
+            let name = Locale.current.localizedString(forLanguageCode: language) ?? language
+            Text("Translations need the \(name) pack. Download it in Settings › Translate.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("wordCard.translationNote")
+        }
+    }
+
+    // MARK: - Autofill status (C5, A6)
+
+    private var isFilling: Bool {
+        word.autofillState == .pending || word.autofillState == .filling
+    }
+
+    /// Whether this word's topic examples are still arriving after its first card.
+    private var isReceivingExamples: Bool {
+        word.autofillState == .ready && autofill.currentWordID == word.id
+    }
+
+    /// One row under the headword, by state, with the card-level regenerate button (A5, plan 2.5):
+    /// "Fill in again" on a ready card, "Try again" after a failure, "Fill in" when the device could not
+    /// fill the card before; hidden while the word is in flight or the generator is unavailable. Editing
+    /// is never blocked by the row (A7).
+    @ViewBuilder private var statusRow: some View {
+        switch word.autofillState {
+        case .pending, .filling:
+            progressRow(Text("Filling in…"))
+        case .failed:
+            // A failed card on a device that cannot fill now: the state is stale, say what matters.
+            explanation(isGeneratorAvailable ? Text("Couldn't fill in this card.") : Text(Self.unavailableExplanation))
+            regenerateButton(Text("Try again"))
+        case .unavailable:
+            explanation(Text(Self.unavailableExplanation))
+            regenerateButton(Text("Fill in"))
+        case .ready:
+            if isReceivingExamples {
+                progressRow(Text("Adding examples…"))
+            } else {
+                regenerateButton(Text("Fill in again"))
+            }
+        }
+    }
+
+    private func explanation(_ text: Text) -> some View {
+        text
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("wordCard.status")
+    }
+
+    /// The one regenerate action; the merge decides what changes, so there is nothing to confirm.
+    @ViewBuilder private func regenerateButton(_ label: Text) -> some View {
+        if isGeneratorAvailable {
+            Button {
+                autofill.retry(word)
+            } label: {
+                label
+            }
+            .accessibilityIdentifier("wordCard.retry")
+        }
+    }
+
+    private var isUntranslated: Bool {
+        word.autofillState == .ready && !model.senses.isEmpty && model.senses.allSatisfy { $0.translation == nil }
+    }
+
+    private func checkAvailability() async {
+        isGeneratorAvailable = await autofill.generator.availability() == .available
+        guard let language = try? store.settings().nativeLanguage else {
+            missingPackLanguage = nil
+            return
+        }
+        let pack = await translator.availability(from: word.learningLanguage, to: language)
+        missingPackLanguage = pack == .installed ? nil : language
+    }
+
+    private static let unavailableExplanation: LocalizedStringKey =
+        "Apple Intelligence isn't available on this device. Fill in the card by hand."
+
+    private func progressRow(_ text: Text) -> some View {
+        HStack {
+            ProgressView()
+                .controlSize(.small)
+            text
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("wordCard.status")
     }
 
     private func headwordMessage(for rejection: WordCardModel.HeadwordRejection) -> Text {
@@ -89,11 +212,22 @@ struct WordCardView: View {
         }
     }
 
+    /// After a fill that found nothing (A1) the description says so; otherwise the plain 1.6 empty state.
     private var emptyState: some View {
-        ContentUnavailableView("No senses yet", systemImage: "text.book.closed")
-            .accessibilityIdentifier("wordCard.emptyState")
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
+        Group {
+            if word.autofillState == .ready {
+                ContentUnavailableView(
+                    "No senses yet",
+                    systemImage: "text.book.closed",
+                    description: Text("Nothing was found for this word. Add a sense by hand.")
+                )
+            } else {
+                ContentUnavailableView("No senses yet", systemImage: "text.book.closed")
+            }
+        }
+        .accessibilityIdentifier("wordCard.emptyState")
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
 
     private var failureTitle: Text {
@@ -127,166 +261,6 @@ struct WordCardView: View {
     }
 }
 
-/// One sense: the part-of-speech picker, source badge and actions menu in the header; the four fields,
-/// the examples in order and the "Add example" row below.
-private struct SenseSection: View {
-    let model: WordCardModel
-    let sense: Sense
-    /// 0-based position in display order; part of the accessibility identifiers.
-    let index: Int
-    let count: Int
-
-    var body: some View {
-        Section {
-            CommittingTextField(Text("Definition"), value: sense.definition, axis: .vertical) { text in
-                model.setDefinition(text, for: sense)
-            }
-            .accessibilityIdentifier(identifier("definition"))
-            CommittingTextField(Text("Translation"), value: sense.translation ?? "", axis: .vertical) { text in
-                model.setTranslation(text, for: sense)
-            }
-            .accessibilityIdentifier(identifier("translation"))
-            CommittingTextField(Text("Synonyms, separated by commas"), value: joined(sense.synonyms)) { text in
-                model.setSynonyms(text, for: sense)
-            }
-            .accessibilityIdentifier(identifier("synonyms"))
-            CommittingTextField(Text("Antonyms, separated by commas"), value: joined(sense.antonyms)) { text in
-                model.setAntonyms(text, for: sense)
-            }
-            .accessibilityIdentifier(identifier("antonyms"))
-            ForEach(Array(sense.sortedExamples.enumerated()), id: \.element.id) { position, example in
-                exampleRow(example, position: position)
-            }
-            .onDelete(perform: removeExamples)
-            .onMove { source, destination in
-                model.moveExamples(in: sense, fromOffsets: source, toOffset: destination)
-            }
-            Button("Add example", systemImage: "plus") {
-                model.addExample(to: sense)
-            }
-            .accessibilityIdentifier(identifier("addExample"))
-        } header: {
-            header
-        }
-    }
-
-    /// Picker, badge and menu on one line; at accessibility sizes, where that no longer fits, the
-    /// picker takes its own line so no label wraps mid-word.
-    private var header: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack {
-                partOfSpeechPicker
-                sourceBadge
-                Spacer()
-                actionsMenu
-            }
-            VStack(alignment: .leading) {
-                partOfSpeechPicker
-                HStack {
-                    sourceBadge
-                    Spacer()
-                    actionsMenu
-                }
-            }
-        }
-        .textCase(nil)
-    }
-
-    private var partOfSpeechPicker: some View {
-        Picker("Part of speech", selection: partOfSpeech) {
-            ForEach(PartOfSpeech.allCases, id: \.self) { partOfSpeech in
-                Text(partOfSpeech.displayName)
-            }
-        }
-        .pickerStyle(.menu)
-        .labelsHidden()
-        .fixedSize()
-        .accessibilityIdentifier(identifier("partOfSpeech"))
-    }
-
-    @ViewBuilder
-    private var sourceBadge: some View {
-        if let source = sense.senseSource {
-            badge(sourceName(source))
-                .accessibilityIdentifier(identifier("sourceBadge"))
-        }
-    }
-
-    private var actionsMenu: some View {
-        Menu {
-            Button("Move up", systemImage: "arrow.up") {
-                model.moveSenses(fromOffsets: [index], toOffset: index - 1)
-            }
-            .disabled(index == 0)
-            Button("Move down", systemImage: "arrow.down") {
-                model.moveSenses(fromOffsets: [index], toOffset: index + 2)
-            }
-            .disabled(index == count - 1)
-            Button("Remove sense", systemImage: "trash", role: .destructive) {
-                model.removeSense(sense)
-            }
-        } label: {
-            Image(systemName: "ellipsis.circle")
-        }
-        .accessibilityLabel("Sense actions")
-        .accessibilityIdentifier(identifier("menu"))
-    }
-
-    private func exampleRow(_ example: Example, position: Int) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            CommittingTextField(Text("Example sentence"), value: example.text, axis: .vertical) { text in
-                model.setExampleText(text, for: example)
-            }
-            .accessibilityIdentifier(identifier("example.\(position).text"))
-            if let topic = example.grammarTopic.flatMap(GrammarCatalog.english.topic(for:)) {
-                badge(Text(verbatim: topic.name))
-                    .accessibilityIdentifier(identifier("example.\(position).topicBadge"))
-            }
-        }
-    }
-
-    /// The part of speech goes through the model like every other edit; the binding never writes to
-    /// the sense itself.
-    private var partOfSpeech: Binding<PartOfSpeech> {
-        Binding(
-            get: { sense.partOfSpeech },
-            set: { model.setPartOfSpeech($0, for: sense) }
-        )
-    }
-
-    private func sourceName(_ source: SenseSource) -> Text {
-        switch source {
-        case .wordnet:
-            Text("WordNet")
-        case .model:
-            Text("Model")
-        }
-    }
-
-    private func badge(_ text: Text) -> some View {
-        text
-            .font(.caption)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2)
-            .background(.quaternary, in: Capsule())
-    }
-
-    private func removeExamples(at offsets: IndexSet) {
-        let examples = sense.sortedExamples
-        for example in offsets.compactMap({ examples.indices.contains($0) ? examples[$0] : nil }) {
-            model.removeExample(example)
-        }
-    }
-
-    private func joined(_ list: [String]) -> String {
-        list.joined(separator: ", ")
-    }
-
-    private func identifier(_ element: String) -> String {
-        "wordCard.sense.\(index).\(element)"
-    }
-}
-
 /// A card over an in-memory store with one inserted and saved word, so the preview reads real
 /// relationships: two senses, one with a WordNet badge, a translation, synonyms and a topic example.
 @MainActor
@@ -312,8 +286,14 @@ private func previewCard() -> WordCardView? {
     ]
     let verb = Sense(partOfSpeech: .verb, definition: "To reserve a seat, room or table.", order: 1)
     word.senses = [noun, verb]
+    word.autofillState = .ready
     try? store.save(word)
-    return WordCardView(word: word, store: store)
+    return WordCardView(
+        word: word,
+        store: store,
+        autofill: AutofillService(store: store, generator: StubCardGenerator()),
+        translator: StubTranslator()
+    )
 }
 
 #Preview {

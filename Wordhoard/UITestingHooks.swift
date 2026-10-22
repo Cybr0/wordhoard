@@ -27,7 +27,8 @@ struct UITestingHooks: Sendable {
     }
 
     #if DEBUG
-        private static func value(after flag: String, in arguments: [String]) -> String? {
+        /// The argument following `flag`, or `nil`. Shared with `LaunchOptions`.
+        static func value(after flag: String, in arguments: [String]) -> String? {
             guard let index = arguments.firstIndex(of: flag), arguments.indices.contains(index + 1) else {
                 return nil
             }

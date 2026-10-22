@@ -197,6 +197,9 @@ public struct ExportSense: Codable, Equatable, Sendable {
     public var gloss: String?
     public var definition: String
     public var translation: String?
+    /// Written as the optional key `translationIsFallback` only when `true`; a missing key reads as
+    /// `false` (plan 2.10), so files from before the field and files without fallbacks are unchanged.
+    public var translationIsFallback: Bool
     public var synonyms: [String]
     public var antonyms: [String]
     /// Only the keys present; a missing key means `.auto`, as in `Sense.fieldSource(for:)`.
@@ -212,6 +215,7 @@ public struct ExportSense: Codable, Equatable, Sendable {
         gloss: String?,
         definition: String,
         translation: String?,
+        translationIsFallback: Bool = false,
         synonyms: [String],
         antonyms: [String],
         fieldSources: [String: FieldSource],
@@ -224,10 +228,34 @@ public struct ExportSense: Codable, Equatable, Sendable {
         self.gloss = gloss
         self.definition = definition
         self.translation = translation
+        self.translationIsFallback = translationIsFallback
         self.synonyms = synonyms
         self.antonyms = antonyms
         self.fieldSources = fieldSources
         self.examples = examples
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, order, partOfSpeech, senseSource, gloss, definition, translation, translationIsFallback
+        case synonyms, antonyms, fieldSources, examples
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(order, forKey: .order)
+        try container.encode(partOfSpeech, forKey: .partOfSpeech)
+        try container.encodeIfPresent(senseSource, forKey: .senseSource)
+        try container.encodeIfPresent(gloss, forKey: .gloss)
+        try container.encode(definition, forKey: .definition)
+        try container.encodeIfPresent(translation, forKey: .translation)
+        if translationIsFallback {
+            try container.encode(true, forKey: .translationIsFallback)
+        }
+        try container.encode(synonyms, forKey: .synonyms)
+        try container.encode(antonyms, forKey: .antonyms)
+        try container.encode(fieldSources, forKey: .fieldSources)
+        try container.encode(examples, forKey: .examples)
     }
 
     public init(from decoder: any Decoder) throws {
@@ -239,6 +267,7 @@ public struct ExportSense: Codable, Equatable, Sendable {
         gloss = try container.decodeIfPresent(String.self, forKey: .gloss)
         definition = try container.decode(String.self, forKey: .definition)
         translation = try container.decodeIfPresent(String.self, forKey: .translation)
+        translationIsFallback = try container.decodeIfPresent(Bool.self, forKey: .translationIsFallback) ?? false
         synonyms = try container.decode([String].self, forKey: .synonyms)
         antonyms = try container.decode([String].self, forKey: .antonyms)
         fieldSources = try container.decode([String: String].self, forKey: .fieldSources).mapValues { raw in

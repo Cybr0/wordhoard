@@ -15,10 +15,14 @@ public enum Exporter {
 
     /// The hoard as a document: words `createdAt` ascending then `id`, tags by `name` then `id`,
     /// senses and examples in `order`, `tagIDs` sorted.
+    ///
+    /// `createdAt` is compared at the file's millisecond precision, so two words created within the
+    /// same millisecond are ordered by `id` on both sides of a restore and the re-export is identical.
     public static func document(from store: WordStore, exportedAt: Date, appVersion: String) throws -> ExportDocument {
         let settings = try store.settings()
         let words = try store.words().sorted {
-            ($0.createdAt, $0.id.uuidString) < ($1.createdAt, $1.id.uuidString)
+            (ExportDocument.roundedToMillisecond($0.createdAt), $0.id.uuidString)
+                < (ExportDocument.roundedToMillisecond($1.createdAt), $1.id.uuidString)
         }
 
         var tagsByID: [UUID: Tag] = [:]
@@ -72,6 +76,7 @@ public enum Exporter {
             gloss: sense.gloss,
             definition: sense.definition,
             translation: sense.translation,
+            translationIsFallback: sense.translationIsFallback,
             synonyms: sense.synonyms,
             antonyms: sense.antonyms,
             fieldSources: sense.fieldSources,
