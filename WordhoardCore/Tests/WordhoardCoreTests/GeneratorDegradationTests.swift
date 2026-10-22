@@ -36,7 +36,7 @@ struct GeneratorDegradationTests {
             .definitionRefused(senseIndex: 2),
             .exampleRefused(senseIndex: 0, topic: nil),
         ])
-        #expect(card.senses[2].translation == "ru:\(card.senses[2].gloss ?? "")", "the gloss is what gets translated")
+        #expect(card.senses[2].translation == "ru:book", "a refused definition does not stop the translation")
         #expect(calls.calls(.writeDefinition).count == 4)
         #expect(calls.calls(.writeExample).count == 4, "a refusal never stops the remaining calls")
     }
@@ -81,13 +81,16 @@ struct GeneratorDegradationTests {
 
     @Test("a partial translation map leaves only the missing senses untranslated")
     func aPartialTranslationLeavesTheRestUntranslated() async throws {
+        // The back-translation answers nothing, so every proposal falls back; the definition batch
+        // answers only the *reserve* definition.
         let partial = PartialTranslator(answering: "def:\(GeneratorFixtures.reserveGloss)", with: "бронировать")
         let card = try await FoundationModelsCardGenerator(
             calls: ScriptedModelCalls(), lookup: .shared, translator: partial
         ).generateCard(makeRequest("book"))
         #expect(card.senses[3].translation == "бронировать")
-        #expect(card.senses[0 ..< 3].allSatisfy { $0.translation == nil })
-        #expect(card.notes.isEmpty)
+        #expect(card.senses[3].translationIsFallback)
+        #expect(card.senses[0 ..< 3].allSatisfy { $0.translation == nil && !$0.translationIsFallback })
+        #expect(card.notes == [.translationFallback(senseIndex: 3, rejectedProposal: "ru:book")])
     }
 
     // MARK: - Topic examples

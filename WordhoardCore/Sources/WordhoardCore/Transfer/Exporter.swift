@@ -76,6 +76,7 @@ public enum Exporter {
             gloss: sense.gloss,
             definition: sense.definition,
             translation: sense.translation,
+            translationIsFallback: sense.translationIsFallback,
             synonyms: sense.synonyms,
             antonyms: sense.antonyms,
             fieldSources: sense.fieldSources,

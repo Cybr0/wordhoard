@@ -230,6 +230,6 @@ struct CardGeneratorTests {
         var copy = card
         copy.senses[0].definition = "changed"
         #expect(copy != card, "value semantics: a copy is independent")
-        #expect(StubFixtures.cards.keys.sorted() == ["asdfgh", "book", "despite", "gaslight", "however"])
+        #expect(StubFixtures.cards.keys.sorted() == ["asdfgh", "book", "despite", "gaslight", "however", "look up"])
     }
 }

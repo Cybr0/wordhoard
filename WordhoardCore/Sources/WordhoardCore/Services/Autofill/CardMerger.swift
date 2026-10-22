@@ -13,7 +13,8 @@ import Foundation
 ///   modified. Unmatched generated senses are appended after the last existing one; unmatched existing
 ///   senses are kept (regeneration never deletes). A matched sense's part of speech is never changed.
 /// - **Fields.** A `.user` field is untouched. An `.auto` field is overwritten only by a non-empty
-///   generated value: regeneration fills, it never empties. No provenance mark is ever written here
+///   generated value: regeneration fills, it never empties. `translationIsFallback` travels with
+///   `translation` under the same guard (plan 2.10). No provenance mark is ever written here
 ///   (absence means `.auto`).
 /// - **Examples.** An `.auto` example in the same topic slot (`grammarTopic`; `nil` is neutral) has its
 ///   text replaced in place, so applying twice never doubles the examples. Otherwise the generated
@@ -103,6 +104,7 @@ public enum CardMerger {
             senseSource: generated.senseSource,
             gloss: generated.gloss,
             translation: generated.translation,
+            translationIsFallback: generated.translation != nil && generated.translationIsFallback,
             synonyms: generated.synonyms,
             antonyms: generated.antonyms
         )
@@ -119,6 +121,7 @@ public enum CardMerger {
         }
         if isFillable(sense, .translation), let translation = generated.translation, !isBlank(translation) {
             assign(sense, \.translation, translation)
+            assign(sense, \.translationIsFallback, generated.translationIsFallback)
         }
         if isFillable(sense, .synonyms), !generated.synonyms.isEmpty {
             assign(sense, \.synonyms, generated.synonyms)

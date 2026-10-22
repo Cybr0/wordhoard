@@ -100,6 +100,7 @@ struct HoardSnapshot: Equatable {
         var gloss: String?
         var definition: String
         var translation: String?
+        var translationIsFallback: Bool
         var synonyms: [String]
         var antonyms: [String]
         var fieldSources: [String: FieldSource]
@@ -148,6 +149,7 @@ struct HoardSnapshot: Equatable {
                             gloss: sense.gloss,
                             definition: sense.definition,
                             translation: sense.translation,
+                            translationIsFallback: sense.translationIsFallback,
                             synonyms: sense.synonyms,
                             antonyms: sense.antonyms,
                             fieldSources: sense.fieldSources,

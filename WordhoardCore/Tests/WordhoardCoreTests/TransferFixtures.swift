@@ -70,6 +70,8 @@ enum TransferFixture {
             partOfSpeech: .verb,
             definition: "to reserve",
             order: 1,
+            translation: "заранее заказать место",
+            translationIsFallback: true,
             synonyms: ["reserve"],
             antonyms: ["cancel"]
         )

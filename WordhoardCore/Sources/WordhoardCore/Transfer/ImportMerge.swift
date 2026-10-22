@@ -205,6 +205,7 @@ struct ImportMerge {
                     senseSource: file.senseSource,
                     gloss: file.gloss,
                     translation: file.translation,
+                    translationIsFallback: file.translationIsFallback,
                     synonyms: file.synonyms,
                     antonyms: file.antonyms,
                     fieldSources: file.fieldSources
@@ -229,6 +230,7 @@ struct ImportMerge {
             assign(sense, \.gloss, file.gloss),
             assign(sense, \.definition, file.definition),
             assign(sense, \.translation, file.translation),
+            assign(sense, \.translationIsFallback, file.translationIsFallback),
             assign(sense, \.synonyms, file.synonyms),
             assign(sense, \.antonyms, file.antonyms),
             assign(sense, \.fieldSources, file.fieldSources),
@@ -282,7 +284,11 @@ struct ImportMerge {
         root[keyPath: keyPath] = value
         return true
     }
+}
 
+// MARK: - Date comparison
+
+extension ImportMerge {
     /// Dates are compared to 1 ms, the precision of the file, so a store value that round-tripped through
     /// an export is not rewritten.
     private func assignDate<Root: AnyObject>(

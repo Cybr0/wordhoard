@@ -13,6 +13,7 @@ public enum StubFixtures {
         "asdfgh": asdfgh,
         "gaslight": gaslight,
         "despite": despite,
+        "look up": lookUp,
     ]
 
     /// The default fallback for a headword with no fixture: one WordNet noun sense built around
@@ -60,6 +61,27 @@ public enum StubFixtures {
                 neutralExample: GeneratedExample(text: "We booked a table for eight o'clock.", grammarTopic: nil)
             ),
         ]
+    )
+
+    /// Plan 2.10: the proposed equivalent was rejected, so the translation is the framework's
+    /// translation of the definition and is flagged; the card captions it.
+    public static let lookUp = GeneratedCard(
+        headword: "look up",
+        path: .wordnet,
+        senses: [
+            GeneratedSense(
+                partOfSpeech: .verb,
+                senseSource: .wordnet,
+                gloss: "seek information from",
+                definition: "to search for information in a book or on a computer",
+                translation: "искать информацию в книге или на компьютере",
+                translationIsFallback: true,
+                synonyms: ["consult", "refer"],
+                antonyms: [],
+                neutralExample: GeneratedExample(text: "I looked up the word in a dictionary.", grammarTopic: nil)
+            ),
+        ],
+        notes: [.translationFallback(senseIndex: 0, rejectedProposal: "посмотреть вверх")]
     )
 
     /// A stoplist word: one model sense, no gloss.

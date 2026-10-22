@@ -11,7 +11,7 @@ import os
 /// model-only senses call can fail the card. Every example is checked for the headword and retried
 /// once (2.9). Example calls (neutral and topic) run up to `maxConcurrentExampleCalls` at a time, one
 /// fresh session each (plan 2.8); every other call is serial. The stages live in sibling extension
-/// files: `+Senses` (inventory), `+Examples` (both example stages).
+/// files: `+Senses` (inventory), `+Examples` (both example stages), `+Translation` (plan 2.10).
 public final class FoundationModelsCardGenerator: CardGenerator {
     static let logger = Logger(subsystem: "Wordhoard", category: "autofill")
     /// The learning language, the source of every translation (requirements §1: English only in v1).
@@ -64,8 +64,8 @@ public final class FoundationModelsCardGenerator: CardGenerator {
             return card
         }
 
-        try await translate(&card, into: request.nativeLanguage)
         try await writeNeutralExamples(&card)
+        try await translate(&card, into: request.nativeLanguage)
         Self.logger.info(
             """
             card via \(card.path.rawValue, privacy: .public): \(card.senses.count, privacy: .public) senses, \
@@ -98,32 +98,6 @@ public final class FoundationModelsCardGenerator: CardGenerator {
     func checkAvailability() async throws {
         if case let .unavailable(reason) = await calls.availability() {
             throw CardGeneratorError.unavailable(reason)
-        }
-    }
-
-    // MARK: - Step 5: translation
-
-    /// One batch per word with every sense's definition (plan 2.10 changes the shape). No native
-    /// language → nothing. Pack missing or batch failed → every translation nil plus one note.
-    private func translate(_ card: inout GeneratedCard, into nativeLanguage: String?) async throws {
-        guard let nativeLanguage else { return }
-        try Task.checkCancellation()
-        let source = Self.learningLanguage
-        guard await translator.availability(from: source, to: nativeLanguage) == .installed else {
-            card.notes.append(.translationUnavailable(language: nativeLanguage))
-            Self.logger.notice("\(source, privacy: .public)→\(nativeLanguage, privacy: .public) pack not installed")
-            return
-        }
-        do {
-            let translations = try await translator.translate(
-                card.senses.map(\.definition), from: source, to: nativeLanguage
-            )
-            for index in card.senses.indices {
-                card.senses[index].translation = translations[card.senses[index].definition]
-            }
-        } catch let error as TranslatorError {
-            card.notes.append(.translationUnavailable(language: nativeLanguage))
-            Self.logger.notice("translation batch failed: \(String(describing: error), privacy: .public)")
         }
     }
 

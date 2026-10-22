@@ -104,6 +104,13 @@ struct WordRecord: Codable, Sendable {
     let translationSeconds: Double?
     let translationCalls: Int
     let translationStrings: Int
+    /// Plan 2.10: senses whose proposed equivalent the back-translation confirmed, rejected, and that
+    /// show the translated definition instead (rejected + refused/failed proposals).
+    let translationAccepted: Int
+    let translationRejected: Int
+    let translationFallback: Int
+    /// The rejected proposals verbatim, "sense n: text".
+    let rejectedProposals: [String]
     let firstCardSeconds: Double?
     let fullCardSeconds: Double?
     let wallSeconds: Double
@@ -131,7 +138,7 @@ struct CallFailure: Sendable {
         case .senseSelectionFellBack:
             label = "select senses: refused, failed or unusable, 2-per-part-of-speech fallback"
             isRefusal = false
-        case .translationUnavailable:
+        case .translationUnavailable, .translationFallback:
             return nil
         }
     }
@@ -479,6 +486,14 @@ final class RegressionRunnerTests: XCTestCase {
             return nil
         }.first
         let translated = card.map { !$0.senses.isEmpty && translationNote == nil } ?? false
+        let generatedSenses = card?.senses ?? []
+        let rejectedProposals = notes.compactMap { note -> String? in
+            if case let .translationFallback(senseIndex, proposal?) = note {
+                return "sense \(senseIndex + 1): \(proposal)"
+            }
+            return nil
+        }
+        let fallbackCount = generatedSenses.count { $0.translation != nil && $0.translationIsFallback }
         // The generator does not expose a call count; this is the number of model calls its pipeline
         // makes for what it returned (the verify calls of a model-only word are counted as one per kept sense).
         let callCount: Int
@@ -515,8 +530,12 @@ final class RegressionRunnerTests: XCTestCase {
             lookupSeconds: nil,
             sensesSeconds: nil,
             translationSeconds: nil,
-            translationCalls: translated ? 1 : 0,
-            translationStrings: translated ? senses.count : 0,
+            translationCalls: translated ? (fallbackCount > 0 ? 2 : 1) : 0,
+            translationStrings: translated ? senses.count + fallbackCount : 0,
+            translationAccepted: generatedSenses.count { $0.translation != nil && !$0.translationIsFallback },
+            translationRejected: rejectedProposals.count,
+            translationFallback: fallbackCount,
+            rejectedProposals: rejectedProposals,
             firstCardSeconds: firstCard?.seconds,
             fullCardSeconds: fullCardSeconds,
             wallSeconds: wall.seconds,
@@ -758,6 +777,10 @@ enum ReportWriter {
             if !word.refusals.isEmpty { out.append("- **Refusals:** \(word.refusals.joined(separator: " · "))") }
             if !word.failures.isEmpty { out.append("- **Failed calls:** \(word.failures.joined(separator: " · "))") }
             out.append("- Calls: \(word.callCount) · lookup \(seconds(word.lookupSeconds)) · senses \(seconds(word.sensesSeconds)) · translation \(seconds(word.translationSeconds)) (\(word.translationCalls) call\(word.translationCalls == 1 ? "" : "s"), \(word.translationStrings) strings) · first card \(seconds(word.firstCardSeconds)) · full card \(seconds(word.fullCardSeconds)) · wall \(seconds(word.wallSeconds))")
+            out.append("- Translation (2.10): \(word.translationAccepted) accepted · \(word.translationRejected) rejected · \(word.translationFallback) from the definition")
+            for proposal in word.rejectedProposals {
+                out.append("  - rejected proposal: \(proposal)")
+            }
             for (index, sense) in word.senses.enumerated() {
                 out.append("- Sense \(index + 1) — \(sense.partOfSpeech) [\(sense.source)]")
                 if let gloss = sense.gloss { out.append("  - gloss: \(gloss)") }

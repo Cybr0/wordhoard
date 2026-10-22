@@ -24,6 +24,10 @@ public protocol ModelCalls: Sendable {
     /// WordNet path: the learner definition for one WordNet sense, written from gloss + synonyms + example.
     func writeDefinition(headword: String, sense: WordNetSense) async throws -> String
 
+    /// A 1–3-word equivalent of one sense in `nativeLanguage` (BCP-47), plan 2.10. Never shown as is:
+    /// the generator keeps it only when the framework's back-translation confirms it (A9).
+    func proposeTranslation(headword: String, sense: GeneratedSense, nativeLanguage: String) async throws -> String
+
     /// One example sentence for one sense; `topic == nil` is the neutral example. `mustContainHeadword`
     /// is the generator's one retry after the first sentence lacked the headword (2.9).
     func writeExample(

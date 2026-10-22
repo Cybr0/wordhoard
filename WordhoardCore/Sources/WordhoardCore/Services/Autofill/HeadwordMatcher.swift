@@ -35,6 +35,42 @@ public enum HeadwordMatcher {
         return true
     }
 
+    /// The stricter match for back-translations (plan 2.10): `true` when every word of `headword` is a
+    /// token of `text` itself, a regular inflection of it (`-s`, `-es`, `-ed`, `-d`, `-ing`, after the
+    /// stem rules or with the last letter doubled), a listed irregular form, or the English lemma of a
+    /// token. No bare prefix: *upward* is not *up*, so "to look upward" does not confirm *look up*.
+    public static func containsLemma(of headword: String, in text: String) -> Bool {
+        let parts = tokens(headword)
+        let textTokens = Set(tokens(text))
+        guard !parts.isEmpty, !textTokens.isEmpty else { return false }
+        var lemmas: Set<String>?
+        for part in parts {
+            if !textTokens.isDisjoint(with: inflections(of: part)) {
+                continue
+            }
+            if lemmas == nil {
+                lemmas = Self.lemmas(of: text)
+            }
+            guard lemmas?.contains(part) == true else { return false }
+        }
+        return true
+    }
+
+    /// `word`, its regular inflections and its listed irregular forms.
+    static func inflections(of word: String) -> Set<String> {
+        var forms: Set<String> = irregularForms[word] ?? []
+        for stem in stems(of: word) {
+            for suffix in ["", "s", "es", "ed", "d", "ing"] {
+                forms.insert(stem + suffix)
+            }
+        }
+        if let last = word.last, !"aeiouy".contains(last) {
+            forms.insert(word + String(last) + "ed")
+            forms.insert(word + String(last) + "ing")
+        }
+        return forms
+    }
+
     /// Lowercased, NFC-composed tokens of letters, digits and apostrophes; punctuation splits.
     static func tokens(_ text: String) -> [String] {
         text.precomposedStringWithCanonicalMapping

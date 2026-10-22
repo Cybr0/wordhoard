@@ -13,6 +13,9 @@ public final class Sense {
     public var gloss: String?
     public var definition: String = ""
     public var translation: String?
+    /// `true` when `translation` is the framework's translation of the definition, not a verified
+    /// 1–3-word equivalent (A9, plan 2.10); the card captions it. Cleared by any edit of the field.
+    public var translationIsFallback: Bool = false
     public var synonyms: [String] = []
     public var antonyms: [String] = []
     /// Field name (`SenseField` raw value) → provenance. A missing key means `.auto` (A4).
@@ -30,6 +33,7 @@ public final class Sense {
         senseSource: SenseSource? = nil,
         gloss: String? = nil,
         translation: String? = nil,
+        translationIsFallback: Bool = false,
         synonyms: [String] = [],
         antonyms: [String] = [],
         fieldSources: [String: FieldSource] = [:]
@@ -40,6 +44,7 @@ public final class Sense {
         self.senseSource = senseSource
         self.gloss = gloss
         self.translation = translation
+        self.translationIsFallback = translationIsFallback
         self.synonyms = synonyms
         self.antonyms = antonyms
         self.fieldSources = fieldSources
