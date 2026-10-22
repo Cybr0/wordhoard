@@ -2,8 +2,9 @@ import SwiftUI
 import WordhoardCore
 
 /// "Topics I'm learning" (G2, S2; plan 3.1 to #45's spec): one section per catalog group, a checkmark on
-/// every active topic, a "Default" caption on the catalog's default set, "Reset to default" in the
-/// toolbar. Every write goes through `SettingsModel`. Has no navigation stack of its own: the list's
+/// every active topic, a "Default" caption on the catalog's default set, "Reset to default" in a last
+/// section of its own (not the toolbar, where it truncated the title at large sizes, plan 6.1). Every
+/// write goes through `SettingsModel`. Has no navigation stack of its own: the list's
 /// stack pushes it now, the Settings sheet's stack in 5.3.
 struct GrammarTopicsView: View {
     @State private var model: SettingsModel
@@ -32,17 +33,17 @@ struct GrammarTopicsView: View {
                     }
                 }
             }
+            if !model.catalog.topics.isEmpty {
+                Section {
+                    Button("Reset to default") {
+                        model.resetTopicsToDefault()
+                    }
+                    .accessibilityIdentifier("settings.topics.reset")
+                }
+            }
         }
         .navigationTitle("Topics I'm learning")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Reset to default") {
-                    model.resetTopicsToDefault()
-                }
-                .accessibilityIdentifier("settings.topics.reset")
-            }
-        }
         .alert(failureTitle, isPresented: isFailurePresented) {
             Button("OK", role: .cancel) {}
         }
