@@ -108,6 +108,27 @@ struct TranslationProposalTests {
         #expect(noPack.notes == [.translationUnavailable(language: "ru")])
     }
 
+    @Test("a proposal mixing writing systems is rejected even when its back-translation names the headword")
+    func mixedScriptProposalsAreRejected() async throws {
+        // Seen on the host model for *book* (reserve): "заबुक", back-translated by the framework to "book".
+        let calls = ScriptedModelCalls(script: .init(proposeTranslation: { _, sense, _ in
+            sense.gloss == Self.reserveGloss ? "заबुक" : "книга"
+        }))
+        let translator = StubTranslator(table: ["заबुक": "book", "книга": "book"])
+        let card = try await makeGenerator(calls, translator: translator).generateCard(makeRequest("book"))
+        #expect(card.senses[3].translationIsFallback)
+        #expect(card.senses[3].translation == "ru:\(card.senses[3].definition)")
+        #expect(card.notes == [.translationFallback(senseIndex: 3, rejectedProposal: "заबुक")])
+        #expect(card.senses[0 ..< 3].allSatisfy { $0.translation == "книга" })
+
+        for single in ["книга", "забронировать место", "set up", "取る", "예약하다", "réserver"] {
+            #expect(FoundationModelsCardGenerator.isSingleScript(single), "\(single)")
+        }
+        for mixed in ["заबुक", "за reservar", "один 점", "bookать"] {
+            #expect(!FoundationModelsCardGenerator.isSingleScript(mixed), "\(mixed)")
+        }
+    }
+
     @Test("the back-translation check is by lemma: inflections and synonyms count, a longer word does not")
     func backTranslationMatchingIsByLemma() {
         #expect(HeadwordMatcher.containsLemma(of: "book", in: "book"))

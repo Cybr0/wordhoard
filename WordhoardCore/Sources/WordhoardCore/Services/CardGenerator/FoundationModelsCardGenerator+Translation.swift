@@ -8,8 +8,8 @@ import Foundation
 ///    `.translationUnavailable`: nothing could be verified, and unverified model text is never shown.
 /// 2. One `proposeTranslation` call per sense, serial: a 1–3-word equivalent.
 /// 3. **One** back-translation batch (native → English) of every proposal. A proposal is accepted when
-///    the English contains the headword or one of that sense's synonyms by lemma
-///    (`HeadwordMatcher.containsLemma`).
+///    it is written in one script and the English contains the headword or one of that sense's
+///    synonyms by lemma (`HeadwordMatcher.containsLemma`).
 /// 4. **One** second batch translates the definitions of every sense without an accepted proposal
 ///    (rejected, refused or failed) → `translationIsFallback = true`, `.translationFallback`.
 ///
@@ -72,7 +72,8 @@ extension FoundationModelsCardGenerator {
             return nil
         }
         return proposals.filter { index, proposal in
-            back[proposal].map { english in
+            guard Self.isSingleScript(proposal) else { return false }
+            return back[proposal].map { english in
                 Self.confirms(english, headword: card.headword, synonyms: card.senses[index].synonyms)
             } ?? false
         }
@@ -121,6 +122,38 @@ extension FoundationModelsCardGenerator {
         }
         return proposals
     }
+
+    /// Whether every letter of `text` belongs to one writing system. The host model was seen writing
+    /// "заबुक" and "один 점" for Russian, and the framework back-translated the first to *book*; a
+    /// mixed-script proposal is never a dictionary equivalent, so it is rejected before the lemma check.
+    /// Coarse blocks: Latin, Greek, Cyrillic, Armenian, Hebrew, Arabic, Devanagari, Thai, Georgian,
+    /// Hangul, and Han with kana as one (Japanese mixes them); any other letter by its 128-code block.
+    public static func isSingleScript(_ text: String) -> Bool {
+        var scripts: Set<Int> = []
+        for scalar in text.unicodeScalars where scalar.properties.isAlphabetic {
+            scripts.insert(scriptBlock(scalar.value))
+        }
+        return scripts.count <= 1
+    }
+
+    private static func scriptBlock(_ value: UInt32) -> Int {
+        scriptRanges.first { $0.range.contains(value) }?.script ?? 100 + Int(value >> 7)
+    }
+
+    /// Letter ranges → coarse script id; Han and kana share one.
+    private static let scriptRanges: [(range: ClosedRange<UInt32>, script: Int)] = [
+        (0x0041 ... 0x024F, 1), (0x1E00 ... 0x1EFF, 1), // Latin
+        (0x0370 ... 0x03FF, 2), (0x1F00 ... 0x1FFF, 2), // Greek
+        (0x0400 ... 0x052F, 3), (0x2DE0 ... 0x2DFF, 3), (0xA640 ... 0xA69F, 3), // Cyrillic
+        (0x0530 ... 0x058F, 4), // Armenian
+        (0x0590 ... 0x05FF, 5), // Hebrew
+        (0x0600 ... 0x06FF, 6), (0x0750 ... 0x077F, 6), // Arabic
+        (0x0900 ... 0x097F, 7), // Devanagari
+        (0x0E00 ... 0x0E7F, 8), // Thai
+        (0x10A0 ... 0x10FF, 9), // Georgian
+        (0x1100 ... 0x11FF, 10), (0x3130 ... 0x318F, 10), (0xAC00 ... 0xD7AF, 10), // Hangul
+        (0x3040 ... 0x30FF, 11), (0x3400 ... 0x4DBF, 11), (0x4E00 ... 0x9FFF, 11), (0xF900 ... 0xFAFF, 11),
+    ]
 
     /// Whether the English back-translation names the headword or a synonym of the sense, by lemma.
     static func confirms(_ backTranslation: String, headword: String, synonyms: [String]) -> Bool {
