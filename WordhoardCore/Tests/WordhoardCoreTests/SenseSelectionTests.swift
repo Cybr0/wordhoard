@@ -118,18 +118,21 @@ struct SenseSelectionTests {
         }
 
         let (picked, pickedCalls) = try await card { [7, 0, 2] }
-        #expect(Self.glosses(picked) == ["noun gloss 1", "noun gloss 2", "verb gloss 4"])
+        #expect(Self.glosses(picked) == ["noun gloss 1", "noun gloss 2", "engage for a performance", "verb gloss 4"])
         #expect(picked.notes.isEmpty)
         #expect(pickedCalls.calls(.selectSenses).count == 1)
         #expect(pickedCalls.calls.first?.method == .selectSenses, "selection precedes every definition")
-        #expect(pickedCalls.calls(.writeDefinition).count == 3, "definitions only for the picked senses")
+        #expect(pickedCalls.calls(.writeDefinition).count == 4, "definitions only for the selected senses")
         if case let .some(.selectSenses(headword, candidates)) = pickedCalls.calls.first {
             #expect(headword == "book")
             #expect(candidates.count == 10)
         }
 
         let (twoNouns, _) = try await card { [0, 2] }
-        #expect(Self.glosses(twoNouns) == ["noun gloss 1", "noun gloss 2", "engage for a performance"])
+        #expect(
+            Self.glosses(twoNouns) == ["noun gloss 1", "noun gloss 2", "engage for a performance", Self.reserveGloss],
+            "two nouns → a verb is added for coverage, then *reserve* fills the last slot"
+        )
         #expect(twoNouns.notes.isEmpty)
 
         let (fourNouns, _) = try await card { [0, 2, 4, 6] }
@@ -142,7 +145,13 @@ struct SenseSelectionTests {
         #expect(Self.glosses(five) == ["noun gloss 1", "noun gloss 2", "engage for a performance", Self.reserveGloss])
 
         let (duplicates, _) = try await card { [3, 3, -1, 0] }
-        #expect(Self.glosses(duplicates) == ["noun gloss 1", Self.reserveGloss])
+        #expect(Self.glosses(duplicates) == [
+            "noun gloss 1",
+            "noun gloss 2",
+            "engage for a performance",
+            Self.reserveGloss,
+        ])
+        #expect(duplicates.notes.isEmpty, "partly invalid indices are dropped silently")
 
         let fallback = ["noun gloss 1", "noun gloss 2", "engage for a performance", Self.reserveGloss]
         let unusable: [Answer] = [
@@ -159,7 +168,7 @@ struct SenseSelectionTests {
         }
     }
 
-    @Test("`selection` is pure: out-of-range indices alone give nil, coverage never exceeds four")
+    @Test("`selection` is pure: out-of-range indices alone give nil, coverage and fill never exceed four")
     func selectionPostProcessingIsPure() {
         let senses = [PartOfSpeech.noun, .verb, .adjective, .adverb, .noun, .verb, .adjective, .adverb].enumerated()
             .map {
@@ -172,6 +181,14 @@ struct SenseSelectionTests {
         let fromOne = WordNetLookup.selection([4], from: senses)
         #expect(fromOne?.map(\.gloss) == ["g4", "g1", "g2", "g3"], "rank 1 of each missing part, regrouped")
         #expect(fromOne?.map(\.partOfSpeech) == [.noun, .verb, .adjective, .adverb])
+
+        let nouns = (1 ... 5).map {
+            WordNetSense(partOfSpeech: .noun, gloss: "noun \($0)", synonyms: [], antonyms: [], example: nil)
+        }
+        #expect(
+            WordNetLookup.selection([4], from: nouns)?.map(\.gloss) == ["noun 1", "noun 2", "noun 5"],
+            "a short pick fills from the 2-per-part-of-speech set only, never with noun 3"
+        )
     }
 
     // MARK: - No call

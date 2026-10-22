@@ -142,8 +142,11 @@ public actor WordNetLookup {
     /// are dropped and the model's order kept, then cut to `maxSensesTotal`. Every part of speech
     /// present among the candidates gets at least one sense: a missing one gets its rank-1 candidate,
     /// appended while there is room, otherwise replacing the last pick of a part of speech that has
-    /// more than one. The result is regrouped like `select` (nouns → verbs → adjectives → adverbs,
-    /// rank order within each). `nil` when no index is usable: the caller falls back to `select`.
+    /// more than one. While there are fewer than `maxSensesTotal` picks, the candidates in `select`'s
+    /// fallback set are appended in candidate (round-robin) order, so a short pick is filled with
+    /// real senses of rank ≤ `maxSensesPerPartOfSpeech` only. The result is regrouped like `select`
+    /// (nouns → verbs → adjectives → adverbs, rank order within each). `nil` when no index is usable:
+    /// the caller falls back to `select`.
     public static func selection(_ indices: [Int], from candidates: [WordNetSense]) -> [WordNetSense]? {
         var picks: [Int] = []
         for index in indices where candidates.indices.contains(index) && !picks.contains(index) {
@@ -162,6 +165,13 @@ public actor WordNetLookup {
                 picks.count(where: { candidates[$0].partOfSpeech == candidates[pick].partOfSpeech }) > 1
             }) {
                 picks[spare] = first
+            }
+        }
+
+        let fallback = select(candidates)
+        for index in candidates.indices where picks.count < maxSensesTotal {
+            if !picks.contains(index), fallback.contains(candidates[index]) {
+                picks.append(index)
             }
         }
 
