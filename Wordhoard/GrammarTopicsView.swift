@@ -14,6 +14,11 @@ struct GrammarTopicsView: View {
 
     var body: some View {
         List {
+            if model.catalog.topics.isEmpty {
+                // 6.2: the catalog is bundled, so this is a build defect, never a crash.
+                ContentUnavailableView("Couldn't load the grammar topics.", systemImage: "exclamationmark.triangle")
+                    .accessibilityIdentifier("settings.topics.loadFailure")
+            }
             ForEach(model.catalog.groups, id: \.name) { group in
                 Section {
                     ForEach(group.topics) { topic in

@@ -141,6 +141,8 @@ struct WordCardView: View {
                 .accessibilityIdentifier("wordCard.addSense")
             }
         }
+        // 6.2: a drag dismisses the keyboard; the system keeps the focused field above it.
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private var headwordSection: some View {
@@ -253,10 +255,15 @@ struct WordCardView: View {
     private static let unavailableExplanation: LocalizedStringKey =
         "Apple Intelligence isn't available on this device. Fill in the card by hand."
 
+    /// A spinner with its words beside it (6.2: never a bare spinner); one element for VoiceOver.
     private func progressRow(_ text: Text) -> some View {
         HStack {
-            ProgressView()
-                .controlSize(.small)
+            ProgressView {
+                text
+            }
+            .labelsHidden()
+            .controlSize(.small)
+            .accessibilityHidden(true)
             text
                 .font(.footnote)
                 .foregroundStyle(.secondary)

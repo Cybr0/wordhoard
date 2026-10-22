@@ -43,6 +43,12 @@ final class WordhoardUITests: XCTestCase {
             "the add field should be cleared after adding, was \(String(describing: addField.value))"
         )
 
+        // 6.2 (#32): with the keyboard up, a drag down dismisses it and the search field can be reached.
+        app.swipeDown()
+        XCTAssertTrue(app.searchFields.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.searchFields.firstMatch.isHittable)
+        addField.tap()
+
         // Same word, different case and a trailing space: the existing card opens instead of a new row (C4).
         addField.typeText("Book \n")
         let cardHeadword = app.textFields["wordCard.headword"]

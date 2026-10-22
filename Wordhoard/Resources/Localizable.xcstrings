@@ -104,6 +104,9 @@
     "Couldn't import" : {
 
     },
+    "Couldn't load the grammar topics." : {
+
+    },
     "Couldn't load your settings" : {
 
     },
@@ -297,6 +300,9 @@
 
     },
     "The headword can't be empty." : {
+
+    },
+    "The license text couldn't be loaded." : {
 
     },
     "The word and all its senses will be removed." : {

@@ -49,8 +49,8 @@ struct LaunchOptions: Sendable {
             if arguments.contains("--ui-testing") {
                 options.generator = .stub
                 options.translator = .stub
-                // Deterministic and instant: no real picture API in UI tests unless `--stub-images` asks.
-                options.images = .unavailable
+                // Deterministic: the stubs, never the real picture API, in UI tests.
+                options.images = .image
                 options.skipsOnboarding = !arguments.contains("--ui-testing-onboarding")
             }
             if UITestingHooks.value(after: "--translator", in: arguments) == "unavailable" {

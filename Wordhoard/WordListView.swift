@@ -62,6 +62,8 @@ struct WordListView: View {
                 }
             }
             .searchable(text: $model.query)
+            // 6.2 (#32): a drag dismisses the keyboard, so the search field behind it can be reached.
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Wordhoard")
             .navigationDestination(for: Route.self, destination: destination)
             .toolbar {
@@ -113,9 +115,12 @@ struct WordListView: View {
                 .accessibilityIdentifier("wordList.rowHeadword")
             if word.autofillState == .pending || word.autofillState == .filling {
                 Spacer()
-                ProgressView()
-                    .controlSize(.small)
-                    .accessibilityIdentifier("wordList.rowProgress")
+                ProgressView {
+                    Text("Filling in…")
+                }
+                .labelsHidden()
+                .controlSize(.small)
+                .accessibilityIdentifier("wordList.rowProgress")
             }
         }
     }

@@ -22,6 +22,12 @@ struct AboutView: View {
                         Text("Open English WordNet license")
                     }
                     .accessibilityIdentifier("about.wordNetLicense")
+                } else {
+                    // 6.2: a build defect, never a crash; the credit above still shows.
+                    Text("The license text couldn't be loaded.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("about.wordNetLicenseMissing")
                 }
             }
             Section("License") {

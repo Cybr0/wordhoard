@@ -12,6 +12,8 @@ struct SettingsView: View {
     @State var model: SettingsModel
     @State var isImporterPresented = false
     @State var isReadFailurePresented = false
+    /// Whether pictures can be made on this device; until known, the toggle is enabled.
+    @State private var canGeneratePictures = true
     @Environment(\.dismiss) private var dismiss
     let store: WordStore
     /// Read for the generator's availability (the toggle's notice, 6.2).
@@ -118,11 +120,23 @@ struct SettingsView: View {
     private var imagesSection: some View {
         Section {
             Toggle("Generate images automatically", isOn: autoImages)
+                .disabled(!canGeneratePictures)
                 .accessibilityIdentifier("settings.autoImages")
         } header: {
             Text("Images")
         } footer: {
-            Text("Wordhoard makes a picture for each new word on your iPhone. You can always add a photo yourself.")
+            // 6.2: a persistent condition is the disabled control's footer, never an alert.
+            if canGeneratePictures {
+                Text("Wordhoard makes a picture for each new word on your iPhone. You can always add a photo yourself.")
+            } else {
+                Text("Image Playground isn't available on this iPhone")
+                    .accessibilityIdentifier("settings.imagesUnavailable")
+            }
+        }
+        .task {
+            let writer = await imageQueue.promptWriter.availability
+            let generator = await imageQueue.generator.availability
+            canGeneratePictures = writer == .available && generator == .available
         }
     }
 
