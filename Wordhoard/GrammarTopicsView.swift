@@ -55,7 +55,6 @@ struct GrammarTopicsView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(verbatim: topic.name)
-                        .foregroundStyle(.primary)
                     if model.catalog.defaultActiveKeys.contains(topic.key) {
                         Text("Default")
                             .font(.caption)
@@ -70,6 +69,7 @@ struct GrammarTopicsView: View {
             }
             .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityAddTraits(isActive ? .isSelected : [])
         .accessibilityIdentifier("settings.topics.\(topic.key)")
     }
