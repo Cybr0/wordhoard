@@ -41,4 +41,25 @@ struct WordListModelImportTests {
         #expect(model.importSummary == nil)
         #expect(model.failure == .importing(.notAWordhoardExport))
     }
+
+    @Test("an imported word without senses is filled in right after the import")
+    func importedEmptyWordsAreFilledIn() async throws {
+        let stub = StubCardGenerator()
+        let service = AutofillService(store: store, generator: stub)
+        let model = WordListModel(store: store, autofill: service)
+        let filled = makeWord(
+            headword: "book",
+            senses: [makeSense(order: 0, partOfSpeech: .noun, definition: "a written work")]
+        )
+        let empty = makeWord(headword: "apple", createdAt: Date(timeIntervalSince1970: 1_700_000_001))
+
+        try model.importWords(makeDocument(words: [filled, empty]).encode())
+        await service.drain()
+
+        #expect(model.importSummary?.wordsCreated == 2)
+        #expect(stub.requests.map(\.headword) == ["apple"], "only the empty word is queued")
+        let apple = try #require(try store.words().first { $0.id == empty.id })
+        #expect(apple.autofillState == .ready)
+        #expect(!apple.senses.isEmpty)
+    }
 }

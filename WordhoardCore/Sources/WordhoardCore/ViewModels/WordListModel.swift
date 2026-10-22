@@ -101,13 +101,15 @@ public final class WordListModel {
     /// Merges an export file into the store (S3) through `Importer`, then re-reads `words` whatever the
     /// outcome, so a partially matched file and a refused one both leave the list current.
     ///
-    /// - Success: `importSummary` is set; `failure` is left as it was.
+    /// - Success: `importSummary` is set; `failure` is left as it was; `autofill` sweeps the store, so
+    ///   imported words without senses (saved `pending`) are filled in now, not at the next foreground.
     /// - `ImportError`: `failure = .importing(error)`, `importSummary = nil`; the store is unchanged.
     /// - Any other error: logged, `failure = .importing(nil)`, `importSummary = nil`; the transaction was
     ///   rolled back.
     public func importWords(_ data: Data) {
         do {
             importSummary = try Importer.import(data, into: store)
+            resumeAutofill()
         } catch let error as ImportError {
             importSummary = nil
             failure = .importing(error)
@@ -117,5 +119,13 @@ public final class WordListModel {
             failure = .importing(nil)
         }
         reload()
+    }
+
+    private func resumeAutofill() {
+        do {
+            try autofill?.resumeAfterLaunch()
+        } catch {
+            logger.error("Could not queue imported words: \(error.localizedDescription, privacy: .public)")
+        }
     }
 }
