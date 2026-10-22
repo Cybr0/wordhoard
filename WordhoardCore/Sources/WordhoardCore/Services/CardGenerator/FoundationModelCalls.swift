@@ -64,6 +64,17 @@ public struct FoundationModelCalls: ModelCalls {
         return verdict.isCommonlyUsed
     }
 
+    /// The prompt numbers candidates from 1; the answer is mapped back to 0-based indices here.
+    public func selectSenses(headword: String, candidates: [WordNetSense]) async throws -> [Int] {
+        let selection = try await respond(
+            instructions: SenseSelectionPrompt.instructions,
+            prompt: SenseSelectionPrompt.prompt(headword: headword, candidates: candidates),
+            generating: SenseSelection.self,
+            label: "select senses"
+        )
+        return selection.numbers.map { $0 - 1 }
+    }
+
     public func writeDefinition(headword: String, sense: WordNetSense) async throws -> String {
         let writing = try await respond(
             instructions: DefinitionPrompt.instructions,

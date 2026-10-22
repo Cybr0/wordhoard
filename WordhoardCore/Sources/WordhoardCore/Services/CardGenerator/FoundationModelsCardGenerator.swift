@@ -5,19 +5,21 @@ import os
 ///
 /// **Isolation: none.** A `Sendable` class of three `let` collaborators; its methods are
 /// `nonisolated` and run off the main actor. Senses come from `WordNetLookup` when the bundle knows
-/// the lemma, otherwise from a verified model proposal; the model (`ModelCalls`) writes prose only,
+/// the lemma (the model picks ≤ 4 when it lists more, plan 2.6), otherwise from a verified model proposal; the model
+/// (`ModelCalls`) writes prose only,
 /// one sense per call; translations come from `Translator`, never from the model. Per-field failures
 /// are `GenerationNote`s on a card that is still produced; only the model-only senses call can fail
 /// the card. Every example is checked for the headword and retried once (2.9). Serial in 2.2 (plan
 /// 2.8 raises the example concurrency).
 public final class FoundationModelsCardGenerator: CardGenerator {
-    private static let logger = Logger(subsystem: "Wordhoard", category: "autofill")
+    static let logger = Logger(subsystem: "Wordhoard", category: "autofill")
     /// The learning language, the source of every translation (requirements §1: English only in v1).
-    private static let learningLanguage = "en"
+    static let learningLanguage = "en"
 
-    private let calls: any ModelCalls
-    private let lookup: WordNetLookup
-    private let translator: any Translator
+    // Internal, not private: the pipeline's stages live in extensions in sibling files.
+    let calls: any ModelCalls
+    let lookup: WordNetLookup
+    let translator: any Translator
 
     public init(
         calls: any ModelCalls = FoundationModelCalls(),
@@ -98,87 +100,6 @@ public final class FoundationModelsCardGenerator: CardGenerator {
         if case let .unavailable(reason) = await calls.availability() {
             throw CardGeneratorError.unavailable(reason)
         }
-    }
-
-    // MARK: - Step 3: WordNet path
-
-    /// One `writeDefinition` call per selected sense, serial. A refused or failed call keeps the gloss
-    /// as the definition and leaves a note; a sense WordNet vouches for is never dropped (A6).
-    private func wordNetCard(headword: String, entry: WordNetEntry) async throws -> GeneratedCard {
-        var senses: [GeneratedSense] = []
-        var notes: [GenerationNote] = []
-        for (index, sense) in entry.selected.enumerated() {
-            try Task.checkCancellation()
-            var definition = sense.gloss
-            do {
-                let written = try await calls.writeDefinition(headword: headword, sense: sense)
-                if !written.isEmpty {
-                    definition = written
-                }
-            } catch let error as ModelCallError {
-                notes.append(.definitionRefused(senseIndex: index))
-                Self.logger.notice(
-                    """
-                    definition \(index, privacy: .public) kept the gloss: \
-                    \(String(describing: error), privacy: .public)
-                    """
-                )
-            }
-            senses.append(GeneratedSense(
-                partOfSpeech: sense.partOfSpeech,
-                senseSource: .wordnet,
-                gloss: sense.gloss,
-                definition: definition,
-                translation: nil,
-                synonyms: sense.synonyms,
-                antonyms: sense.antonyms,
-                neutralExample: nil
-            ))
-        }
-        return GeneratedCard(headword: headword, path: .wordnet, senses: senses, notes: notes)
-    }
-
-    // MARK: - Step 4: stoplist / model-only path
-
-    /// One `proposeSenses` call, then one `verify` call per proposed sense, serial. "No" drops the
-    /// sense; a verify call that throws keeps it; none kept → `.notFound` with no senses (A1).
-    /// `wordClass` (stoplist words only) reaches both prompts as a hint (2.7).
-    private func modelOnlyCard(
-        headword: String,
-        path: GenerationPath,
-        wordClass: FunctionWordClass?
-    ) async throws -> GeneratedCard {
-        let proposed: [ProposedSense]
-        do {
-            proposed = try await calls.proposeSenses(headword: headword, wordClass: wordClass)
-        } catch ModelCallError.refused {
-            throw CardGeneratorError.refused
-        } catch let ModelCallError.failed(description) {
-            throw CardGeneratorError.failed(description)
-        }
-
-        var kept: [GeneratedSense] = []
-        for sense in proposed where !sense.definition.isEmpty {
-            try Task.checkCancellation()
-            do {
-                guard try await calls.verify(headword: headword, sense: sense, wordClass: wordClass) else {
-                    continue
-                }
-            } catch let error as ModelCallError {
-                Self.logger.notice("verify failed, sense kept: \(String(describing: error), privacy: .public)")
-            }
-            kept.append(GeneratedSense(
-                partOfSpeech: sense.partOfSpeech,
-                senseSource: .model,
-                gloss: nil,
-                definition: sense.definition,
-                translation: nil,
-                synonyms: sense.synonyms,
-                antonyms: sense.antonyms,
-                neutralExample: nil
-            ))
-        }
-        return GeneratedCard(headword: headword, path: kept.isEmpty ? .notFound : path, senses: kept)
     }
 
     // MARK: - Step 5: translation
@@ -301,7 +222,7 @@ public final class FoundationModelsCardGenerator: CardGenerator {
         }
     }
 
-    private static func trimmed(_ headword: String) -> String {
+    static func trimmed(_ headword: String) -> String {
         headword.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

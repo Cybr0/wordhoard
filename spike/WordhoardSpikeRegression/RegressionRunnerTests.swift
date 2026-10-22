@@ -123,8 +123,14 @@ struct CallFailure: Sendable {
             label = "write: sense \(senseIndex + 1) refused or failed, gloss kept"
             isRefusal = true
         case let .exampleRefused(senseIndex, topic):
-            label = "example: sense \(senseIndex + 1) / \(topic ?? "en.neutral") refused, failed or empty"
+            label = "example: sense \(senseIndex + 1) / \(topic ?? "en.neutral") refused, failed or does not fit"
             isRefusal = true
+        case let .exampleDropped(senseIndex, topic):
+            label = "example: sense \(senseIndex + 1) / \(topic ?? "en.neutral") dropped, no headword after a retry"
+            isRefusal = false
+        case .senseSelectionFellBack:
+            label = "select senses: refused, failed or unusable, 2-per-part-of-speech fallback"
+            isRefusal = false
         case .translationUnavailable:
             return nil
         }

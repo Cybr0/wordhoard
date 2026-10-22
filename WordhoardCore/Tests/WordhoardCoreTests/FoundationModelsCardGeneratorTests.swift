@@ -78,6 +78,8 @@ struct FoundationModelsCardGeneratorPathTests {
                 #expect(mentioned.count == 1, "one definition per example prompt")
             case .proposeSenses, .verify:
                 Issue.record("the WordNet path must not propose or verify senses")
+            case .selectSenses:
+                Issue.record("four bundled senses need no selection call")
             }
         }
     }

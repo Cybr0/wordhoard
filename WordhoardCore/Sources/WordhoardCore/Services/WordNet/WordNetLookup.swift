@@ -13,11 +13,15 @@ public actor WordNetLookup {
     /// The lookup over the package's own resources.
     public static let shared = WordNetLookup(bundle: .module)
 
-    /// How many senses the default selection keeps per part of speech (ADR 0001: missing a real sense
-    /// costs more than showing a spare one). The converter keeps this many per part in the bundle.
+    /// How many senses the fallback selection (`select`) keeps per part of speech (ADR 0001: missing a
+    /// real sense costs more than showing a spare one). Since plan 2.6 the model picks from the full
+    /// list (`selection(_:from:)`); this rule is what a failed selection call falls back to.
     public static let maxSensesPerPartOfSpeech = 2
-    /// How many senses the default selection keeps in all (1 ≤ senses ≤ 4, five model calls per sense).
+    /// How many senses a card gets in all (1 ≤ senses ≤ 4, five model calls per sense).
     public static let maxSensesTotal = 4
+    /// How many candidates the selection call is shown (plan 2.6): enough for rank 1–3 of every part
+    /// of speech of a busy lemma, short enough for the 4K context.
+    public static let maxCandidates = 10
 
     /// The resource subdirectory, the same on the macOS host and inside the app bundle (`.copy`).
     static let subdirectory = "WordNet"
@@ -89,7 +93,8 @@ public actor WordNetLookup {
         return WordNetEntry(senses: senses, selected: Self.select(senses))
     }
 
-    /// The default selection, pure: rank 1 of every part of speech (nouns → verbs → adjectives →
+    /// The fallback selection (plan 2.6: used when the selection call fails), pure: rank 1 of every part of speech
+    /// (nouns → verbs → adjectives →
     /// adverbs) before any rank 2, at most `maxSensesPerPartOfSpeech` per part and `maxSensesTotal` in
     /// all, returned regrouped by part of speech with each part's senses in rank order. For *book* that
     /// is noun 1, noun 2, verb *engage for a performance*, verb *reserve*; for *light* one of each.
@@ -110,6 +115,62 @@ public actor WordNetLookup {
         return kept
             .sorted { ($0.position, $0.rank) < ($1.position, $1.rank) }
             .map(\.sense)
+    }
+
+    /// The list the selection call sees (plan 2.6), pure: `senses` (grouped by part of speech, rank
+    /// order) interleaved round-robin by rank — noun 1, verb 1, adjective 1, adverb 1, noun 2, … — and
+    /// capped at `maxCandidates`. Rank 1 of every part of speech is always among the first four.
+    public static func candidates(_ senses: [WordNetSense]) -> [WordNetSense] {
+        var groups: [PartOfSpeech: [WordNetSense]] = [:]
+        for sense in senses {
+            groups[sense.partOfSpeech, default: []].append(sense)
+        }
+        let deepest = groups.values.map(\.count).max() ?? 0
+        var candidates: [WordNetSense] = []
+        for rank in 0 ..< deepest {
+            for partOfSpeech in PartOfSpeech.allCases {
+                guard candidates.count < maxCandidates else { return candidates }
+                if let group = groups[partOfSpeech], rank < group.count {
+                    candidates.append(group[rank])
+                }
+            }
+        }
+        return candidates
+    }
+
+    /// Applies the model's answer to `candidates` (plan 2.6), pure. Out-of-range and repeated indices
+    /// are dropped and the model's order kept, then cut to `maxSensesTotal`. Every part of speech
+    /// present among the candidates gets at least one sense: a missing one gets its rank-1 candidate,
+    /// appended while there is room, otherwise replacing the last pick of a part of speech that has
+    /// more than one. The result is regrouped like `select` (nouns → verbs → adjectives → adverbs,
+    /// rank order within each). `nil` when no index is usable: the caller falls back to `select`.
+    public static func selection(_ indices: [Int], from candidates: [WordNetSense]) -> [WordNetSense]? {
+        var picks: [Int] = []
+        for index in indices where candidates.indices.contains(index) && !picks.contains(index) {
+            picks.append(index)
+        }
+        guard !picks.isEmpty else { return nil }
+        picks = Array(picks.prefix(maxSensesTotal))
+
+        for partOfSpeech in PartOfSpeech.allCases {
+            guard !picks.contains(where: { candidates[$0].partOfSpeech == partOfSpeech }),
+                  let first = candidates.firstIndex(where: { $0.partOfSpeech == partOfSpeech })
+            else { continue }
+            if picks.count < maxSensesTotal {
+                picks.append(first)
+            } else if let spare = picks.lastIndex(where: { pick in
+                picks.count(where: { candidates[$0].partOfSpeech == candidates[pick].partOfSpeech }) > 1
+            }) {
+                picks[spare] = first
+            }
+        }
+
+        let position = Dictionary(uniqueKeysWithValues: PartOfSpeech.allCases.enumerated().map { ($1, $0) })
+        return picks
+            .sorted {
+                (position[candidates[$0].partOfSpeech] ?? 0, $0) < (position[candidates[$1].partOfSpeech] ?? 0, $1)
+            }
+            .map { candidates[$0] }
     }
 
     /// A kept sense with its part-of-speech position and rank, for `select`'s regrouping.

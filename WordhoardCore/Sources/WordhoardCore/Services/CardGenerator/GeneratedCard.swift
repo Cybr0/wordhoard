@@ -88,9 +88,11 @@ public struct GeneratedTopicExample: Equatable, Sendable {
     }
 }
 
-/// A field the generator could not fill (A6). Later tasks add cases (`senseSelectionFellBack` 2.6,
-/// `translationFallback` 2.10).
+/// A field the generator could not fill (A6).
 public enum GenerationNote: Equatable, Sendable {
+    /// The sense-selection call (plan 2.6) failed or answered nothing usable; the senses are the
+    /// 2-per-part-of-speech fallback (`WordNetLookup.select`).
+    case senseSelectionFellBack
     /// The definition call was refused; the gloss is kept as the definition.
     case definitionRefused(senseIndex: Int)
     /// That example was skipped: the call was refused or failed, or the model said the sense does not

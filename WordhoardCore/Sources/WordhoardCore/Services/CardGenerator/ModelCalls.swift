@@ -1,10 +1,10 @@
 import Foundation
 
-/// The five typed calls the generator makes to the language model (ADR 0001 point 2), so the pipeline
+/// The typed calls the generator makes to the language model (ADR 0001 point 2), so the pipeline
 /// above them is unit-tested with `ScriptedModelCalls` and never the real model.
 ///
-/// Every call is for one headword and, except `proposeSenses`, for one sense: no call writes prose
-/// for more than one sense. Later tasks add methods here (`selectSenses` 2.6, `proposeTranslation` 2.10).
+/// Every call is for one headword and, except `proposeSenses` and `selectSenses`, for one sense: no
+/// call writes prose for more than one sense.
 public protocol ModelCalls: Sendable {
     /// Whether the model can be called right now; the generator checks it before any other method.
     func availability() async -> CardGeneratorAvailability
@@ -15,6 +15,11 @@ public protocol ModelCalls: Sendable {
 
     /// Yes/no: is the headword commonly used with this part of speech and meaning? Same `wordClass` hint.
     func verify(headword: String, sense: ProposedSense, wordClass: FunctionWordClass?) async throws -> Bool
+
+    /// WordNet path, only when the lemma has more than four bundled senses (plan 2.6): the 0-based
+    /// indices into `candidates` of the ≤ 4 senses a learner's dictionary would list first, in the
+    /// model's order. Unchecked: the caller drops invalid indices and guarantees part-of-speech coverage.
+    func selectSenses(headword: String, candidates: [WordNetSense]) async throws -> [Int]
 
     /// WordNet path: the learner definition for one WordNet sense, written from gloss + synonyms + example.
     func writeDefinition(headword: String, sense: WordNetSense) async throws -> String

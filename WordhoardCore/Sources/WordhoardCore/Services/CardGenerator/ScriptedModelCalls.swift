@@ -12,6 +12,7 @@ public final class ScriptedModelCalls: ModelCalls {
     public enum Call: Equatable, Sendable {
         case proposeSenses(headword: String, wordClass: FunctionWordClass?)
         case verify(headword: String, sense: ProposedSense, wordClass: FunctionWordClass?)
+        case selectSenses(headword: String, candidates: [WordNetSense])
         case writeDefinition(headword: String, sense: WordNetSense)
         case writeExample(
             headword: String,
@@ -26,6 +27,7 @@ public final class ScriptedModelCalls: ModelCalls {
             switch self {
             case .proposeSenses: .proposeSenses
             case .verify: .verify
+            case .selectSenses: .selectSenses
             case .writeDefinition: .writeDefinition
             case .writeExample: .writeExample
             }
@@ -35,16 +37,19 @@ public final class ScriptedModelCalls: ModelCalls {
     public enum Method: Equatable, Sendable {
         case proposeSenses
         case verify
+        case selectSenses
         case writeDefinition
         case writeExample
     }
 
-    /// The answers. Defaults: no proposed senses, every verdict yes, `"def:<gloss>"`,
+    /// The answers. Defaults: no proposed senses, every verdict yes, the first four candidates (rank 1
+    /// of every part of speech first, as the round-robin lists them), `"def:<gloss>"`,
     /// `"I <part of speech> the <headword>"` for every example (it contains the headword, so the
     /// generator's headword check passes). The example closure's last argument is `mustContainHeadword`.
     public struct Script: Sendable {
         public var proposeSenses: @Sendable (_ headword: String) throws -> [ProposedSense]
         public var verify: @Sendable (_ headword: String, _ sense: ProposedSense) throws -> Bool
+        public var selectSenses: @Sendable (_ headword: String, _ candidates: [WordNetSense]) throws -> [Int]
         public var writeDefinition: @Sendable (_ headword: String, _ sense: WordNetSense) throws -> String
         public var writeExample: @Sendable (
             _ headword: String,
@@ -57,6 +62,9 @@ public final class ScriptedModelCalls: ModelCalls {
         public init(
             proposeSenses: @escaping @Sendable (String) throws -> [ProposedSense] = { _ in [] },
             verify: @escaping @Sendable (String, ProposedSense) throws -> Bool = { _, _ in true },
+            selectSenses: @escaping @Sendable (String, [WordNetSense]) throws -> [Int] = { _, candidates in
+                Array(candidates.indices.prefix(4))
+            },
             writeDefinition: @escaping @Sendable (String, WordNetSense) throws -> String = { _, sense in
                 "def:\(sense.gloss)"
             },
@@ -67,6 +75,7 @@ public final class ScriptedModelCalls: ModelCalls {
         ) {
             self.proposeSenses = proposeSenses
             self.verify = verify
+            self.selectSenses = selectSenses
             self.writeDefinition = writeDefinition
             self.writeExample = writeExample
         }
@@ -110,6 +119,11 @@ public final class ScriptedModelCalls: ModelCalls {
     public func verify(headword: String, sense: ProposedSense, wordClass: FunctionWordClass?) async throws -> Bool {
         try await record(.verify(headword: headword, sense: sense, wordClass: wordClass))
         return try script.verify(headword, sense)
+    }
+
+    public func selectSenses(headword: String, candidates: [WordNetSense]) async throws -> [Int] {
+        try await record(.selectSenses(headword: headword, candidates: candidates))
+        return try script.selectSenses(headword, candidates)
     }
 
     public func writeDefinition(headword: String, sense: WordNetSense) async throws -> String {

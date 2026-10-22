@@ -25,8 +25,14 @@ public struct WordNetSense: Sendable, Equatable {
 public struct WordNetEntry: Sendable, Equatable {
     /// Every bundled sense, nouns → verbs → adjectives → adverbs, WordNet rank within each part of speech.
     public var senses: [WordNetSense]
-    /// `WordNetLookup.select(senses)`: the 2-per-part-of-speech / 4-in-all policy (plan 2.6 replaces the default).
+    /// `WordNetLookup.select(senses)`: the 2-per-part-of-speech / 4-in-all policy, the fallback when the
+    /// selection call (plan 2.6) fails.
     public var selected: [WordNetSense]
+
+    /// `WordNetLookup.candidates(senses)`: what the selection call is shown, round-robin by part of speech.
+    public var candidates: [WordNetSense] {
+        WordNetLookup.candidates(senses)
+    }
 
     public init(senses: [WordNetSense], selected: [WordNetSense]) {
         self.senses = senses
