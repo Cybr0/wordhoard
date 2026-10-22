@@ -10,6 +10,14 @@ final class Gate: Sendable {
         var isOpen = false
         var waiters: [UUID: CheckedContinuation<Void, any Error>] = [:]
         var arrivals = 0
+        var watchers: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+
+        /// Removes and returns the watchers whose count has been reached.
+        mutating func dueWatchers() -> [CheckedContinuation<Void, Never>] {
+            let due = watchers.filter { $0.count <= waiters.count }.map(\.continuation)
+            watchers.removeAll { $0.count <= waiters.count }
+            return due
+        }
     }
 
     private let state = Mutex(State())
@@ -22,6 +30,22 @@ final class Gate: Sendable {
     /// Callers suspended right now.
     var waiting: Int {
         state.withLock { $0.waiters.count }
+    }
+
+    /// Suspends until at least `count` callers are suspended at the gate at once.
+    func untilWaiting(_ count: Int) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let resumeNow = state.withLock { state in
+                if state.waiters.count >= count {
+                    return true
+                }
+                state.watchers.append((count, continuation))
+                return false
+            }
+            if resumeNow {
+                continuation.resume()
+            }
+        }
     }
 
     func open() {
@@ -44,13 +68,16 @@ final class Gate: Sendable {
         let id = UUID()
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-                let resumeNow: Bool = state.withLock { state in
+                let (resumeNow, due) = state.withLock { state in
                     state.arrivals += 1
                     if state.isOpen || Task.isCancelled {
-                        return true
+                        return (true, [CheckedContinuation<Void, Never>]())
                     }
                     state.waiters[id] = continuation
-                    return false
+                    return (false, state.dueWatchers())
+                }
+                for watcher in due {
+                    watcher.resume()
                 }
                 if resumeNow {
                     if Task.isCancelled {
@@ -158,4 +185,57 @@ func waitUntil(
         await Task.yield()
     }
     Issue.record("condition not met after \(attempts) yields", sourceLocation: sourceLocation)
+}
+
+/// A `ModelCalls` that forwards to a `ScriptedModelCalls`, except that every `writeExample` call
+/// `isGated` picks first waits at `gate` (a cancelled waiter throws `CancellationError`, as the real
+/// call would). Gated calls reach `inner`, and so its recorded calls, only once let through; the gate's
+/// `arrivals` counts every gated call that was attempted.
+struct GatedModelCalls: ModelCalls {
+    let inner: ScriptedModelCalls
+    let gate = Gate()
+    let isGated: @Sendable (_ definition: String, _ topic: GrammarTopic?) -> Bool
+
+    func availability() async -> CardGeneratorAvailability {
+        await inner.availability()
+    }
+
+    func proposeSenses(headword: String, wordClass: FunctionWordClass?) async throws -> [ProposedSense] {
+        try await inner.proposeSenses(headword: headword, wordClass: wordClass)
+    }
+
+    func verify(headword: String, sense: ProposedSense, wordClass: FunctionWordClass?) async throws -> Bool {
+        try await inner.verify(headword: headword, sense: sense, wordClass: wordClass)
+    }
+
+    func selectSenses(headword: String, candidates: [WordNetSense]) async throws -> [Int] {
+        try await inner.selectSenses(headword: headword, candidates: candidates)
+    }
+
+    func writeDefinition(headword: String, sense: WordNetSense) async throws -> String {
+        try await inner.writeDefinition(headword: headword, sense: sense)
+    }
+
+    func proposeTranslation(headword: String, sense: GeneratedSense, nativeLanguage: String) async throws -> String {
+        try await inner.proposeTranslation(headword: headword, sense: sense, nativeLanguage: nativeLanguage)
+    }
+
+    func writeExample(
+        headword: String,
+        partOfSpeech: PartOfSpeech,
+        definition: String,
+        topic: GrammarTopic?,
+        mustContainHeadword: Bool
+    ) async throws -> ExampleAnswer {
+        if isGated(definition, topic) {
+            try await gate.wait()
+        }
+        return try await inner.writeExample(
+            headword: headword,
+            partOfSpeech: partOfSpeech,
+            definition: definition,
+            topic: topic,
+            mustContainHeadword: mustContainHeadword
+        )
+    }
 }

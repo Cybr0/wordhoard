@@ -52,21 +52,28 @@ struct ExampleConcurrencyTests {
 
     @Test("yield order follows completion, and routing stays correct when later slots finish first")
     func outOfOrderCompletionKeepsRouting() async throws {
-        let inner = ScriptedModelCalls(script: Self.taggedScript)
-        let calls = LatencyCalls(inner: inner) { definition, topic in
-            // The very first slot is the slowest, so the slots after it overtake it.
-            guard let topic else { return .zero }
-            let first = definition.contains("a written work") && topic.key == "en.present_perfect"
-            return first ? .milliseconds(150) : .milliseconds(10)
+        // The very first slot waits at the gate until every other slot has been yielded.
+        let calls = GatedModelCalls(inner: ScriptedModelCalls(script: Self.taggedScript)) { definition, topic in
+            definition.contains("a written work") && topic?.key == "en.present_perfect"
         }
         let generator = FoundationModelsCardGenerator(calls: calls, lookup: .shared, translator: StubTranslator())
         let request = makeRequest("book", native: nil, topics: Self.threeTopics)
         let card = try await generator.generateCard(request)
-        let examples = try await collectExamples(generator.generateTopicExamples(for: card, request: request))
+        let received = Mutex<[GeneratedTopicExample]>([])
+        let consumer = Task {
+            for try await example in generator.generateTopicExamples(for: card, request: request) {
+                received.withLock { $0.append(example) }
+            }
+        }
+        await calls.gate.untilWaiting(1)
+        try await waitUntil { received.withLock(\.count) == 11 }
+        calls.gate.open()
+        try await consumer.value
+        let examples = received.withLock { $0 }
 
         let requested = card.senses.indices.flatMap { index in Self.threeTopics.map { "\(index)/\($0.key)" } }
         let yielded = examples.map { "\($0.senseIndex)/\($0.example.grammarTopic ?? "")" }
-        #expect(yielded != requested, "a later slot was yielded before the first")
+        #expect(yielded.last == requested.first, "every later slot was yielded before the first")
         #expect(yielded.sorted() == requested.sorted())
         for example in examples {
             #expect(example.example.text.contains(card.senses[example.senseIndex].definition))
@@ -92,35 +99,34 @@ struct ExampleConcurrencyTests {
 
     @Test("cancelling the stream's consumer stops new calls within one window")
     func cancellingTheStreamStopsNewCalls() async throws {
-        let calls = ScriptedModelCalls(delays: [.writeExample: .milliseconds(50)])
-        let generator = makeGenerator(calls)
+        // The first topic slot answers; every later one waits at the gate, which never opens.
+        let calls = GatedModelCalls(inner: ScriptedModelCalls()) { definition, topic in
+            guard let topic else { return false }
+            return !(definition.contains("a written work") && topic.key == "en.present_perfect")
+        }
+        let generator = FoundationModelsCardGenerator(calls: calls, lookup: .shared, translator: StubTranslator())
         let request = makeRequest("book", native: nil, topics: Self.threeTopics)
         let card = try await generator.generateCard(request)
-        let beforeStream = calls.calls(.writeExample).count
+        let beforeStream = calls.inner.calls(.writeExample).count
+        let window = FoundationModelsCardGenerator.defaultMaxConcurrentExampleCalls
 
-        let firstArrived = Mutex(false)
+        let received = Mutex(0)
         let consumer = Task {
-            var received = 0
             for try await _ in generator.generateTopicExamples(for: card, request: request) {
-                received += 1
-                firstArrived.withLock { $0 = true }
+                received.withLock { $0 += 1 }
             }
-            return received
         }
-        while !firstArrived.withLock({ $0 }) {
-            await Task.yield()
-        }
+        // The first example is in, and the window is full again with waiting slots.
+        await calls.gate.untilWaiting(window)
+        try await waitUntil { received.withLock { $0 } == 1 }
         consumer.cancel()
-        let atCancel = calls.calls(.writeExample).count
-        let received = try await consumer.value
-        try await Task.sleep(for: .milliseconds(200))
-        let after = calls.calls(.writeExample).count
+        try await consumer.value
+        try await waitUntil { calls.gate.waiting == 0 }
 
-        #expect(received < 12)
-        #expect(after - atCancel <= 3, "at most one window more")
-        #expect(after - beforeStream < 12, "the stream did not run to the end")
-        try await Task.sleep(for: .milliseconds(100))
-        #expect(calls.calls(.writeExample).count == after, "and nothing afterwards")
+        #expect(received.withLock { $0 } == 1)
+        #expect(calls.inner.calls(.writeExample).count == beforeStream + 1, "no gated slot got through")
+        #expect(calls.gate.arrivals == window, "no call started after the cancel")
+        #expect(1 + calls.gate.arrivals < 12, "the stream did not run to the end")
     }
 
     @Test("translation stays at most two framework batches per word")
@@ -130,55 +136,5 @@ struct ExampleConcurrencyTests {
         let card = try await generator.generateCard(makeRequest("book", topics: Self.threeTopics))
         #expect(card.senses.count == 4)
         #expect((1 ... 2).contains(translator.batches.count))
-    }
-}
-
-/// Forwards to a `ScriptedModelCalls`, sleeping a per-slot latency in `writeExample` first.
-private struct LatencyCalls: ModelCalls {
-    let inner: ScriptedModelCalls
-    let latency: @Sendable (_ definition: String, _ topic: GrammarTopic?) -> Duration
-
-    func availability() async -> CardGeneratorAvailability {
-        await inner.availability()
-    }
-
-    func proposeSenses(headword: String, wordClass: FunctionWordClass?) async throws -> [ProposedSense] {
-        try await inner.proposeSenses(headword: headword, wordClass: wordClass)
-    }
-
-    func verify(headword: String, sense: ProposedSense, wordClass: FunctionWordClass?) async throws -> Bool {
-        try await inner.verify(headword: headword, sense: sense, wordClass: wordClass)
-    }
-
-    func selectSenses(headword: String, candidates: [WordNetSense]) async throws -> [Int] {
-        try await inner.selectSenses(headword: headword, candidates: candidates)
-    }
-
-    func writeDefinition(headword: String, sense: WordNetSense) async throws -> String {
-        try await inner.writeDefinition(headword: headword, sense: sense)
-    }
-
-    func proposeTranslation(headword: String, sense: GeneratedSense, nativeLanguage: String) async throws -> String {
-        try await inner.proposeTranslation(headword: headword, sense: sense, nativeLanguage: nativeLanguage)
-    }
-
-    func writeExample(
-        headword: String,
-        partOfSpeech: PartOfSpeech,
-        definition: String,
-        topic: GrammarTopic?,
-        mustContainHeadword: Bool
-    ) async throws -> ExampleAnswer {
-        let wait = latency(definition, topic)
-        if wait > .zero {
-            try await Task.sleep(for: wait)
-        }
-        return try await inner.writeExample(
-            headword: headword,
-            partOfSpeech: partOfSpeech,
-            definition: definition,
-            topic: topic,
-            mustContainHeadword: mustContainHeadword
-        )
     }
 }

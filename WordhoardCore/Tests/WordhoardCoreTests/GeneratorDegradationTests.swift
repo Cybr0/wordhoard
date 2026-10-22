@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 import WordhoardCore
 
@@ -148,44 +149,56 @@ struct GeneratorDegradationTests {
 
     @Test("no topics → an empty stream; a cancelled consumer stops the producer's calls")
     func topicStreamHandlesNoTopicsAndCancellation() async throws {
-        let calls = ScriptedModelCalls(delay: .milliseconds(20))
+        // Sense 0's topic calls answer; the first call for any later sense waits at the gate.
+        let calls = GatedModelCalls(inner: ScriptedModelCalls()) { definition, topic in
+            topic != nil && !definition.hasPrefix("def:a written")
+        }
         // Serial, so "cancelled within sense 0" is exact; the window is covered in ExampleConcurrencyTests.
-        let generator = makeGenerator(calls, maxConcurrentExampleCalls: 1)
+        let generator = FoundationModelsCardGenerator(
+            calls: calls, lookup: .shared, translator: StubTranslator(), maxConcurrentExampleCalls: 1
+        )
         let card = try await generator.generateCard(makeRequest("book"))
 
         let none = try await collectExamples(generator.generateTopicExamples(for: card, request: makeRequest("book")))
         #expect(none.isEmpty)
-        let before = calls.calls.count
+        let before = calls.inner.calls.count
 
         let request = makeRequest("book", topics: GeneratorFixtures.twoTopics)
-        let consumer = Task { try await collectExamples(generator.generateTopicExamples(for: card, request: request)) }
-        try await Task.sleep(for: .milliseconds(50))
+        let received = Mutex<[GeneratedTopicExample]>([])
+        let consumer = Task {
+            for try await example in generator.generateTopicExamples(for: card, request: request) {
+                received.withLock { $0.append(example) }
+            }
+        }
+        await calls.gate.untilWaiting(1)
+        try await waitUntil { received.withLock(\.count) == 2 }
         consumer.cancel()
-        let delivered = try await consumer.value
-        #expect(delivered.count < 8, "cancelled before the 8 slots were filled")
+        try await consumer.value
+        let delivered = received.withLock { $0 }
+        #expect(delivered.count == 2, "sense 0's two slots, then the stream was cancelled")
         #expect(delivered.allSatisfy { $0.senseIndex == 0 })
 
-        try await Task.sleep(for: .milliseconds(100))
-        let after = calls.calls.count
-        #expect(after < before + 8, "the producer was cancelled with it")
-        try await Task.sleep(for: .milliseconds(100))
-        #expect(calls.calls.count == after, "and makes no further calls")
+        try await waitUntil { calls.gate.waiting == 0 }
+        #expect(calls.inner.calls.count == before + 2, "the producer was cancelled with it")
+        #expect(calls.gate.arrivals == 1, "and makes no further calls")
     }
 
     @Test("cancelling `generateCard` throws `CancellationError` and stops the calls")
     func cancellingTheCardThrowsCancellationError() async throws {
-        let calls = ScriptedModelCalls(delay: .milliseconds(30))
-        let generator = makeGenerator(calls)
-        let producer = Task { try await generator.generateCard(makeRequest("book")) }
-        try await Task.sleep(for: .milliseconds(40))
+        // Definitions answer; every neutral example waits at the gate, which never opens.
+        let calls = GatedModelCalls(inner: ScriptedModelCalls()) { _, topic in topic == nil }
+        let generator = FoundationModelsCardGenerator(calls: calls, lookup: .shared, translator: StubTranslator())
+        let producer = Task { try await generator.generateCard(makeRequest("book", native: nil)) }
+        await calls.gate.untilWaiting(1)
         producer.cancel()
         await #expect(throws: CancellationError.self) {
             try await producer.value
         }
-        let after = calls.calls.count
-        #expect(after < 8, "four definitions and four examples would have been made")
-        try await Task.sleep(for: .milliseconds(100))
-        #expect(calls.calls.count == after)
+        // `generateCard` is structured: once it has thrown, none of its calls is still running.
+        #expect(calls.gate.waiting == 0)
+        #expect(calls.inner.calls(.writeExample).isEmpty, "no neutral example was written")
+        #expect(calls.gate.arrivals <= FoundationModelsCardGenerator.defaultMaxConcurrentExampleCalls)
+        #expect(calls.inner.calls.count < 8, "four definitions and four examples would have been made")
     }
 }
 
