@@ -8,15 +8,19 @@
 
 /* Begin PBXBuildFile section */
 		0275FC6D7CD917F8C26D65DF /* PartOfSpeech+DisplayName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63B54BE22DDB8020566C4D52 /* PartOfSpeech+DisplayName.swift */; };
+		03675C35FA57C9C98F49C5BB /* GrammarTopicsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6939ECFE69CB45510CB67036 /* GrammarTopicsView.swift */; };
+		0CAE817CABF64E5B9C5F35F1 /* TopicExamplesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0B5D756F058BE4650F86B /* TopicExamplesView.swift */; };
 		132042E84B0393F4BA8E7291 /* WordhoardCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9AEF27D9ED49234E8C7CFD94 /* WordhoardCore */; };
 		25FF80C3F7DEB7AE7CA5C43A /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 078B4D3E73CFA61F5FA2A770 /* Localizable.xcstrings */; };
 		2A7AA7AFD7993CF7C0F6377D /* SenseSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7787DE0F3E0FE43BEA8269BD /* SenseSection.swift */; };
 		324504F048EE4CB34CE99294 /* WordhoardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B498FAD69F54EAFEF99BE62B /* WordhoardUITests.swift */; };
 		452233B39E8A2483A5316AF4 /* UITestingHooks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F0C5C2F44B6F6351C45A4E /* UITestingHooks.swift */; };
 		45AAEEAD9618661829030008 /* LaunchOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02F90EAB0084C7A7B0FBA59 /* LaunchOptions.swift */; };
+		56FB8F1CA011C0B3309320FD /* Route.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50556055263A1744476025E /* Route.swift */; };
 		600B84B53823E0F1C0F8DD2E /* WordhoardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */; };
 		8C3B499067641BB31A762797 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8DDA685CA7599AFA87A612C6 /* Assets.xcassets */; };
 		9968065F2C4DF2AFC034C06C /* ExportFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86FE5FD03CDF1DD697988B70 /* ExportFile.swift */; };
+		9CB16C39B81D5FAAC749CD13 /* TopicsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 775698D0C1A408DBF3625CC2 /* TopicsView.swift */; };
 		C3B4F7FB3ACDBAC95F50F869 /* CommittingTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209C88D9788EA67B237B9C6D /* CommittingTextField.swift */; };
 		C95F8167B36E03E325409984 /* WordCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B56280FC6C6D93C237E63D /* WordCardView.swift */; };
 		F9F9E25C9AB20F8F98ACFC97 /* WordListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4E9B7FF3EE327D268FF674 /* WordListView.swift */; };
@@ -38,7 +42,10 @@
 		209C88D9788EA67B237B9C6D /* CommittingTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommittingTextField.swift; sourceTree = "<group>"; };
 		33106C603F8F27F7485EA7B4 /* WordhoardCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = WordhoardCore; path = WordhoardCore; sourceTree = SOURCE_ROOT; };
 		3E950E4D0A0491B07CF5F05B /* WordhoardUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WordhoardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		55A0B5D756F058BE4650F86B /* TopicExamplesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicExamplesView.swift; sourceTree = "<group>"; };
 		63B54BE22DDB8020566C4D52 /* PartOfSpeech+DisplayName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PartOfSpeech+DisplayName.swift"; sourceTree = "<group>"; };
+		6939ECFE69CB45510CB67036 /* GrammarTopicsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrammarTopicsView.swift; sourceTree = "<group>"; };
+		775698D0C1A408DBF3625CC2 /* TopicsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicsView.swift; sourceTree = "<group>"; };
 		7787DE0F3E0FE43BEA8269BD /* SenseSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SenseSection.swift; sourceTree = "<group>"; };
 		86FE5FD03CDF1DD697988B70 /* ExportFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportFile.swift; sourceTree = "<group>"; };
 		8A4E9B7FF3EE327D268FF674 /* WordListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListView.swift; sourceTree = "<group>"; };
@@ -48,6 +55,7 @@
 		D02F90EAB0084C7A7B0FBA59 /* LaunchOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchOptions.swift; sourceTree = "<group>"; };
 		D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordhoardApp.swift; sourceTree = "<group>"; };
 		DD2A89CD07C1F6FD775E4977 /* Wordhoard.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Wordhoard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E50556055263A1744476025E /* Route.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Route.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -112,9 +120,13 @@
 				0130D00FAFD8FF9C88142601 /* Resources */,
 				209C88D9788EA67B237B9C6D /* CommittingTextField.swift */,
 				86FE5FD03CDF1DD697988B70 /* ExportFile.swift */,
+				6939ECFE69CB45510CB67036 /* GrammarTopicsView.swift */,
 				D02F90EAB0084C7A7B0FBA59 /* LaunchOptions.swift */,
 				63B54BE22DDB8020566C4D52 /* PartOfSpeech+DisplayName.swift */,
+				E50556055263A1744476025E /* Route.swift */,
 				7787DE0F3E0FE43BEA8269BD /* SenseSection.swift */,
+				55A0B5D756F058BE4650F86B /* TopicExamplesView.swift */,
+				775698D0C1A408DBF3625CC2 /* TopicsView.swift */,
 				90F0C5C2F44B6F6351C45A4E /* UITestingHooks.swift */,
 				13B56280FC6C6D93C237E63D /* WordCardView.swift */,
 				D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */,
@@ -226,9 +238,13 @@
 			files = (
 				C3B4F7FB3ACDBAC95F50F869 /* CommittingTextField.swift in Sources */,
 				9968065F2C4DF2AFC034C06C /* ExportFile.swift in Sources */,
+				03675C35FA57C9C98F49C5BB /* GrammarTopicsView.swift in Sources */,
 				45AAEEAD9618661829030008 /* LaunchOptions.swift in Sources */,
 				0275FC6D7CD917F8C26D65DF /* PartOfSpeech+DisplayName.swift in Sources */,
+				56FB8F1CA011C0B3309320FD /* Route.swift in Sources */,
 				2A7AA7AFD7993CF7C0F6377D /* SenseSection.swift in Sources */,
+				0CAE817CABF64E5B9C5F35F1 /* TopicExamplesView.swift in Sources */,
+				9CB16C39B81D5FAAC749CD13 /* TopicsView.swift in Sources */,
 				452233B39E8A2483A5316AF4 /* UITestingHooks.swift in Sources */,
 				C95F8167B36E03E325409984 /* WordCardView.swift in Sources */,
 				F9F9E25C9AB20F8F98ACFC97 /* WordListView.swift in Sources */,

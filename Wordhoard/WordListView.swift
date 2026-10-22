@@ -4,12 +4,14 @@ import UniformTypeIdentifiers
 import WordhoardCore
 
 /// The word list (B1) with the add field (C1, C4, C5) as its first row and, until 5.3 adds Settings, the
-/// "More" menu with Export… and Import… (S3). Talks only to `WordListModel`; the export runs `Exporter`
+/// "More" menu with "Topics I'm learning" (plan 3.1), Export… and Import… (S3). The one `NavigationStack`
+/// of the app lives here; its path is a typed `Route`, so every pushed screen shares it (ADR 0002). Talks only to
+/// `WordListModel`; the export runs `Exporter`
 /// over the store on demand and the import hands the picked file's bytes to the model, so Core never
 /// sees a URL.
 struct WordListView: View {
     @State private var model: WordListModel
-    @State private var path: [Word] = []
+    @State private var path: [Route] = []
     @State private var isImporterPresented = false
     @State private var isReadFailurePresented = false
     @FocusState private var isAddFieldFocused: Bool
@@ -48,7 +50,7 @@ struct WordListView: View {
                     .onSubmit(submitDraft)
                     .accessibilityIdentifier("wordList.addField")
                 ForEach(model.words) { word in
-                    NavigationLink(value: word) {
+                    NavigationLink(value: Route.word(word)) {
                         row(word)
                     }
                 }
@@ -58,10 +60,14 @@ struct WordListView: View {
             }
             .searchable(text: $model.query)
             .navigationTitle("Wordhoard")
-            .navigationDestination(for: Word.self) { word in
-                WordCardView(word: word, store: store, autofill: autofill, translator: translator)
-            }
+            .navigationDestination(for: Route.self, destination: destination)
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Topics", systemImage: "tag") {
+                        path.append(.topics)
+                    }
+                    .accessibilityIdentifier("wordList.topics")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     moreMenu
                 }
@@ -132,17 +138,6 @@ struct WordListView: View {
     /// Mirrors `WordStore.search`: a query that normalizes to nothing lists every word, so it is not a search.
     private var isFiltering: Bool {
         !Word.normalize(model.query).isEmpty
-    }
-
-    // MARK: - More menu (export and import)
-
-    private var moreMenu: some View {
-        Menu("More", systemImage: "ellipsis.circle") {
-            exportRow
-            Button("Import…", systemImage: "square.and.arrow.down", action: startImport)
-                .accessibilityIdentifier("wordList.import")
-        }
-        .accessibilityIdentifier("wordList.moreMenu")
     }
 
     /// The share sheet in production; under the UI-test hook, a plain button that writes the file to the
@@ -276,11 +271,44 @@ struct WordListView: View {
         case let .existing(word):
             // The push is the duplicate feedback (C4); no toast, no message.
             isAddFieldFocused = false
-            path.append(word)
+            path.append(.word(word))
         case .created, nil:
             // Capture is instant (C5): stay on the list and keep the keyboard up for the next word.
             isAddFieldFocused = true
         }
+    }
+}
+
+// MARK: - Destinations and the More menu
+
+extension WordListView {
+    /// Every screen the stack can push; cards reached from a topic screen are the same card.
+    @ViewBuilder private func destination(_ route: Route) -> some View {
+        switch route {
+        case let .word(word):
+            WordCardView(word: word, store: store, autofill: autofill, translator: translator)
+        case .topicSettings:
+            GrammarTopicsView(store: store)
+        case .topics:
+            TopicsView(store: store)
+        case let .topic(key):
+            TopicExamplesView(key: key, store: store)
+        }
+    }
+
+    // MARK: - More menu (topics, export and import)
+
+    private var moreMenu: some View {
+        Menu("More", systemImage: "ellipsis.circle") {
+            Button("Topics I'm learning", systemImage: "checklist") {
+                path.append(.topicSettings)
+            }
+            .accessibilityIdentifier("wordList.topicSettings")
+            exportRow
+            Button("Import…", systemImage: "square.and.arrow.down", action: startImport)
+                .accessibilityIdentifier("wordList.import")
+        }
+        .accessibilityIdentifier("wordList.moreMenu")
     }
 }
 

@@ -183,6 +183,18 @@ public final class WordStore {
         return settings
     }
 
+    /// The single settings write path (plans 3.1, 5.2, 5.3): fetches the record through `settings()`,
+    /// applies `changes`, saves once. Like every store save it is a context-wide commit under the
+    /// headword rules. If `changes` or the save throws, the context is rolled back and the error
+    /// rethrown, so nothing is persisted (the same contract as `transaction`). Nothing is bumped:
+    /// `UserSettings` has no `updatedAt`.
+    public func updateSettings(_ changes: (UserSettings) throws -> Void) throws {
+        let settings = try settings()
+        try transaction { _ in
+            try changes(settings)
+        }
+    }
+
     // MARK: - Batching
 
     /// Runs `body` on the main context with no intermediate saves, then commits once (the headword rules

@@ -1,6 +1,28 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%lld examples" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld example"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld examples"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Add a word" : {
 
     },
@@ -28,7 +50,16 @@
     "Apple Intelligence isn't available on this device. Fill in the card by hand." : {
 
     },
+    "Autofill writes one extra example per active topic for every sense, so more topics mean slower cards." : {
+
+    },
     "Cancel" : {
+
+    },
+    "Choose the grammar topics you're learning. Autofill writes one example per topic for every new word." : {
+
+    },
+    "Choose topics" : {
 
     },
     "Conjunction" : {
@@ -43,6 +74,9 @@
     "Couldn't import" : {
 
     },
+    "Couldn't load your settings" : {
+
+    },
     "Couldn't load your words" : {
 
     },
@@ -50,6 +84,12 @@
 
     },
     "Couldn't save your changes" : {
+
+    },
+    "Couldn't save your settings" : {
+
+    },
+    "Default" : {
 
     },
     "Definition" : {
@@ -65,6 +105,9 @@
 
     },
     "Example sentence" : {
+
+    },
+    "Examples tagged with this topic will appear here." : {
 
     },
     "Export…" : {
@@ -97,7 +140,13 @@
     "Move up" : {
 
     },
+    "No examples for %@ yet" : {
+
+    },
     "No senses yet" : {
+
+    },
+    "No topics yet" : {
 
     },
     "No words yet" : {
@@ -115,6 +164,9 @@
     "Other" : {
 
     },
+    "Other topics" : {
+
+    },
     "Part of speech" : {
 
     },
@@ -125,6 +177,9 @@
 
     },
     "Remove sense" : {
+
+    },
+    "Reset to default" : {
 
     },
     "Sense actions" : {
@@ -156,6 +211,15 @@
     },
     "This file was made by a newer version of Wordhoard. Update the app and try again." : {
       "extractionState" : "manual"
+    },
+    "This word was deleted." : {
+
+    },
+    "Topics" : {
+
+    },
+    "Topics I'm learning" : {
+
     },
     "Translated from the definition" : {
 

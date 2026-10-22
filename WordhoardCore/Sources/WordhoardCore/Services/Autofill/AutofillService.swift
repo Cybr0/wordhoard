@@ -232,14 +232,20 @@ public final class AutofillService {
         }
     }
 
-    /// Topics are the settings' active keys resolved through the catalog; unknown keys are dropped.
+    /// Topics are the settings' active keys resolved through the catalog; unknown keys are dropped and
+    /// logged once per fill.
     private func makeRequest(for word: Word) -> CardRequest? {
         do {
             let settings = try store.settings()
+            let keys = settings.activeGrammarTopics
+            let dropped = keys.filter { catalog.topic(for: $0) == nil }
+            if !dropped.isEmpty {
+                logger.notice("Dropped unknown grammar topics: \(dropped.joined(separator: ", "), privacy: .public)")
+            }
             return CardRequest(
                 headword: word.headword,
                 nativeLanguage: settings.nativeLanguage,
-                topics: settings.activeGrammarTopics.compactMap(catalog.topic(for:))
+                topics: keys.compactMap(catalog.topic(for:))
             )
         } catch {
             logger.error("Could not read settings: \(error.localizedDescription, privacy: .public)")
