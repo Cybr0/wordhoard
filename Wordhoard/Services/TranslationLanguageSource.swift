@@ -10,18 +10,10 @@ import WordhoardCore
 struct TranslationLanguageSource: SupportedLanguageSource {
     private static let timeout = Duration.seconds(2)
 
+    /// `withTimeLimit` returns at the limit even if the framework query ignores cancellation.
     func supportedLanguageTags() async -> Set<String>? {
-        await withTaskGroup(of: Set<String>?.self) { group in
-            group.addTask {
-                await Self.query()
-            }
-            group.addTask {
-                try? await Task.sleep(for: Self.timeout)
-                return nil
-            }
-            let first = await group.next().flatMap(\.self)
-            group.cancelAll()
-            return first
+        await withTimeLimit(Self.timeout) {
+            await Self.query()
         }
     }
 
