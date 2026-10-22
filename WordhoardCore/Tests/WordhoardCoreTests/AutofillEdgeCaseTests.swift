@@ -148,6 +148,25 @@ struct AutofillEdgeCaseTests {
         #expect(try stored(word.id).sortedSenses.map(\.examples.count) == [2, 2])
     }
 
+    @Test("retrying the word whose topic examples are still arriving refills it after they finish")
+    func retryDuringTheTopicStreamQueuesARefill() async throws {
+        let generator = GatedCardGenerator(cardsOpen: true, topicsOpen: false)
+        let service = AutofillService(store: store, generator: generator)
+        let word = try store.add("book").word
+        service.enqueue(word)
+        try await waitUntil { try stored(word.id).autofillState == .ready }
+        try await waitUntil { generator.topicGate.waiting == 1 }
+        #expect(service.currentWordID == word.id)
+
+        service.retry(word)
+        generator.topicGate.open()
+        await service.drain()
+
+        #expect(generator.inner.requests.count == 2, "the first fill and the refill")
+        #expect(try stored(word.id).autofillState == .ready, "not left pending")
+        #expect(service.currentWordID == nil)
+    }
+
     @Test("a topic example for a sense the user removed meanwhile is dropped")
     func aTopicExampleForARemovedSenseIsDropped() async throws {
         let generator = GatedCardGenerator(topicsOpen: false)

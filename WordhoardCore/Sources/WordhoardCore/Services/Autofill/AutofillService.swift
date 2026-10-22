@@ -46,8 +46,13 @@ public final class AutofillService {
     // MARK: - Queue
 
     /// Marks `word` `pending` (unless it already is, or is `filling`), saves, appends it to the queue and
-    /// starts the worker if it is idle. A word already queued or in flight is not added twice.
+    /// starts the worker if it is idle. A word already queued, or whose card is being generated right
+    /// now, is not added twice; the word whose topic examples are still arriving is queued again, so it
+    /// is refilled once they finish.
     public func enqueue(_ word: Word) {
+        if word.id == currentWordID, word.autofillState == .filling {
+            return
+        }
         if word.autofillState != .pending, word.autofillState != .filling {
             word.autofillState = .pending
             do {
@@ -56,7 +61,7 @@ public final class AutofillService {
                 logger.error("Could not mark \(word.id) pending: \(error.localizedDescription, privacy: .public)")
             }
         }
-        guard word.id != currentWordID, !queue.contains(word.id) else {
+        guard !queue.contains(word.id) else {
             return
         }
         queue.append(word.id)
