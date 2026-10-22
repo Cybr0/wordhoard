@@ -39,7 +39,7 @@ struct TopicExampleContractTests {
         #expect(prompt.contains(topic.name))
         #expect(prompt.contains(topic.description))
         #expect(!prompt.contains("en.present_perfect"))
-        #expect(!prompt.contains("en."))
+        #expect(Self.catalog.topics.allSatisfy { !prompt.contains($0.key) })
 
         let neutral = ExamplePrompt.prompt(headword: "book", partOfSpeech: .verb, definition: definition, topic: nil)
         #expect(!neutral.contains(topic.name))
