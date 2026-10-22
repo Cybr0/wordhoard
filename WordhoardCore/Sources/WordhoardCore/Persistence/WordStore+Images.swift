@@ -71,6 +71,17 @@ public extension WordStore {
         }
     }
 
+    /// A word captured outside the app (the Siri intent, plan 5.1) gets its automatic picture like a
+    /// typed one, but nothing starts here: on `.created` with `UserSettings.autoGenerateImages` on, the
+    /// word is marked `.pending` (no `updatedAt` bump), and the next foreground `resumePending()` runs the
+    /// job once the first card has settled. `.existing`, or the toggle off, writes nothing.
+    func markForAutomaticPicture(after result: AddResult) throws {
+        guard case let .created(word) = result, word.image == nil, try settings().autoGenerateImages else {
+            return
+        }
+        try setImageStatus(.pending, for: word)
+    }
+
     /// Active words whose picture is queued or running, oldest first (`createdAt`, then `id`).
     func wordsPendingImages() throws -> [Word] {
         try words()
