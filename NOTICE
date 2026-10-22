@@ -13,7 +13,10 @@ Open English WordNet (2024 edition)
   https://en-word.net · https://github.com/globalwordnet/english-wordnet
   License: Creative Commons Attribution 4.0 International (CC BY 4.0)
   Derived from Princeton WordNet (WordNet License). Attribution to both is
-  required. Full text: WordhoardCore/Sources/WordhoardCore/Resources/WordNet/OEWN-LICENSE.txt
+  required. The bundled oewn-2024.json is converted and reduced (the top
+  senses per part of speech, definitions, a few examples and antonyms only);
+  see spike/tools/convert_oewn.py.
+  Full text: WordhoardCore/Sources/WordhoardCore/Resources/WordNet/OEWN-LICENSE.txt
   (shipped inside the app bundle next to the data).
 
 Apple frameworks (Foundation Models, Translation, Image Playground, SwiftData,

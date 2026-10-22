@@ -312,7 +312,7 @@ extension WordCardView {
         case .savingImage:
             Text("Couldn't save the picture")
         case nil:
-            Text(verbatim: "")
+            Text(verbatim: String())
         }
     }
 

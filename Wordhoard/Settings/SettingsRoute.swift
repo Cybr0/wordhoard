@@ -4,4 +4,5 @@ enum SettingsRoute: Hashable {
     case topics
     case about
     case wordNetLicense
+    case appLicense
 }

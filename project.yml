@@ -29,6 +29,9 @@ targets:
     deploymentTarget: "27.0"
     sources:
       - path: Wordhoard
+      # The app's own Apache 2.0 text, shown in full on the About screen (S6, plan 6.3).
+      - path: LICENSE
+        buildPhase: resources
     dependencies:
       - package: WordhoardCore
     settings:
@@ -41,6 +44,9 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Wordhoard
+        # Every build re-extracts the keys into the one String Catalog (plan 6.3).
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         # Portrait only; 6.1 checked Dynamic Type up to AX5 and landscape was not needed.

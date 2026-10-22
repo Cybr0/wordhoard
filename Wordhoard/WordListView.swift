@@ -241,7 +241,7 @@ extension WordListView {
         case .importing:
             Text("Couldn't import")
         case nil:
-            Text(verbatim: "")
+            Text(verbatim: String())
         }
     }
 

@@ -168,6 +168,8 @@ struct SettingsView: View {
             AboutView()
         case .wordNetLicense:
             LicenseTextView(title: Text("Open English WordNet license"), text: CoreInfo.wordNetLicenseText())
+        case .appLicense:
+            LicenseTextView(title: Text("Apache License 2.0"), text: AboutView.appLicenseText())
         }
     }
 
@@ -182,7 +184,7 @@ struct SettingsView: View {
         case .importing:
             Text("Couldn't import")
         case nil:
-            Text(verbatim: "")
+            Text(verbatim: String())
         }
     }
 

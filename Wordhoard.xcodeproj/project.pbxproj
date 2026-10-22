@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00908C624F916D00E2C0CBB4 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 476BB8004EFB905309816893 /* LICENSE */; };
 		024ED85666D8DDBE6DB6A835 /* AppDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD2ED4EFBE801A95AA358F82 /* AppDependencies.swift */; };
 		0275FC6D7CD917F8C26D65DF /* PartOfSpeech+DisplayName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63B54BE22DDB8020566C4D52 /* PartOfSpeech+DisplayName.swift */; };
 		03675C35FA57C9C98F49C5BB /* GrammarTopicsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6939ECFE69CB45510CB67036 /* GrammarTopicsView.swift */; };
@@ -70,6 +71,7 @@
 		2F0BC92B96E3686BFC861CDC /* PictureSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureSection.swift; sourceTree = "<group>"; };
 		33106C603F8F27F7485EA7B4 /* WordhoardCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = WordhoardCore; path = WordhoardCore; sourceTree = SOURCE_ROOT; };
 		3E950E4D0A0491B07CF5F05B /* WordhoardUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WordhoardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		476BB8004EFB905309816893 /* LICENSE */ = {isa = PBXFileReference; path = LICENSE; sourceTree = "<group>"; };
 		5573608CDE2C8B8DE9B9175A /* TranslationLanguageSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationLanguageSource.swift; sourceTree = "<group>"; };
 		55815515E406EE4736BB5633 /* LanguageRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageRows.swift; sourceTree = "<group>"; };
 		55A0B5D756F058BE4650F86B /* TopicExamplesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicExamplesView.swift; sourceTree = "<group>"; };
@@ -163,6 +165,7 @@
 				73DF287018FA9DA11B3AAAA8 /* Packages */,
 				8D20469D9571F4835D973FE6 /* Wordhoard */,
 				1816CF811E18261F0D387586 /* WordhoardUITests */,
+				476BB8004EFB905309816893 /* LICENSE */,
 				17B5FBF6D1EE387CAB32DFBD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -315,6 +318,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8C3B499067641BB31A762797 /* Assets.xcassets in Resources */,
+				00908C624F916D00E2C0CBB4 /* LICENSE in Resources */,
 				25FF80C3F7DEB7AE7CA5C43A /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -479,10 +483,12 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.wordhoard.app;
 				PRODUCT_NAME = Wordhoard;
 				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -523,10 +529,12 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.wordhoard.app;
 				PRODUCT_NAME = Wordhoard;
 				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
