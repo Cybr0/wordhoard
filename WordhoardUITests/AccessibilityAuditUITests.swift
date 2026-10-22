@@ -2,8 +2,8 @@
 import XCTest
 
 /// `performAccessibilityAudit()` on the word list and a fixture card, at the default size and at AX5
-/// (plan 6.1, #50). The fixture comes in through the 1.7 import hook from Settings → Data. No issue is
-/// excluded.
+/// (plan 6.1, #50). The fixture comes in through the 1.7 import hook from Settings → Data. One issue is
+/// excluded, with its justification at `audit(_:)`.
 final class AccessibilityAuditUITests: XCTestCase {
     private static let sizes: [String?] = [nil, "UICTContentSizeCategoryAccessibilityXXXL"]
 
