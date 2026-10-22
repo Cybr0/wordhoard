@@ -101,7 +101,7 @@ struct LaunchOptions: Sendable {
     func makeImageGenerator() -> any ImageGenerator {
         switch images {
         case nil:
-            StubImageGenerator(availability: .unavailable)
+            ProductionImageServices.generator()
         case .image, .skip:
             StubImageGenerator(delay: Self.stubDelay)
         case .refuse:
@@ -117,7 +117,7 @@ struct LaunchOptions: Sendable {
     func makeImagePromptWriter() -> any ImagePromptWriter {
         switch images {
         case nil:
-            StubImagePromptWriter(availability: .unavailable)
+            ProductionImageServices.promptWriter()
         case .image, .refuse, .fail:
             StubImagePromptWriter(delay: Self.stubDelay) { headword in
                 .success("A simple flat illustration of \(headword).")

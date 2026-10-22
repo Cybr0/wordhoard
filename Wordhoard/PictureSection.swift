@@ -33,6 +33,15 @@ struct PictureSection: View {
             }
             .accessibilityHint(Text("Picture actions"))
             .accessibilityIdentifier("wordCard.imageMenu")
+            #if DEBUG
+                // Plan 4.2: the owner records prompts from the card during the #5 device check.
+                if let prompt = model.word.image?.prompt {
+                    Text(verbatim: prompt)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("wordCard.imagePromptDebug")
+                }
+            #endif
             if fileName == nil, let message {
                 message
                     .font(.footnote)
