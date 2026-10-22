@@ -35,13 +35,13 @@ struct OnboardingView: View {
                     }
                 } header: {
                     Text("Native language")
+                        .accessibilityIdentifier("onboarding.languagePicker")
                 } footer: {
                     if model.isSystemLanguageUnsupported {
                         unsupportedNote
                             .accessibilityIdentifier("onboarding.unsupportedNote")
                     }
                 }
-                .accessibilityIdentifier("onboarding.languagePicker")
             }
             .navigationTitle("Welcome to Wordhoard")
             .safeAreaInset(edge: .bottom) {
