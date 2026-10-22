@@ -79,15 +79,17 @@ final class AppDependencies {
     /// never becomes a surprise commit point from inside a card (1.4 ruling on #30).
     private func warmUpSettings(_ options: LaunchOptions) {
         do {
-            let settings = try store.settings()
-            if let tag = options.nativeLanguage, settings.nativeLanguage != tag {
-                try store.updateSettings { $0.nativeLanguage = tag }
-            }
-            if options.skipsOnboarding, !settings.hasCompletedOnboarding {
-                try store.updateSettings { $0.hasCompletedOnboarding = true }
-            }
+            _ = try store.settings()
         } catch {
             logger.error("Could not load settings: \(error.localizedDescription, privacy: .public)")
+        }
+        // Debug presets go through the one settings write path; unchanged values save nothing.
+        let settings = SettingsModel(store: store)
+        if let tag = options.nativeLanguageTag {
+            settings.setNativeLanguage(tag)
+        }
+        if options.skipsOnboarding {
+            settings.markOnboardingCompleted()
         }
     }
 

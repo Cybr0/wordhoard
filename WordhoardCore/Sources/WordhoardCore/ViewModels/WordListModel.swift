@@ -44,25 +44,6 @@ public final class WordListModel {
 
     public var failure: Failure?
 
-    /// "Generate pictures automatically" (S5; the interim More-menu toggle of plan 4.4 until 5.3): reads
-    /// and writes `UserSettings.autoGenerateImages` through the store. A read error shows as `true`, the
-    /// default; a write error is `failure = .saving`.
-    public var autoGenerateImages: Bool {
-        get {
-            (try? store.settings().autoGenerateImages) ?? true
-        }
-        set {
-            do {
-                if try store.settings().autoGenerateImages != newValue {
-                    try store.updateSettings { $0.autoGenerateImages = newValue }
-                }
-            } catch {
-                logger.error("Could not save the pictures toggle: \(error.localizedDescription, privacy: .public)")
-                failure = .saving
-            }
-        }
-    }
-
     /// What the last `importWords(_:)` did. The view shows it and sets it back to `nil` when the user
     /// dismisses the alert, as for `failure`; a failed import clears it.
     public var importSummary: ImportSummary?
@@ -131,8 +112,7 @@ public final class WordListModel {
     ///   rolled back.
     public func importWords(_ data: Data) {
         do {
-            importSummary = try Importer.import(data, into: store)
-            resumeAutofill()
+            importSummary = try Importer.importAndFill(data, into: store, autofill: autofill)
         } catch let error as ImportError {
             importSummary = nil
             failure = .importing(error)
@@ -150,14 +130,6 @@ public final class WordListModel {
             try imageQueue?.enqueue(word)
         } catch {
             logger.error("Could not queue a picture: \(error.localizedDescription, privacy: .public)")
-        }
-    }
-
-    private func resumeAutofill() {
-        do {
-            try autofill?.resumeAfterLaunch()
-        } catch {
-            logger.error("Could not queue imported words: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

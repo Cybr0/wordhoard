@@ -23,6 +23,15 @@
         }
       }
     },
+    "%lld of %lld" : {
+
+    },
+    "About" : {
+
+    },
+    "About Wordhoard" : {
+
+    },
     "Add a word" : {
 
     },
@@ -63,6 +72,9 @@
 
     },
     "Cancel" : {
+
+    },
+    "Changes apply to new autofill only. Existing cards keep their translations." : {
 
     },
     "Choose photo…" : {
@@ -119,6 +131,12 @@
     "Creating a picture…" : {
 
     },
+    "Data" : {
+
+    },
+    "Data sources" : {
+
+    },
     "Default" : {
 
     },
@@ -132,6 +150,9 @@
 
     },
     "Delete “%@”?" : {
+
+    },
+    "Done" : {
 
     },
     "Example sentence" : {
@@ -152,13 +173,19 @@
     "Filling in…" : {
 
     },
+    "Generate images automatically" : {
+
+    },
     "Generate picture" : {
 
     },
-    "Generate pictures automatically" : {
+    "Grammar" : {
 
     },
     "Image Playground isn't available on this iPhone" : {
+
+    },
+    "Images" : {
 
     },
     "Import finished" : {
@@ -167,13 +194,13 @@
     "Import…" : {
 
     },
+    "License" : {
+
+    },
     "Loading languages…" : {
 
     },
     "Model" : {
-
-    },
-    "More" : {
 
     },
     "Move down" : {
@@ -212,6 +239,12 @@
     "OK" : {
 
     },
+    "Open English WordNet 2024 — CC BY 4.0, derived from Princeton WordNet" : {
+
+    },
+    "Open English WordNet license" : {
+
+    },
     "Other" : {
 
     },
@@ -243,6 +276,12 @@
 
     },
     "Sense actions" : {
+
+    },
+    "Settings" : {
+
+    },
+    "Source code and license" : {
 
     },
     "Storage unavailable" : {
@@ -320,6 +359,15 @@
     "Wordhoard" : {
 
     },
+    "Wordhoard %@" : {
+
+    },
+    "Wordhoard is open source under the Apache License 2.0." : {
+
+    },
+    "Wordhoard makes a picture for each new word on your iPhone. You can always add a photo yourself." : {
+
+    },
     "Wordhoard writes definitions and examples on your iPhone and translates them with Apple's on-device Translation. Choose the language translations should be in. You can change this later in Settings." : {
 
     },
@@ -327,6 +375,9 @@
 
     },
     "Your words can't be stored on this device right now. Anything you add will be lost when the app closes." : {
+
+    },
+    "Your words, senses and settings as one JSON file. Importing merges by word and never deletes anything." : {
 
     },
     "“%@” is already in your hoard." : {

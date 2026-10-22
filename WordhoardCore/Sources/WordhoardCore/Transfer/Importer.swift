@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Restores an `ExportDocument` into a `WordStore` (requirements S3, C4).
 ///
@@ -59,5 +60,22 @@ public enum Importer {
             return ""
         }
         return String(text[first ... last])
+    }
+}
+
+public extension Importer {
+    /// The one import path of the app's models (1.7, 5.3): `import(_:into:)`, then the autofill sweep,
+    /// so imported words without senses (saved `pending`) are filled now, not at the next foreground. A
+    /// sweep error is logged; the import itself has already been saved.
+    @MainActor
+    static func importAndFill(_ data: Data, into store: WordStore, autofill: AutofillService?) throws -> ImportSummary {
+        let summary = try self.import(data, into: store)
+        do {
+            try autofill?.resumeAfterLaunch()
+        } catch {
+            Logger(subsystem: "Wordhoard", category: "transfer")
+                .error("Could not queue imported words: \(error.localizedDescription, privacy: .public)")
+        }
+        return summary
     }
 }

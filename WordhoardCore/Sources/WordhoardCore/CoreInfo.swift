@@ -14,4 +14,18 @@ public enum CoreInfo {
     public static var resourceBundle: Bundle {
         .module
     }
+
+    /// The full Open English WordNet license (CC BY 4.0, `WordNet/OEWN-LICENSE.txt`) for the About screen
+    /// (S6, plan 5.3), or `nil` when the file is not in the bundle.
+    public static func wordNetLicenseText() -> String? {
+        wordNetLicenseText(in: .module)
+    }
+
+    /// The same lookup in another bundle, so a test can show the `nil` path.
+    public static func wordNetLicenseText(in bundle: Bundle) -> String? {
+        guard let url = bundle.url(forResource: "OEWN-LICENSE", withExtension: "txt", subdirectory: "WordNet") else {
+            return nil
+        }
+        return try? String(contentsOf: url, encoding: .utf8)
+    }
 }

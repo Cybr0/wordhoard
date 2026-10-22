@@ -49,17 +49,6 @@ struct ImageGenerationQueueEdgeTests {
         #expect(word.imageStatus == nil)
     }
 
-    @Test("the auto-pictures toggle is saved")
-    func theAutoPicturesToggleIsSaved() throws {
-        let fixture = try ImageQueueFixture()
-        let model = fixture.listModel()
-        #expect(model.autoGenerateImages)
-        model.autoGenerateImages = false
-        #expect(try ModelContext(fixture.container).fetch(FetchDescriptor<UserSettings>()).first?
-            .autoGenerateImages == false)
-        #expect(!model.autoGenerateImages)
-    }
-
     @Test("a job for a word still being filled waits until it is resumed")
     func aJobWaitsForTheFirstCard() async throws {
         let fixture = try ImageQueueFixture()

@@ -80,6 +80,8 @@ struct GrammarTopicsView: View {
             Text("Couldn't load your settings")
         case .saving:
             Text("Couldn't save your settings")
+        case .importing:
+            Text("Couldn't import")
         case nil:
             Text(verbatim: "")
         }

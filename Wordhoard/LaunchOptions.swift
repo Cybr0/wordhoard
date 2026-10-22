@@ -36,7 +36,7 @@ struct LaunchOptions: Sendable {
 
     var generator: Generator = .production
     var translator: TranslatorChoice = .production
-    var nativeLanguage: String?
+    var nativeLanguageTag: String?
     /// `nil` = the production picture generator and prompt writer.
     var images: ImageStub?
     /// `--ui-testing` marks onboarding done so every UI test starts on the list; `--ui-testing-onboarding`
@@ -64,7 +64,7 @@ struct LaunchOptions: Sendable {
             default:
                 break
             }
-            options.nativeLanguage = UITestingHooks.value(after: "--native-language", in: arguments)
+            options.nativeLanguageTag = UITestingHooks.value(after: "--native-language", in: arguments)
             if arguments.contains("--stub-images") {
                 let value = UITestingHooks.value(after: "--stub-images", in: arguments) ?? ""
                 options.images = ImageStub(rawValue: value) ?? .image
