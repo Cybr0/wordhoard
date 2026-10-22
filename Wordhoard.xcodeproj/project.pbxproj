@@ -10,6 +10,8 @@
 		024ED85666D8DDBE6DB6A835 /* AppDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD2ED4EFBE801A95AA358F82 /* AppDependencies.swift */; };
 		0275FC6D7CD917F8C26D65DF /* PartOfSpeech+DisplayName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63B54BE22DDB8020566C4D52 /* PartOfSpeech+DisplayName.swift */; };
 		03675C35FA57C9C98F49C5BB /* GrammarTopicsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6939ECFE69CB45510CB67036 /* GrammarTopicsView.swift */; };
+		0591C05E8AC1466F47603BA4 /* LanguageRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55815515E406EE4736BB5633 /* LanguageRows.swift */; };
+		07B61B4363E65FEC9F549E4D /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9CCB57EA7B6ACE7050B537 /* OnboardingView.swift */; };
 		0CAE817CABF64E5B9C5F35F1 /* TopicExamplesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0B5D756F058BE4650F86B /* TopicExamplesView.swift */; };
 		132042E84B0393F4BA8E7291 /* WordhoardCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9AEF27D9ED49234E8C7CFD94 /* WordhoardCore */; };
 		14D3363F8013CF5C0A2B1677 /* RowThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 259F134727C3AEDF07B46CD7 /* RowThumbnail.swift */; };
@@ -23,13 +25,16 @@
 		45AAEEAD9618661829030008 /* LaunchOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02F90EAB0084C7A7B0FBA59 /* LaunchOptions.swift */; };
 		56FB8F1CA011C0B3309320FD /* Route.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50556055263A1744476025E /* Route.swift */; };
 		600B84B53823E0F1C0F8DD2E /* WordhoardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */; };
+		7557171B4D49C1463DCE6985 /* TranslationLanguageSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5573608CDE2C8B8DE9B9175A /* TranslationLanguageSource.swift */; };
 		8C3B499067641BB31A762797 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8DDA685CA7599AFA87A612C6 /* Assets.xcassets */; };
 		9968065F2C4DF2AFC034C06C /* ExportFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86FE5FD03CDF1DD697988B70 /* ExportFile.swift */; };
 		9CB16C39B81D5FAAC749CD13 /* TopicsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 775698D0C1A408DBF3625CC2 /* TopicsView.swift */; };
 		9D0ED314969CFE10E993B977 /* WordhoardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8FC2813CC17EC5578645627 /* WordhoardShortcuts.swift */; };
+		9EE3C19AC1528F29163FDCAD /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A16D568071937BEDA3CAF7 /* RootView.swift */; };
 		C3B4F7FB3ACDBAC95F50F869 /* CommittingTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209C88D9788EA67B237B9C6D /* CommittingTextField.swift */; };
 		C95F8167B36E03E325409984 /* WordCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B56280FC6C6D93C237E63D /* WordCardView.swift */; };
 		DCCB9994C69C5A5A4E0C18C2 /* WordCardPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C1F3621E229764A9ED88731 /* WordCardPreview.swift */; };
+		E5B7E06B7591878004BAA259 /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D74224E637F2533716E63A3 /* OnboardingUITests.swift */; };
 		F047CB3FEA73AFE5A4E93379 /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE023D5680CA1F64C997D3F7 /* CameraPicker.swift */; };
 		F9F9E25C9AB20F8F98ACFC97 /* WordListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4E9B7FF3EE327D268FF674 /* WordListView.swift */; };
 /* End PBXBuildFile section */
@@ -47,12 +52,16 @@
 /* Begin PBXFileReference section */
 		078B4D3E73CFA61F5FA2A770 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		13B56280FC6C6D93C237E63D /* WordCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordCardView.swift; sourceTree = "<group>"; };
+		1B9CCB57EA7B6ACE7050B537 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		209C88D9788EA67B237B9C6D /* CommittingTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommittingTextField.swift; sourceTree = "<group>"; };
 		259F134727C3AEDF07B46CD7 /* RowThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RowThumbnail.swift; sourceTree = "<group>"; };
 		2F0BC92B96E3686BFC861CDC /* PictureSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureSection.swift; sourceTree = "<group>"; };
 		33106C603F8F27F7485EA7B4 /* WordhoardCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = WordhoardCore; path = WordhoardCore; sourceTree = SOURCE_ROOT; };
 		3E950E4D0A0491B07CF5F05B /* WordhoardUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WordhoardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5573608CDE2C8B8DE9B9175A /* TranslationLanguageSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationLanguageSource.swift; sourceTree = "<group>"; };
+		55815515E406EE4736BB5633 /* LanguageRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageRows.swift; sourceTree = "<group>"; };
 		55A0B5D756F058BE4650F86B /* TopicExamplesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicExamplesView.swift; sourceTree = "<group>"; };
+		5D74224E637F2533716E63A3 /* OnboardingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingUITests.swift; sourceTree = "<group>"; };
 		63B54BE22DDB8020566C4D52 /* PartOfSpeech+DisplayName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PartOfSpeech+DisplayName.swift"; sourceTree = "<group>"; };
 		6939ECFE69CB45510CB67036 /* GrammarTopicsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrammarTopicsView.swift; sourceTree = "<group>"; };
 		775698D0C1A408DBF3625CC2 /* TopicsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicsView.swift; sourceTree = "<group>"; };
@@ -69,6 +78,7 @@
 		D02F90EAB0084C7A7B0FBA59 /* LaunchOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchOptions.swift; sourceTree = "<group>"; };
 		D9DB430FD79F3B5E9CE4229D /* WordhoardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordhoardApp.swift; sourceTree = "<group>"; };
 		DD2A89CD07C1F6FD775E4977 /* Wordhoard.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Wordhoard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E3A16D568071937BEDA3CAF7 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		E50556055263A1744476025E /* Route.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Route.swift; sourceTree = "<group>"; };
 		E8FC2813CC17EC5578645627 /* WordhoardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordhoardShortcuts.swift; sourceTree = "<group>"; };
 		EE023D5680CA1F64C997D3F7 /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
@@ -108,6 +118,7 @@
 			isa = PBXGroup;
 			children = (
 				9C3D2473CEA8FAA2C25CDE06 /* IntentUITests.swift */,
+				5D74224E637F2533716E63A3 /* OnboardingUITests.swift */,
 				B498FAD69F54EAFEF99BE62B /* WordhoardUITests.swift */,
 			);
 			path = WordhoardUITests;
@@ -132,6 +143,14 @@
 			path = Intents;
 			sourceTree = "<group>";
 		};
+		686BAEF4747AC44A622C6315 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				5573608CDE2C8B8DE9B9175A /* TranslationLanguageSource.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
 		73DF287018FA9DA11B3AAAA8 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
@@ -145,14 +164,18 @@
 			children = (
 				6807B7EBB205AE446781B25B /* Intents */,
 				0130D00FAFD8FF9C88142601 /* Resources */,
+				686BAEF4747AC44A622C6315 /* Services */,
 				AD2ED4EFBE801A95AA358F82 /* AppDependencies.swift */,
 				EE023D5680CA1F64C997D3F7 /* CameraPicker.swift */,
 				209C88D9788EA67B237B9C6D /* CommittingTextField.swift */,
 				86FE5FD03CDF1DD697988B70 /* ExportFile.swift */,
 				6939ECFE69CB45510CB67036 /* GrammarTopicsView.swift */,
+				55815515E406EE4736BB5633 /* LanguageRows.swift */,
 				D02F90EAB0084C7A7B0FBA59 /* LaunchOptions.swift */,
+				1B9CCB57EA7B6ACE7050B537 /* OnboardingView.swift */,
 				63B54BE22DDB8020566C4D52 /* PartOfSpeech+DisplayName.swift */,
 				2F0BC92B96E3686BFC861CDC /* PictureSection.swift */,
+				E3A16D568071937BEDA3CAF7 /* RootView.swift */,
 				E50556055263A1744476025E /* Route.swift */,
 				259F134727C3AEDF07B46CD7 /* RowThumbnail.swift */,
 				7787DE0F3E0FE43BEA8269BD /* SenseSection.swift */,
@@ -274,14 +297,18 @@
 				C3B4F7FB3ACDBAC95F50F869 /* CommittingTextField.swift in Sources */,
 				9968065F2C4DF2AFC034C06C /* ExportFile.swift in Sources */,
 				03675C35FA57C9C98F49C5BB /* GrammarTopicsView.swift in Sources */,
+				0591C05E8AC1466F47603BA4 /* LanguageRows.swift in Sources */,
 				45AAEEAD9618661829030008 /* LaunchOptions.swift in Sources */,
+				07B61B4363E65FEC9F549E4D /* OnboardingView.swift in Sources */,
 				0275FC6D7CD917F8C26D65DF /* PartOfSpeech+DisplayName.swift in Sources */,
 				18000ED439C0F448AED38469 /* PictureSection.swift in Sources */,
+				9EE3C19AC1528F29163FDCAD /* RootView.swift in Sources */,
 				56FB8F1CA011C0B3309320FD /* Route.swift in Sources */,
 				14D3363F8013CF5C0A2B1677 /* RowThumbnail.swift in Sources */,
 				2A7AA7AFD7993CF7C0F6377D /* SenseSection.swift in Sources */,
 				0CAE817CABF64E5B9C5F35F1 /* TopicExamplesView.swift in Sources */,
 				9CB16C39B81D5FAAC749CD13 /* TopicsView.swift in Sources */,
+				7557171B4D49C1463DCE6985 /* TranslationLanguageSource.swift in Sources */,
 				452233B39E8A2483A5316AF4 /* UITestingHooks.swift in Sources */,
 				DCCB9994C69C5A5A4E0C18C2 /* WordCardPreview.swift in Sources */,
 				C95F8167B36E03E325409984 /* WordCardView.swift in Sources */,
@@ -296,6 +323,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4290E5140E56259CCD584960 /* IntentUITests.swift in Sources */,
+				E5B7E06B7591878004BAA259 /* OnboardingUITests.swift in Sources */,
 				324504F048EE4CB34CE99294 /* WordhoardUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

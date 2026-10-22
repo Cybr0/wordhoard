@@ -15,6 +15,10 @@ public final class UserSettings {
     /// catalog no longer knows are kept and ignored by readers via `GrammarCatalog.topic(for:)`.
     public var activeGrammarTopics: [GrammarTopicID] = []
     public var autoGenerateImages: Bool = true
+    /// Set by the onboarding sheet's Continue (S1, plan 5.2) and never reset. `nativeLanguage == nil`
+    /// cannot mean "not asked yet", because "No translation" is `nil` too. Device state, not the user's
+    /// data: not exported by 1.7 and never changed by an import.
+    public var hasCompletedOnboarding: Bool = false
 
     init() {}
 

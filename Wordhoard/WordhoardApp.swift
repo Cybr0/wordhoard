@@ -11,18 +11,10 @@ struct WordhoardApp: App {
 
     var body: some Scene {
         WindowGroup {
-            WordListView(
-                store: dependencies.store,
-                imageStore: dependencies.imageStore,
-                imageQueue: dependencies.imageQueue,
-                autofill: dependencies.autofill,
-                translator: dependencies.translator,
-                isStorageUnavailable: dependencies.isStorageUnavailable,
-                hooks: UITestingHooks.fromLaunchArguments()
-            )
-            .task {
-                dependencies.resumeAutofill()
-            }
+            RootView(dependencies: dependencies, hooks: UITestingHooks.fromLaunchArguments())
+                .task {
+                    dependencies.resumeAutofill()
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             dependencies.imageQueue.isSceneActive = phase == .active

@@ -39,6 +39,9 @@ struct LaunchOptions: Sendable {
     var nativeLanguage: String?
     /// `nil` = the production picture generator and prompt writer.
     var images: ImageStub?
+    /// `--ui-testing` marks onboarding done so every UI test starts on the list; `--ui-testing-onboarding`
+    /// leaves it to the sheet (plan 5.2).
+    var skipsOnboarding = false
 
     static func fromLaunchArguments(_ arguments: [String] = ProcessInfo.processInfo.arguments) -> LaunchOptions {
         var options = LaunchOptions()
@@ -48,6 +51,7 @@ struct LaunchOptions: Sendable {
                 options.translator = .stub
                 // Deterministic and instant: no real picture API in UI tests unless `--stub-images` asks.
                 options.images = .unavailable
+                options.skipsOnboarding = !arguments.contains("--ui-testing-onboarding")
             }
             if UITestingHooks.value(after: "--translator", in: arguments) == "unavailable" {
                 options.translator = .unavailable

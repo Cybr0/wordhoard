@@ -83,6 +83,9 @@ final class AppDependencies {
             if let tag = options.nativeLanguage, settings.nativeLanguage != tag {
                 try store.updateSettings { $0.nativeLanguage = tag }
             }
+            if options.skipsOnboarding, !settings.hasCompletedOnboarding {
+                try store.updateSettings { $0.hasCompletedOnboarding = true }
+            }
         } catch {
             logger.error("Could not load settings: \(error.localizedDescription, privacy: .public)")
         }

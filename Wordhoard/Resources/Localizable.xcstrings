@@ -77,6 +77,9 @@
     "Conjunction" : {
 
     },
+    "Continue" : {
+
+    },
     "Couldn't create a picture" : {
 
     },
@@ -105,6 +108,9 @@
 
     },
     "Couldn't save your changes" : {
+
+    },
+    "Couldn't save your choice" : {
 
     },
     "Couldn't save your settings" : {
@@ -161,6 +167,9 @@
     "Import…" : {
 
     },
+    "Loading languages…" : {
+
+    },
     "Model" : {
 
     },
@@ -173,6 +182,9 @@
     "Move up" : {
 
     },
+    "Native language" : {
+
+    },
     "No examples for %@ yet" : {
 
     },
@@ -183,6 +195,9 @@
 
     },
     "No topics yet" : {
+
+    },
+    "No translation" : {
 
     },
     "No words yet" : {
@@ -275,6 +290,9 @@
     "Translation" : {
 
     },
+    "Translation isn't available for %@ yet. You can type translations yourself." : {
+
+    },
     "Translations need the %@ pack. Download it in Settings › Translate." : {
 
     },
@@ -282,6 +300,9 @@
 
     },
     "Verb" : {
+
+    },
+    "Welcome to Wordhoard" : {
 
     },
     "Which word?" : {
@@ -297,6 +318,9 @@
 
     },
     "Wordhoard" : {
+
+    },
+    "Wordhoard writes definitions and examples on your iPhone and translates them with Apple's on-device Translation. Choose the language translations should be in. You can change this later in Settings." : {
 
     },
     "Words you add will appear here." : {
