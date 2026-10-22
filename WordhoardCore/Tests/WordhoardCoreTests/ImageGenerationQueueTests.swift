@@ -174,9 +174,9 @@ struct ImageGenerationQueueTests {
 
     @Test("a photo chosen during generation is kept")
     func aPhotoChosenDuringGenerationIsKept() async throws {
-        let fixture = try ImageQueueFixture(generator: StubImageGenerator(delay: .seconds(1)))
+        let fixture = try ImageQueueFixture(holdsGenerator: true)
         let word = try fixture.add("apple")
-        try await fixture.waitUntil { fixture.generator.prompts.count == 1 }
+        await fixture.generatorGate.untilWaiting(1)
 
         let card = fixture.cardModel(word)
         #expect(try card.setImage(data: makePNG(width: 20, height: 20), source: .library))
@@ -191,21 +191,23 @@ struct ImageGenerationQueueTests {
 
     @Test("a generated picture finished after the word changed is discarded")
     func aLatePictureIsDiscarded() async throws {
-        let fixture = try ImageQueueFixture(generator: StubImageGenerator(delay: .milliseconds(300)))
+        let fixture = try ImageQueueFixture(holdsGenerator: true)
         let word = try fixture.add("apple")
-        try await fixture.waitUntil { fixture.generator.prompts.count == 1 }
+        await fixture.generatorGate.untilWaiting(1)
         // A status change behind the queue's back, without cancelling the job: the result must not land.
         try fixture.store.setImageStatus(nil, for: word)
+        fixture.generatorGate.open()
         await fixture.queue.drain()
+        #expect(fixture.generator.prompts.count == 1, "the picture was made, then discarded")
         #expect(word.image == nil)
         #expect(fixture.directory.allFiles.isEmpty)
     }
 
     @Test("deleting a word drops its pending picture")
     func deletingAWordDropsItsPendingPicture() async throws {
-        let fixture = try ImageQueueFixture(generator: StubImageGenerator(delay: .seconds(1)))
+        let fixture = try ImageQueueFixture(holdsGenerator: true)
         let word = try fixture.add("apple")
-        try await fixture.waitUntil { fixture.generator.prompts.count == 1 }
+        await fixture.generatorGate.untilWaiting(1)
 
         #expect(fixture.cardModel(word).deleteWord())
         await fixture.queue.drain()

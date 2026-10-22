@@ -68,10 +68,11 @@ struct ImageGenerationQueueEdgeTests {
 
     @Test("a failure while the scene is inactive leaves the word pending, and no job starts while inactive")
     func backgroundFailuresStayPending() async throws {
-        let fixture = try ImageQueueFixture(generator: StubImageGenerator(outcome: .failed, delay: .milliseconds(200)))
+        let fixture = try ImageQueueFixture(generator: StubImageGenerator(outcome: .failed), holdsGenerator: true)
         let word = try fixture.add("apple")
-        try await fixture.waitUntil { fixture.generator.prompts.count == 1 }
+        await fixture.generatorGate.untilWaiting(1)
         fixture.queue.isSceneActive = false
+        fixture.generatorGate.open()
         await fixture.queue.drain()
         #expect(word.imageStatus == .pending)
 
