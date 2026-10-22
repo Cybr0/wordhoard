@@ -38,12 +38,15 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.wordhoard.app
         PRODUCT_NAME: Wordhoard
-        MARKETING_VERSION: "0.1.0"
+        # 1.0.0 for the whole v1 TestFlight period; the build number is +1 per upload, in its own commit.
+        MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
         # iPhone only (requirements §2). iPad runs it in compatibility mode.
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Wordhoard
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.education
         # Every build re-extracts the keys into the one String Catalog (plan 6.3).
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         SWIFT_EMIT_LOC_STRINGS: YES
