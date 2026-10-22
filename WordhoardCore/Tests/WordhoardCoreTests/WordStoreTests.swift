@@ -154,8 +154,9 @@ struct WordStoreTests {
         #expect(try store.word(id: UUID()) == nil)
     }
 
-    @Test("deleting a word is soft and keeps its senses, examples, tags and image")
-    func deletingAWordIsSoftAndKeepsItsSensesExamplesTagsAndImage() throws {
+    /// Plan 4.1 (#46) changed the image half: the picture goes with the word, the rest stays.
+    @Test("deleting a word is soft, keeps its senses, examples and tags and drops its image")
+    func deletingAWordIsSoftAndKeepsItsSensesExamplesAndTags() throws {
         let word = try insertBookFixture(into: fresh())
         let stored = try #require(try store.word(id: word.id))
         let past = Date(timeIntervalSince1970: 1000)
@@ -172,7 +173,7 @@ struct WordStoreTests {
         #expect(try context.fetchCount(FetchDescriptor<Sense>()) == 2)
         #expect(try context.fetchCount(FetchDescriptor<Example>()) == 3)
         #expect(try context.fetchCount(FetchDescriptor<WordhoardCore.Tag>()) == 1)
-        #expect(try context.fetchCount(FetchDescriptor<ImageAsset>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<ImageAsset>()) == 0)
         #expect(try context.fetch(FetchDescriptor<Word>()).first?.deletedAt == deletedAt)
 
         try store.delete(stored)

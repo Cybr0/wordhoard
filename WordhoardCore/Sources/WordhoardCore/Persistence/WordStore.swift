@@ -121,17 +121,26 @@ public final class WordStore {
 
     // MARK: - Mutation
 
-    /// Soft-deletes `word` (W3, §5): sets `deletedAt`, bumps `updatedAt`, saves. Senses, examples, tags
-    /// and the image stay stored; the cascade belongs to hard delete. Deleting an already-deleted word
-    /// is a no-op that keeps the original `deletedAt`.
-    public func delete(_ word: Word) throws {
+    /// Soft-deletes `word` (W3, §5): sets `deletedAt`, bumps `updatedAt`, hard-deletes its `ImageAsset`
+    /// row in the same save (plan 4.1: v1 has no purge, so the picture goes with the word), saves.
+    /// Senses, examples and tags stay stored; the cascade belongs to hard delete. Deleting an
+    /// already-deleted word is a no-op that keeps the original `deletedAt`.
+    /// - Returns: the deleted picture's file name, for the caller to delete **after** the save.
+    @discardableResult
+    public func delete(_ word: Word) throws -> String? {
         guard word.deletedAt == nil else {
-            return
+            return nil
         }
         let now = Date.now
         word.deletedAt = now
         word.updatedAt = now
+        let fileName = word.image?.fileName
+        if let asset = word.image {
+            word.image = nil
+            context.delete(asset)
+        }
         try save()
+        return fileName
     }
 
     /// Persists in-place edits to `word` and its senses and examples. Trims `headword` with the same

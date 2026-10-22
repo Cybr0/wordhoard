@@ -18,12 +18,15 @@ struct WordhoardApp: App {
     private let translator: any Translator
     /// `true` when the on-disk store could not be opened and `container` is an in-memory fallback.
     private let isStorageUnavailable: Bool
+    /// Word pictures as files (plan 4.1); a fresh temporary directory under `--ui-testing`.
+    private let imageStore: ImageStore
 
     init() {
         logger.info("Launching with WordhoardCore \(CoreInfo.version, privacy: .public)")
         let options = LaunchOptions.fromLaunchArguments()
         (container, isStorageUnavailable) = Self.makeContainer(logger: logger)
         store = WordStore(container: container)
+        imageStore = Self.makeImageStore(logger: logger)
         translator = options.makeTranslator()
         autofill = AutofillService(store: store, generator: options.makeGenerator(translator: translator))
         // Warm up the settings record now, before any in-place edit can be pending, so its first-use
@@ -39,6 +42,7 @@ struct WordhoardApp: App {
         Task.detached {
             await WordNetLookup.shared.warmUp()
         }
+        Self.removeOrphanedImages(store: store, imageStore: imageStore, logger: logger)
     }
 
     var body: some Scene {
@@ -84,6 +88,43 @@ struct WordhoardApp: App {
         } catch {
             logger.fault("Could not open the store, using memory: \(error.localizedDescription, privacy: .public)")
             return (makeInMemoryContainer(), true)
+        }
+    }
+
+    /// `Application Support/Images/`, or a fresh temporary directory under `--ui-testing` so UI tests leave
+    /// nothing behind. If the directory cannot be created, the temporary one is used and pictures last
+    /// until the system clears it; the app still launches.
+    private static func makeImageStore(logger: Logger) -> ImageStore {
+        #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
+                return ImageStore(directory: URL.temporaryDirectory.appending(path: "Images-\(UUID().uuidString)"))
+            }
+        #endif
+        do {
+            return try ImageStore(directory: ImageStore.defaultDirectory())
+        } catch {
+            logger.error("Could not create the image directory: \(error.localizedDescription, privacy: .public)")
+            return ImageStore(directory: URL.temporaryDirectory.appending(path: "Images"))
+        }
+    }
+
+    /// The once-per-launch orphan scan (plan 4.1): the reference set is read on the main actor, the files
+    /// are scanned off it. Failures are logged, never shown.
+    private static func removeOrphanedImages(store: WordStore, imageStore: ImageStore, logger: Logger) {
+        let referenced: Set<String>
+        do {
+            referenced = try store.imageFileNames()
+        } catch {
+            logger.error("Could not read picture names: \(error.localizedDescription, privacy: .public)")
+            return
+        }
+        Task.detached(priority: .utility) {
+            do {
+                try imageStore.removeOrphans(keeping: referenced)
+            } catch {
+                Logger(subsystem: "Wordhoard", category: "images")
+                    .error("Orphan scan failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
