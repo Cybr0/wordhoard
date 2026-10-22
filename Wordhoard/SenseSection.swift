@@ -119,8 +119,9 @@ struct SenseSection: View {
         .accessibilityIdentifier(identifier("menu"))
     }
 
-    /// A neutral example is its text field; a tagged one adds the badge link (3.3), and the two are one
-    /// accessibility element read "text, topic" (6.1).
+    /// A neutral example is its text field; a tagged one adds the badge link (3.3). The field stays its
+    /// own editable accessibility element and the link is read "Topic: <name>" (6.1, W2), so VoiceOver
+    /// can still edit a tagged example.
     @ViewBuilder
     private func exampleRow(_ example: Example, position: Int) -> some View {
         if let topic = example.grammarTopic.flatMap(GrammarCatalog.english.topic(for:)) {
@@ -135,11 +136,9 @@ struct SenseSection: View {
                 }
                 .buttonStyle(.plain)
                 .navigationLinkIndicatorVisibility(.hidden)
+                .accessibilityLabel(Text("Topic: \(topic.name)"))
                 .accessibilityIdentifier(identifier("example.\(position).topicBadge"))
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(Text(example.text))
-            .accessibilityValue(Text(verbatim: topic.name))
         } else {
             exampleField(example, position: position)
         }
