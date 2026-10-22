@@ -6,9 +6,14 @@ import Foundation
 /// `--ui-testing-export-path <path>`: "Export…" writes the file there instead of presenting the share
 /// sheet. `--ui-testing-import-path <path>`: "Import…" imports that file instead of opening the picker.
 /// Everything else (menu, model, importer, alert, reload) is the production path.
+///
+/// `--ui-testing-add-word <word>` (repeatable, in order): runs the real `AddWordIntent.perform()` for each
+/// value against the shared store before the list loads, the in-process stand-in for Siri that lets the
+/// CLAUDE.md "Siri intent → word appears" flow have a UI test (plan 5.1).
 struct UITestingHooks: Sendable {
     var exportPath: String?
     var importPath: String?
+    var addWords: [String] = []
 
     static let none = UITestingHooks()
 
@@ -19,7 +24,8 @@ struct UITestingHooks: Sendable {
             }
             return UITestingHooks(
                 exportPath: value(after: "--ui-testing-export-path", in: arguments),
-                importPath: value(after: "--ui-testing-import-path", in: arguments)
+                importPath: value(after: "--ui-testing-import-path", in: arguments),
+                addWords: values(after: "--ui-testing-add-word", in: arguments)
             )
         #else
             return .none
@@ -33,6 +39,13 @@ struct UITestingHooks: Sendable {
                 return nil
             }
             return arguments[index + 1]
+        }
+
+        /// The argument after every occurrence of `flag`, in order.
+        static func values(after flag: String, in arguments: [String]) -> [String] {
+            arguments.indices.compactMap { index in
+                arguments[index] == flag && arguments.indices.contains(index + 1) ? arguments[index + 1] : nil
+            }
         }
     #endif
 }

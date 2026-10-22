@@ -26,6 +26,9 @@
     "Add a word" : {
 
     },
+    "Add a word to Wordhoard" : {
+
+    },
     "Add example" : {
 
     },
@@ -36,6 +39,9 @@
 
     },
     "Added %lld, updated %lld, skipped %lld." : {
+
+    },
+    "Added “%@” to your hoard." : {
 
     },
     "Adding examples…" : {
@@ -93,6 +99,9 @@
 
     },
     "Couldn't save the word" : {
+
+    },
+    "Couldn't save the word." : {
 
     },
     "Couldn't save your changes" : {
@@ -215,6 +224,9 @@
     "Reset to default" : {
 
     },
+    "Saves a word to your Wordhoard list." : {
+
+    },
     "Sense actions" : {
 
     },
@@ -272,6 +284,12 @@
     "Verb" : {
 
     },
+    "Which word?" : {
+
+    },
+    "Word" : {
+
+    },
     "Word picture" : {
 
     },
@@ -285,6 +303,9 @@
 
     },
     "Your words can't be stored on this device right now. Anything you add will be lost when the app closes." : {
+
+    },
+    "“%@” is already in your hoard." : {
 
     },
     "“%@” is already in your words." : {

@@ -15,6 +15,7 @@ struct WordListView: View {
     @State private var isImporterPresented = false
     @State private var isReadFailurePresented = false
     @FocusState private var isAddFieldFocused: Bool
+    @Environment(\.scenePhase) private var scenePhase
     private let store: WordStore
     private let imageStore: ImageStore
     private let imageQueue: ImageGenerationQueue
@@ -99,6 +100,13 @@ struct WordListView: View {
                 Text("The file couldn't be read.")
             }
             .onAppear(perform: model.reload)
+            .onChange(of: scenePhase) { _, phase in
+                // The intent (5.1) can save while the app sits in the background in this process.
+                if phase == .active {
+                    model.reload()
+                }
+            }
+            .task(runAddWordHook)
             .onChange(of: path) { _, path in
                 // Back from a card: re-read, so a delete or rename made there shows at once.
                 if path.isEmpty {
@@ -250,32 +258,6 @@ struct WordListView: View {
         )
     }
 
-    // MARK: - Failures
-
-    private var failureTitle: Text {
-        switch model.failure {
-        case .saving:
-            Text("Couldn't save the word")
-        case .loading:
-            Text("Couldn't load your words")
-        case .importing:
-            Text("Couldn't import")
-        case nil:
-            Text(verbatim: "")
-        }
-    }
-
-    private var isFailurePresented: Binding<Bool> {
-        Binding(
-            get: { model.failure != nil },
-            set: { isPresented in
-                if !isPresented {
-                    model.failure = nil
-                }
-            }
-        )
-    }
-
     private func submitDraft() {
         switch model.addDraft() {
         case let .existing(word):
@@ -347,5 +329,52 @@ extension WordListView {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("wordList.storageNotice")
+    }
+}
+
+// MARK: - UI-test hooks
+
+extension WordListView {
+    /// `--ui-testing-add-word`: the real intent, then a reload, as when Siri saves while the app is open.
+    private func runAddWordHook() async {
+        guard !hooks.addWords.isEmpty else {
+            return
+        }
+        for word in hooks.addWords {
+            do {
+                _ = try await AddWordIntent(word: word).perform()
+            } catch {
+                logger.notice("The add-word hook's intent threw: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        model.reload()
+    }
+}
+
+// MARK: - Failures
+
+extension WordListView {
+    private var failureTitle: Text {
+        switch model.failure {
+        case .saving:
+            Text("Couldn't save the word")
+        case .loading:
+            Text("Couldn't load your words")
+        case .importing:
+            Text("Couldn't import")
+        case nil:
+            Text(verbatim: "")
+        }
+    }
+
+    private var isFailurePresented: Binding<Bool> {
+        Binding(
+            get: { model.failure != nil },
+            set: { isPresented in
+                if !isPresented {
+                    model.failure = nil
+                }
+            }
+        )
     }
 }

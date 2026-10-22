@@ -5,10 +5,9 @@ import WordhoardCore
 /// relationships: two senses, one with a WordNet badge, a translation, synonyms and a topic example.
 @MainActor
 private func previewCard() -> WordCardView? {
-    guard let container = try? WordhoardContainer.makeInMemory() else {
+    guard let store = AppDependencies.previewStore() else {
         return nil
     }
-    let store = WordStore(container: container)
     guard let word = try? store.add("book").word else {
         return nil
     }
