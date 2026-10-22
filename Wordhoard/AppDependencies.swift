@@ -104,12 +104,13 @@ final class AppDependencies {
 
     /// The once-per-launch orphan scan (plan 4.1): the reference set is read on the main actor, the files
     /// are scanned off it, and only then does the picture queue start (4.4). Failures are logged, never
-    /// shown; the queue starts either way.
+    /// shown; the queue starts either way. Never against the in-memory fallback store: its empty
+    /// reference set would delete every picture on disk (`orphanScanKeepList()` refuses it as well).
     private func removeOrphanedImages() {
         imageQueue.isSuspended = true
         let referenced: Set<String>?
         do {
-            referenced = try store.imageFileNames()
+            referenced = isStorageUnavailable ? nil : try store.orphanScanKeepList()
         } catch {
             logger.error("Could not read picture names: \(error.localizedDescription, privacy: .public)")
             referenced = nil

@@ -49,6 +49,17 @@ public extension WordStore {
         try Set(context.fetch(FetchDescriptor<ImageAsset>()).map(\.fileName))
     }
 
+    /// The launch orphan scan's keep-list, or `nil` when the scan must not run: an in-memory store (the
+    /// fallback after the on-disk store failed to open, a preview, a UI-test launch) knows none of the
+    /// pictures on disk, and scanning against it would delete every one of them.
+    func orphanScanKeepList() throws -> Set<String>? {
+        guard !context.container.configurations.contains(where: \.isStoredInMemoryOnly) else {
+            logger.notice("Orphan scan skipped: the store is in memory")
+            return nil
+        }
+        return try imageFileNames()
+    }
+
     /// Bookkeeping for the picture queue (4.4): saves without bumping `updatedAt`, since the status is
     /// not content. An unchanged value saves nothing.
     func setImageStatus(_ status: ImageStatus?, for word: Word) throws {
