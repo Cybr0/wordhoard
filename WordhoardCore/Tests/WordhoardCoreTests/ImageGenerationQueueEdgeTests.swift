@@ -81,3 +81,29 @@ struct ImageGenerationQueueEdgeTests {
         #expect(pear.imageStatus == .pending)
     }
 }
+
+/// Regression found in the simulator pass: the autofill hook can call `resumePending()` while the job
+/// that just put the word off is still the running one; the word must be queued again, not skipped.
+@MainActor
+@Suite("ImageGenerationQueue resume during a put-off job")
+struct ImageGenerationQueueResumeRaceTests {
+    @Test("a word resumed while its put-off job is still running gets its picture")
+    func aWordResumedWhileItsJobRunsIsQueuedAgain() async throws {
+        let fixture = try ImageQueueFixture()
+        var isFilling = true
+        let queue = fixture.queue
+        queue.waitsFor = { _ in
+            guard isFilling else {
+                return false
+            }
+            // The first card settles while this job is deciding: the hook resumes the queue now.
+            isFilling = false
+            try? queue.resumePending()
+            return true
+        }
+        let word = try fixture.add("apple")
+        await queue.drain()
+        #expect(word.image?.source == .generated)
+        #expect(word.imageStatus == nil)
+    }
+}

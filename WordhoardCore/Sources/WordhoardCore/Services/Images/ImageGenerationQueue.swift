@@ -74,7 +74,7 @@ public final class ImageGenerationQueue {
     /// worker. Without `force` this is the automatic path and does nothing when
     /// `UserSettings.autoGenerateImages` is off or the word already has a picture; `force` is the card's
     /// "Generate picture", which ignores the toggle and replaces any picture. A deleted word, or one
-    /// already queued, is not queued again.
+    /// waiting in the queue, is not queued again.
     public func enqueue(_ word: Word, force: Bool = false) throws {
         guard word.deletedAt == nil else {
             return
@@ -85,7 +85,9 @@ public final class ImageGenerationQueue {
             }
         }
         try store.setImageStatus(.pending, for: word)
-        guard !queue.contains(word.id), runningWordID != word.id else {
+        // The running word may be queued again: its job may be one that just put it off, and a second
+        // job for a word that is no longer `.pending` ends at once.
+        guard !queue.contains(word.id) else {
             return
         }
         queue.append(word.id)
@@ -95,7 +97,7 @@ public final class ImageGenerationQueue {
     /// Queues every active `.pending` word, oldest first: at launch (after a kill) and on every
     /// foreground. Idempotent.
     public func resumePending() throws {
-        for word in try store.wordsPendingImages() where !queue.contains(word.id) && runningWordID != word.id {
+        for word in try store.wordsPendingImages() where !queue.contains(word.id) {
             queue.append(word.id)
         }
         startWorkerIfNeeded()
