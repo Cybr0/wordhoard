@@ -14,6 +14,11 @@ struct WordCardView: View {
     /// The native language whose translation pack is missing, when the card has no translation because
     /// of it (A9, plan 2.10); checked with the generator's availability.
     @State private var missingPackLanguage: String?
+    /// Between this card's `onAppear` and `onDisappear`: only a card on screen may dismiss itself, so a
+    /// covered card does not pop the one that deleted the word.
+    @State private var isOnScreen = false
+    /// Set by `dismissOnce()`, so the delete button and `onChange` on the same card do not pop twice.
+    @State private var isDismissing = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     private let autofill: AutofillService
@@ -32,32 +37,26 @@ struct WordCardView: View {
     }
 
     var body: some View {
-        List {
-            headwordSection
-            if model.senses.isEmpty, !isFilling {
-                emptyState
-            }
-            ForEach(Array(model.senses.enumerated()), id: \.element.id) { index, sense in
-                SenseSection(model: model, sense: sense, index: index, count: model.senses.count)
-            }
-            Section {
-                Button("Add sense", systemImage: "plus") {
-                    model.addSense()
-                }
-                .accessibilityIdentifier("wordCard.addSense")
+        Group {
+            if model.isWordDeleted {
+                deletedState
+            } else {
+                card
             }
         }
         .navigationTitle(word.headword)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                EditButton()
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Delete word", systemImage: "trash", role: .destructive) {
-                    isDeleteDialogPresented = true
+            if !model.isWordDeleted {
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditButton()
                 }
-                .accessibilityIdentifier("wordCard.delete")
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Delete word", systemImage: "trash", role: .destructive) {
+                        isDeleteDialogPresented = true
+                    }
+                    .accessibilityIdentifier("wordCard.delete")
+                }
             }
         }
         .confirmationDialog(
@@ -79,20 +78,50 @@ struct WordCardView: View {
             model.reloadSenses()
         }
         .onAppear {
+            isOnScreen = true
+            isDismissing = false
             // The same word's card can be on the stack twice (card → badge → topic → example): the
             // other one may have deleted the word or changed its senses while this one was covered.
-            if word.deletedAt != nil {
-                dismiss()
+            if model.isWordDeleted {
+                dismissOnce()
             } else {
                 model.reloadSenses()
             }
         }
+        .onDisappear {
+            isOnScreen = false
+        }
+        .onChange(of: model.isWordDeleted) { _, isDeleted in
+            if isDeleted, isOnScreen {
+                dismissOnce()
+            }
+        }
+        .task(id: isOnScreen, dismissIfStillDeleted)
         .task(checkAvailability)
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 Task {
                     await checkAvailability()
                 }
+            }
+        }
+    }
+
+    /// The editable card; replaced by `deletedState` once the word is deleted, so nothing can edit it.
+    private var card: some View {
+        List {
+            headwordSection
+            if model.senses.isEmpty, !isFilling {
+                emptyState
+            }
+            ForEach(Array(model.senses.enumerated()), id: \.element.id) { index, sense in
+                SenseSection(model: model, sense: sense, index: index, count: model.senses.count)
+            }
+            Section {
+                Button("Add sense", systemImage: "plus") {
+                    model.addSense()
+                }
+                .accessibilityIdentifier("wordCard.addSense")
             }
         }
     }
@@ -265,8 +294,40 @@ struct WordCardView: View {
     /// this card's `onDisappear`, so a delete done any later would leave the row visible.
     private func deleteWord() {
         if model.deleteWord() {
-            dismiss()
+            dismissOnce()
         }
+    }
+}
+
+// MARK: - Deleted word
+
+extension WordCardView {
+    /// What a deleted word's card shows if it is still on screen, e.g. after a cancelled Back swipe.
+    private var deletedState: some View {
+        ContentUnavailableView("This word was deleted.", systemImage: "trash")
+            .accessibilityIdentifier("wordCard.deletedState")
+    }
+
+    private func dismissOnce() {
+        guard !isDismissing else {
+            return
+        }
+        isDismissing = true
+        dismiss()
+    }
+
+    /// An interactive Back can start this card's appearance, swallow the on-appear dismiss and then be
+    /// cancelled, leaving the card on top. Check again once the transition has settled, as a deliberate
+    /// retry past `dismissOnce()`; the task is cancelled if the card leaves the screen first, so it never
+    /// pops another screen.
+    private func dismissIfStillDeleted() async {
+        guard isOnScreen, model.isWordDeleted,
+              await (try? Task.sleep(for: .milliseconds(600))) != nil,
+              isOnScreen, model.isWordDeleted
+        else {
+            return
+        }
+        dismiss()
     }
 }
 

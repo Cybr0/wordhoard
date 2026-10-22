@@ -212,6 +212,9 @@
     "This file was made by a newer version of Wordhoard. Update the app and try again." : {
       "extractionState" : "manual"
     },
+    "This word was deleted." : {
+
+    },
     "Topics" : {
 
     },
