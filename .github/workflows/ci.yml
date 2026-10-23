@@ -34,6 +34,8 @@ jobs:
     timeout-minutes: 45
     env:
       SWIFTFORMAT_VERSION: "0.63.1"
+      # Non-empty: skip the preinstalled SwiftFormat and download the pinned release (tests that path).
+      SWIFTFORMAT_FORCE_DOWNLOAD: ""
     steps:
       - uses: actions/checkout@v4
 
@@ -48,7 +50,8 @@ jobs:
       - name: Install tools
         run: |
           brew install xcodegen swiftlint
-          if [ "$(swiftformat --version 2>/dev/null)" = "$SWIFTFORMAT_VERSION" ]; then
+          if [ -z "$SWIFTFORMAT_FORCE_DOWNLOAD" ] \
+            && [ "$(swiftformat --version 2>/dev/null)" = "$SWIFTFORMAT_VERSION" ]; then
             echo "Using preinstalled SwiftFormat $SWIFTFORMAT_VERSION at $(command -v swiftformat)"
           else
             echo "Preinstalled SwiftFormat: $(swiftformat --version 2>/dev/null || echo none); downloading $SWIFTFORMAT_VERSION"
