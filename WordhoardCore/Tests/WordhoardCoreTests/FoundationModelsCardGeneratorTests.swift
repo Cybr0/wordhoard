@@ -2,7 +2,7 @@ import Foundation
 import Testing
 import WordhoardCore
 
-/// `FoundationModelsCardGenerator` over `ScriptedModelCalls` and `StubTranslator` (issue #38, part b):
+/// `FoundationModelsCardGenerator` over `ScriptedModelCalls` (issue #38, part b):
 /// availability and the three sense-inventory paths. The bundled WordNet is used as is; the real model
 /// and the real Translation framework are never called. Helpers live in `GeneratorTestSupport.swift`.
 @Suite("FoundationModelsCardGenerator paths")
@@ -28,13 +28,10 @@ struct FoundationModelsCardGeneratorPathTests {
 
     // MARK: - WordNet path
 
-    @Test("`book` takes the WordNet path: four written senses, no senses call, one back-translation batch")
-    func bookTakesTheWordNetPathWithOneTranslationBatch() async throws {
-        let calls = ScriptedModelCalls(script: .init(proposeTranslation: { _, sense, _ in
-            sense.gloss == GeneratorFixtures.reserveGloss ? "бронировать" : "книга"
-        }))
-        let translator = StubTranslator(table: ["бронировать": "reserve", "книга": "book"])
-        let card = try await makeGenerator(calls, translator: translator).generateCard(makeRequest("Book "))
+    @Test("`book` takes the WordNet path: one selection call, four written senses, no translation")
+    func bookTakesTheWordNetPath() async throws {
+        let calls = ScriptedModelCalls()
+        let card = try await makeGenerator(calls).generateCard(makeRequest("Book "))
 
         #expect(card.headword == "Book")
         #expect(card.path == .wordnet)
@@ -42,9 +39,6 @@ struct FoundationModelsCardGeneratorPathTests {
         #expect(card.senses.allSatisfy { $0.senseSource == .wordnet && $0.gloss != nil })
         #expect(card.senses.allSatisfy { $0.definition == "def:\($0.gloss ?? "")" })
         #expect(card.senses[3].gloss == GeneratorFixtures.reserveGloss)
-        #expect(card.senses[3].translation == "бронировать")
-        #expect(card.senses[0 ..< 3].allSatisfy { $0.translation == "книга" })
-        #expect(card.senses.allSatisfy { !$0.translationIsFallback })
         #expect(card.senses.allSatisfy { $0.neutralExample != nil })
         #expect(card.senses[2].neutralExample == GeneratedExample(text: "I verb the Book", grammarTopic: nil))
         #expect(card.senses[3].synonyms.contains("reserve"), "synonyms come from WordNet, not the model")
@@ -54,11 +48,11 @@ struct FoundationModelsCardGeneratorPathTests {
         #expect(calls.calls(.writeExample).count == 4)
         #expect(calls.calls(.proposeSenses).isEmpty)
         #expect(calls.calls(.verify).isEmpty)
-        #expect(calls.calls.prefix(4).allSatisfy { $0.method == .writeDefinition }, "definitions before examples")
-        #expect(translator.batches.count == 1)
-        #expect(translator.batches.first?.texts == ["книга", "бронировать"], "unique proposals, in sense order")
-        #expect(translator.batches.first?.source == "ru")
-        #expect(translator.batches.first?.target == "en")
+        #expect(calls.calls.first?.method == .selectSenses, "the frequency ranking comes first")
+        #expect(
+            calls.calls.dropFirst().prefix(4).allSatisfy { $0.method == .writeDefinition },
+            "definitions before examples"
+        )
     }
 
     @Test("every prose call names exactly one sense; only the senses call returns several items")
@@ -82,11 +76,7 @@ struct FoundationModelsCardGeneratorPathTests {
             case .proposeSenses, .verify:
                 Issue.record("the WordNet path must not propose or verify senses")
             case .selectSenses:
-                Issue.record("four bundled senses need no selection call")
-            case let .proposeTranslation(headword, sense, nativeLanguage):
-                let prompt = TranslationPrompt.prompt(headword: headword, sense: sense, nativeLanguage: nativeLanguage)
-                let mentioned = card.senses.filter { prompt.contains($0.definition) }
-                #expect(mentioned.count == 1, "one definition per translation prompt")
+                #expect(calls.calls(.selectSenses).count == 1, "one ranking call lists the candidates")
             }
         }
     }
@@ -105,11 +95,9 @@ struct FoundationModelsCardGeneratorPathTests {
             "function-words.txt": "# connectives\nhowever\n",
         ])
         let calls = ScriptedModelCalls(script: .init(
-            proposeSenses: { _ in [GeneratorFixtures.howeverSense] },
-            proposeTranslation: { _, _, _ in "однако" }
+            proposeSenses: { _ in [GeneratorFixtures.howeverSense] }
         ))
-        let translator = StubTranslator(table: ["однако": "however"])
-        let card = try await makeGenerator(calls, translator: translator, lookup: WordNetLookup(bundle: bundle))
+        let card = try await makeGenerator(calls, lookup: WordNetLookup(bundle: bundle))
             .generateCard(makeRequest("however"))
 
         #expect(card.path == .stoplist)
@@ -118,11 +106,10 @@ struct FoundationModelsCardGeneratorPathTests {
         #expect(card.senses.first?.senseSource == .model)
         #expect(card.senses.first?.gloss == nil)
         #expect(card.senses.first?.definition == GeneratorFixtures.howeverSense.definition)
-        #expect(card.senses.first?.translation == "однако", "the proposal, confirmed by back-translation")
         #expect(card.senses.first?.synonyms == ["nevertheless"])
         #expect(card.senses.first?.neutralExample?.text == "I adverb the however")
         #expect(card.notes.isEmpty)
-        #expect(calls.calls.map(\.method) == [.proposeSenses, .verify, .writeExample, .proposeTranslation])
+        #expect(calls.calls.map(\.method) == [.proposeSenses, .verify, .writeExample])
         #expect(calls.calls.first == .proposeSenses(headword: "however", wordClass: nil))
         #expect(calls.calls[1] == .verify(headword: "however", sense: GeneratorFixtures.howeverSense, wordClass: nil))
     }
@@ -133,15 +120,13 @@ struct FoundationModelsCardGeneratorPathTests {
             proposeSenses: { _ in GeneratorFixtures.nonsenseSenses },
             verify: { _, _ in false }
         ))
-        let translator = StubTranslator()
-        let card = try await makeGenerator(calls, translator: translator).generateCard(makeRequest("asdfgh"))
+        let card = try await makeGenerator(calls).generateCard(makeRequest("asdfgh"))
 
         #expect(card.path == .notFound)
         #expect(card.senses.isEmpty)
         #expect(card.notes.isEmpty)
         #expect(calls.calls.map(\.method) == [.proposeSenses, .verify, .verify])
         #expect(calls.calls(.writeExample).isEmpty)
-        #expect(translator.batches.isEmpty)
     }
 
     @Test("a verify call that throws keeps its sense; only an explicit no drops one")

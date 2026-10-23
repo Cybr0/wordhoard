@@ -85,20 +85,6 @@ public struct FoundationModelCalls: ModelCalls {
         return writing.learnerDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    public func proposeTranslation(
-        headword: String,
-        sense: GeneratedSense,
-        nativeLanguage: String
-    ) async throws -> String {
-        let proposal = try await respond(
-            instructions: TranslationPrompt.instructions,
-            prompt: TranslationPrompt.prompt(headword: headword, sense: sense, nativeLanguage: nativeLanguage),
-            generating: TranslationProposal.self,
-            label: "translation proposal"
-        )
-        return proposal.equivalent.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
     public func writeExample(
         headword: String,
         partOfSpeech: PartOfSpeech,

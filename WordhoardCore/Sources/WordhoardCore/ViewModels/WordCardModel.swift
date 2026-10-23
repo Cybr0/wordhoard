@@ -160,19 +160,6 @@ public final class WordCardModel {
         save()
     }
 
-    /// Blank text stores `nil`; clearing is an edit and marks the field `.user` like any other. Any
-    /// edit also clears `translationIsFallback`: the text is now the user's, not a translated definition.
-    public func setTranslation(_ text: String, for sense: Sense) {
-        let translation = Self.trimmed(text).isEmpty ? nil : text
-        guard isLive(sense), sense.translation != translation else {
-            return
-        }
-        sense.translation = translation
-        sense.translationIsFallback = false
-        mark(.translation, on: sense)
-        save()
-    }
-
     /// Stores `splitList(text)`.
     public func setSynonyms(_ text: String, for sense: Sense) {
         let synonyms = Self.splitList(text)

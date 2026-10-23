@@ -42,7 +42,6 @@ struct WordCardModelSharedWordTests {
     /// Every call the card can make for a sense or its example, as a late commit would.
     private func commitEverything(on model: WordCardModel, sense: Sense, example: Example) {
         model.setDefinition("late", for: sense)
-        model.setTranslation("late", for: sense)
         model.setSynonyms("late", for: sense)
         model.setAntonyms("late", for: sense)
         model.setPartOfSpeech(.verb, for: sense)

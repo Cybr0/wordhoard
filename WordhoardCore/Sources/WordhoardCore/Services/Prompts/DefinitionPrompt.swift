@@ -20,6 +20,11 @@ public enum DefinitionPrompt {
     - Keep facts that are the meaning itself: a proper name keeps its real referent (a city stays the capital of its real country), a species stays that species.
     - Rewrite the gloss in your own simple words; do not copy it, and do not use the word itself in the definition.
     - Stay with the given sense; do not describe other meanings of the word.
+    - Explain the meaning the way a good learner's dictionary does for an intermediate learner: the simplest natural explanation, usually under 12 words. Do not follow the structure of the gloss or keep its technical details.
+    Examples of what to avoid and what to write:
+    - "run", verb, gloss "move fast by using one's feet, with one foot off the ground at any given time". Bad: "to move quickly by lifting one leg off the ground at times". Good: "to move very quickly on your feet".
+    - "light", noun, gloss "(physics) electromagnetic radiation that can produce a visual sensation". Bad: "a wave that makes things appear bright". Good: "the brightness from the sun or a lamp that lets you see".
+    - "issue", noun, gloss "an important question that is in dispute and must be settled". Bad: "a question in dispute that must be settled". Good: "an important problem or subject that people discuss".
     """
 
     public static func prompt(headword: String, sense: WordNetSense) -> String {

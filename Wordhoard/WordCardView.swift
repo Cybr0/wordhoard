@@ -11,9 +11,6 @@ struct WordCardView: View {
     /// Whether the generator can run now; checked on appear and on every foreground (A6). Until it
     /// says `.available`, no fill-in button is offered.
     @State private var isGeneratorAvailable = false
-    /// The native language whose translation pack is missing, when the card has no translation because
-    /// of it (A9, plan 2.10); checked with the generator's availability.
-    @State private var missingPackLanguage: String?
     /// Whether the picture generator and its prompt writer can both run now (plan 4.3/4.4).
     @State private var canGeneratePicture = false
     /// Between this card's `onAppear` and `onDisappear`: only a card on screen may dismiss itself, so a
@@ -25,15 +22,13 @@ struct WordCardView: View {
     @Environment(\.scenePhase) private var scenePhase
     private let autofill: AutofillService
     private let store: WordStore
-    private let translator: any Translator
 
     init(
         word: Word,
         store: WordStore,
         imageStore: ImageStore?,
         imageQueue: ImageGenerationQueue?,
-        autofill: AutofillService,
-        translator: any Translator
+        autofill: AutofillService
     ) {
         _model = State(initialValue: WordCardModel(
             word: word,
@@ -43,7 +38,6 @@ struct WordCardView: View {
         ))
         self.autofill = autofill
         self.store = store
-        self.translator = translator
     }
 
     private var word: Word {
@@ -161,19 +155,6 @@ struct WordCardView: View {
                     .accessibilityIdentifier("wordCard.headwordMessage")
             }
             statusRow
-            translationPackNote
-        }
-    }
-
-    /// One line when the native language is set, the card has senses but no translation, and the
-    /// pack is not installed: the fields stay empty rather than show model text (A9).
-    @ViewBuilder private var translationPackNote: some View {
-        if let language = missingPackLanguage, isUntranslated {
-            let name = Locale.current.localizedString(forLanguageCode: language) ?? language
-            Text("Translations need the \(name) pack. Download it in Settings › Translate.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("wordCard.translationNote")
         }
     }
 
@@ -231,10 +212,6 @@ struct WordCardView: View {
         }
     }
 
-    private var isUntranslated: Bool {
-        word.autofillState == .ready && !model.senses.isEmpty && model.senses.allSatisfy { $0.translation == nil }
-    }
-
     private func checkAvailability() async {
         isGeneratorAvailable = await autofill.generator.availability() == .available
         if let queue = model.imageQueue {
@@ -244,12 +221,6 @@ struct WordCardView: View {
         } else {
             canGeneratePicture = false
         }
-        guard let language = try? store.settings().nativeLanguage else {
-            missingPackLanguage = nil
-            return
-        }
-        let pack = await translator.availability(from: word.learningLanguage, to: language)
-        missingPackLanguage = pack == .installed ? nil : language
     }
 
     private static let unavailableExplanation: LocalizedStringKey =

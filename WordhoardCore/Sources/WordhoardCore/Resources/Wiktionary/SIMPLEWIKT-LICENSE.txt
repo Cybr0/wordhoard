@@ -1,0 +1,21 @@
+Simple English Wiktionary (extract)
+https://simple.wiktionary.org
+
+Source of this file: the wiktextract extract of the Simple English Wiktionary published by kaikki.org
+(https://kaikki.org/dictionary/downloads/simple/simple-extract.jsonl.gz, data from the October 2026
+dump), converted and reduced by tools/convert_simplewikt.py in the Wordhoard repository: English
+entries only; per word at most eight senses with their part of speech, first definition, first example,
+synonyms and antonyms; senses marked old or rare removed; specialised senses moved after general ones.
+
+License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Wiktionary text is available under CC BY-SA 4.0 (and the GNU Free Documentation License). This file is
+a modified version and is distributed under CC BY-SA 4.0. Attribution: the contributors to the Simple
+English Wiktionary, https://simple.wiktionary.org.
+
+Extraction tool: Tatu Ylonen, "Wiktextract: Wiktionary as Machine-Readable Structured Data",
+Proceedings of the 13th Conference on Language Resources and Evaluation (LREC 2022), pp. 1317-1325.
+
+The Wordhoard app code is licensed separately under the Apache License 2.0; this license applies only
+to the data in this directory.

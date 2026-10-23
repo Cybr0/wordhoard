@@ -28,4 +28,15 @@ public enum CoreInfo {
         }
         return try? String(contentsOf: url, encoding: .utf8)
     }
+
+    /// The Simple English Wiktionary notice shipped with its bundle (CC BY-SA 4.0, Phase 7), or `nil`
+    /// if the build left it out.
+    public static func wiktionaryLicenseText() -> String? {
+        guard let url = Bundle.module.url(
+            forResource: "SIMPLEWIKT-LICENSE", withExtension: "txt", subdirectory: "Wiktionary"
+        ) else {
+            return nil
+        }
+        return try? String(contentsOf: url, encoding: .utf8)
+    }
 }

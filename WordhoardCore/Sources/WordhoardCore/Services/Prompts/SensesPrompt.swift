@@ -32,6 +32,9 @@ public enum SensesPrompt {
 
     Worked example — "during" is a preposition with one meaning:
     1. preposition — "throughout the whole time that something lasts"
+
+    Worked example — "with regard to" is a fixed phrase that works like a preposition, with one meaning:
+    1. phrase — "about; concerning (used to say what something is connected with)"
     """
 
     /// `wordClass` is the stoplist section of a function word (plan 2.7); it adds one hint line.

@@ -7,14 +7,15 @@ import Foundation
 /// in `WordStore.transaction` so the merged card and the `ready` state land in one commit.
 ///
 /// Rules, in one place:
-/// - **Sense matching.** A `wordnet` sense matches an existing `.wordnet` sense with the same part of
-///   speech and gloss; a `model` sense matches the first not-yet-matched existing `.model` sense with the
+/// - **Sense matching.** A `wiktionary` or `wordnet` sense matches an existing sense of the same source
+///   with the same part of speech and gloss; a `model` sense matches the first not-yet-matched existing `.model` sense
+/// with the
 ///   same part of speech, in `order`. Hand-entered senses (`senseSource == nil`) are never matched or
 ///   modified. Unmatched generated senses are appended after the last existing one; unmatched existing
 ///   senses are kept (regeneration never deletes). A matched sense's part of speech is never changed.
 /// - **Fields.** A `.user` field is untouched. An `.auto` field is overwritten only by a non-empty
-///   generated value: regeneration fills, it never empties. `translationIsFallback` travels with
-///   `translation` under the same guard (plan 2.10). No provenance mark is ever written here
+///   generated value: regeneration fills, it never empties. Cards carry no translation (Phase 7), so a
+///   stored `translation` (older cards, or typed by hand) is never touched. No provenance mark is ever written here
 ///   (absence means `.auto`).
 /// - **Examples.** An `.auto` example in the same topic slot (`grammarTopic`; `nil` is neutral) has its
 ///   text replaced in place, so applying twice never doubles the examples. Otherwise the generated
@@ -88,7 +89,7 @@ public enum CardMerger {
                 return false
             }
             switch generated.senseSource {
-            case .wordnet:
+            case .wiktionary, .wordnet:
                 return sense.gloss == generated.gloss
             case .model:
                 return true
@@ -103,8 +104,6 @@ public enum CardMerger {
             order: order,
             senseSource: generated.senseSource,
             gloss: generated.gloss,
-            translation: generated.translation,
-            translationIsFallback: generated.translation != nil && generated.translationIsFallback,
             synonyms: generated.synonyms,
             antonyms: generated.antonyms
         )
@@ -118,10 +117,6 @@ public enum CardMerger {
     private static func update(_ sense: Sense, from generated: GeneratedSense) {
         if isFillable(sense, .definition), !isBlank(generated.definition) {
             assign(sense, \.definition, generated.definition)
-        }
-        if isFillable(sense, .translation), let translation = generated.translation, !isBlank(translation) {
-            assign(sense, \.translation, translation)
-            assign(sense, \.translationIsFallback, generated.translationIsFallback)
         }
         if isFillable(sense, .synonyms), !generated.synonyms.isEmpty {
             assign(sense, \.synonyms, generated.synonyms)

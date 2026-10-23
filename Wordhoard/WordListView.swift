@@ -16,7 +16,6 @@ struct WordListView: View {
     private let imageStore: ImageStore
     private let imageQueue: ImageGenerationQueue
     private let autofill: AutofillService
-    private let translator: any Translator
     private let isStorageUnavailable: Bool
     private let hooks: UITestingHooks
     private let logger = Logger(subsystem: "Wordhoard", category: "list")
@@ -26,7 +25,6 @@ struct WordListView: View {
         imageStore: ImageStore,
         imageQueue: ImageGenerationQueue,
         autofill: AutofillService,
-        translator: any Translator,
         isStorageUnavailable: Bool,
         hooks: UITestingHooks = .none
     ) {
@@ -35,7 +33,6 @@ struct WordListView: View {
         self.imageStore = imageStore
         self.imageQueue = imageQueue
         self.autofill = autofill
-        self.translator = translator
         self.isStorageUnavailable = isStorageUnavailable
         self.hooks = hooks
     }
@@ -178,8 +175,7 @@ extension WordListView {
                 store: store,
                 imageStore: imageStore,
                 imageQueue: imageQueue,
-                autofill: autofill,
-                translator: translator
+                autofill: autofill
             )
         case .topicSettings:
             GrammarTopicsView(store: store)
@@ -215,6 +211,11 @@ extension WordListView {
 extension WordListView {
     /// `--ui-testing-add-word`: the real intent, then a reload, as when Siri saves while the app is open.
     private func runAddWordHook() async {
+        // `--seed-word`: the add field's own path, so autofill queues each new word at once.
+        for word in hooks.seedWords {
+            model.draft = word
+            _ = model.addDraft()
+        }
         guard !hooks.addWords.isEmpty else {
             return
         }

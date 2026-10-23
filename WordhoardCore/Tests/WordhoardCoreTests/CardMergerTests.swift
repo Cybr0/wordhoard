@@ -53,13 +53,13 @@ struct CardMergerTests {
             let model = WordCardModel(word: word, store: store)
             switch field {
             case .definition: model.setDefinition("mine", for: noun)
-            case .translation: model.setTranslation("моё", for: noun)
+            case .translation: continue // Cards no longer edit a translation (Phase 7).
             case .synonyms: model.setSynonyms("mine", for: noun)
             case .antonyms: model.setAntonyms("mine", for: noun)
             }
 
             _ = CardMerger.apply(
-                bookWithNoun(definition: "new", translation: "новое", synonyms: ["new"], antonyms: ["new"]),
+                bookWithNoun(definition: "new", synonyms: ["new"], antonyms: ["new"]),
                 to: word
             )
             try store.save(word)
@@ -67,7 +67,6 @@ struct CardMergerTests {
             let stored = try #require(try storedWord(word.id, in: container).sortedSenses.first)
             #expect(stored.fieldSources == [field.rawValue: .user])
             #expect(stored.definition == (field == .definition ? "mine" : "new"))
-            #expect(stored.translation == (field == .translation ? "моё" : "новое"))
             #expect(stored.synonyms == (field == .synonyms ? ["mine"] : ["new"]))
             #expect(stored.antonyms == (field == .antonyms ? ["mine"] : ["new"]))
             try store.delete(word)
@@ -148,7 +147,7 @@ struct CardMergerTests {
             #expect(sense.senseSource == .wordnet)
             #expect(sense.gloss == generated.gloss)
             #expect(sense.definition == generated.definition)
-            #expect(sense.translation == generated.translation)
+            #expect(sense.translation == nil, "cards carry no translation")
             #expect(sense.synonyms == generated.synonyms)
             #expect(sense.antonyms == generated.antonyms)
             #expect(sense.fieldSources == [:])
@@ -165,19 +164,17 @@ struct CardMergerTests {
     func emptyGeneratedValuesLeaveStoredValuesAlone() throws {
         let word = try filledBook().word
 
-        _ = CardMerger.apply(bookWithNoun(definition: "", translation: nil, synonyms: [], antonyms: []), to: word)
+        _ = CardMerger.apply(bookWithNoun(definition: "", synonyms: [], antonyms: []), to: word)
         try store.save(word)
 
         let stored = try #require(try storedWord(word.id, in: container).sortedSenses.first)
         let generated = StubFixtures.book.senses[0]
         #expect(stored.definition == generated.definition)
-        #expect(stored.translation == generated.translation)
         #expect(stored.synonyms == generated.synonyms)
         #expect(stored.fieldSources == [:])
 
-        _ = CardMerger.apply(bookWithNoun(definition: "  \n", translation: " "), to: word)
+        _ = CardMerger.apply(bookWithNoun(definition: "  \n"), to: word)
         #expect(stored.definition == generated.definition, "blank counts as empty")
-        #expect(word.sortedSenses.first?.translation == generated.translation)
     }
 
     @Test("WordNet senses match by gloss, not order")

@@ -22,24 +22,6 @@ struct SettingsModelScreenTests {
         try #require(try ModelContext(container).fetch(FetchDescriptor<UserSettings>()).first)
     }
 
-    @Test("setting the native language persists, and the same value saves nothing")
-    func settingNativeLanguagePersists() throws {
-        model.load()
-        model.setNativeLanguage("es")
-        #expect(try stored().nativeLanguage == "es")
-        #expect(model.nativeLanguage == "es")
-
-        // An in-place edit on a word stays pending unless something saves: the unchanged value must not.
-        let word = try store.add("book").word
-        word.headword = "books"
-        model.setNativeLanguage("es")
-        #expect(try storedWordOrNil(word.id, in: container)?.headword == "book")
-
-        model.setNativeLanguage(nil)
-        #expect(try stored().nativeLanguage == nil)
-        #expect(model.nativeLanguage == nil)
-    }
-
     @Test("the auto-images toggle persists and defaults to on")
     func autoImagesTogglePersists() throws {
         model.load()
@@ -47,12 +29,6 @@ struct SettingsModelScreenTests {
         model.setAutoGenerateImages(false)
         #expect(try stored().autoGenerateImages == false)
         #expect(!model.autoGenerateImages)
-    }
-
-    @Test("marking onboarding completed sets the flag")
-    func markingOnboardingCompleted() throws {
-        model.markOnboardingCompleted()
-        #expect(try stored().hasCompletedOnboarding)
     }
 
     @Test("importing through the settings model publishes the summary or the failure")
@@ -72,12 +48,12 @@ struct SettingsModelScreenTests {
     func importReloadsTheSettings() throws {
         model.load()
         let exported = try model.exportData(appVersion: "1.0.0 (1)")
-        try store.updateSettings { $0.nativeLanguage = "ru" }
+        try store.updateSettings { $0.autoGenerateImages = false }
         model.load()
-        try store.updateSettings { $0.nativeLanguage = nil }
-        #expect(model.nativeLanguage == "ru", "not re-read until something loads")
+        try store.updateSettings { $0.autoGenerateImages = true }
+        #expect(!model.autoGenerateImages, "not re-read until something loads")
         model.importWords(exported)
-        #expect(model.nativeLanguage == nil)
+        #expect(model.autoGenerateImages)
     }
 
     @Test("the WordNet license text is in the bundle")

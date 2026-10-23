@@ -1,7 +1,8 @@
 import SwiftUI
 import WordhoardCore
 
-/// About (S6, plans 5.3 and 6.3): the version, the Open English WordNet credit (always) with its full
+/// About (S6, plans 5.3 and 6.3; Phase 7): the version, the Simple English Wiktionary credit (CC BY-SA
+/// 4.0) with its notice, the Open English WordNet credit (always) with its full
 /// license text when the file is in the Core bundle, and the app's own license with its full text (the
 /// repository's `LICENSE`, bundled by `project.yml`) and a link to the source. Credit and license line
 /// come first so they are visible without scrolling.
@@ -16,6 +17,14 @@ struct AboutView: View {
                     .accessibilityIdentifier("about.version")
             }
             Section("Data sources") {
+                Text("Simple English Wiktionary — CC BY-SA 4.0, by its contributors; extract by kaikki.org")
+                    .accessibilityIdentifier("about.wiktionaryCredit")
+                if CoreInfo.wiktionaryLicenseText() != nil {
+                    NavigationLink(value: SettingsRoute.wiktionaryLicense) {
+                        Text("Simple English Wiktionary license")
+                    }
+                    .accessibilityIdentifier("about.wiktionaryLicense")
+                }
                 Text("Open English WordNet 2024 — CC BY 4.0, derived from Princeton WordNet")
                     .accessibilityIdentifier("about.wordNetCredit")
                 if hasWordNetLicense {

@@ -10,22 +10,29 @@ import Foundation
 /// `--ui-testing-add-word <word>` (repeatable, in order): runs the real `AddWordIntent.perform()` for each
 /// value against the shared store before the list loads, the in-process stand-in for Siri that lets the
 /// CLAUDE.md "Siri intent → word appears" flow have a UI test (plan 5.1).
+///
+/// `--seed-word <word>` (repeatable, Debug only, no `--ui-testing` needed): adds each word through the
+/// add field's own path on the real on-disk store with the production generator, so content quality can be
+/// checked on the owner's iPhone without typing (Phase 7).
 struct UITestingHooks: Sendable {
     var exportPath: String?
     var importPath: String?
     var addWords: [String] = []
+    var seedWords: [String] = []
 
     static let none = UITestingHooks()
 
     static func fromLaunchArguments(_ arguments: [String] = ProcessInfo.processInfo.arguments) -> UITestingHooks {
         #if DEBUG
+            let seedWords = values(after: "--seed-word", in: arguments)
             guard arguments.contains("--ui-testing") else {
-                return .none
+                return UITestingHooks(seedWords: seedWords)
             }
             return UITestingHooks(
                 exportPath: value(after: "--ui-testing-export-path", in: arguments),
                 importPath: value(after: "--ui-testing-import-path", in: arguments),
-                addWords: values(after: "--ui-testing-add-word", in: arguments)
+                addWords: values(after: "--ui-testing-add-word", in: arguments),
+                seedWords: seedWords
             )
         #else
             return .none

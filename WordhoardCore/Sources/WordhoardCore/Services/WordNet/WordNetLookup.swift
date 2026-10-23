@@ -19,9 +19,10 @@ public actor WordNetLookup {
     public static let maxSensesPerPartOfSpeech = 2
     /// How many senses a card gets in all (1 ≤ senses ≤ 4, five model calls per sense).
     public static let maxSensesTotal = 4
-    /// How many candidates the selection call is shown (plan 2.6): enough for rank 1–3 of every part
-    /// of speech of a busy lemma, short enough for the 4K context.
-    public static let maxCandidates = 10
+    /// How many candidates the selection call is shown (plan 2.6, raised for Phase 7): enough for rank
+    /// 1–3 of every part of speech of a busy lemma and for *run*'s "direct or control" (verb 4), short
+    /// enough for the 4K context.
+    public static let maxCandidates = 12
 
     /// The resource subdirectory, the same on the macOS host and inside the app bundle (`.copy`).
     static let subdirectory = "WordNet"
@@ -138,49 +139,20 @@ public actor WordNetLookup {
         return candidates
     }
 
-    /// Applies the model's answer to `candidates` (plan 2.6), pure. Out-of-range and repeated indices
-    /// are dropped and the model's order kept, then cut to `maxSensesTotal`. Every part of speech
-    /// present among the candidates gets at least one sense: a missing one gets its rank-1 candidate,
-    /// appended while there is room, otherwise replacing the last pick of a part of speech that has
-    /// more than one. While there are fewer than `maxSensesTotal` picks, the candidates in `select`'s
-    /// fallback set are appended in candidate (round-robin) order, so a short pick is filled with
-    /// real senses of rank ≤ `maxSensesPerPartOfSpeech` only. The result is regrouped like `select`
-    /// (nouns → verbs → adjectives → adverbs, rank order within each). `nil` when no index is usable:
-    /// the caller falls back to `select`.
+    /// Applies the model's ranking to `candidates` (Phase 7, owner feedback 2026-10-23: senses by
+    /// everyday frequency, no rare ones), pure. The model lists the senses a learner meets most often,
+    /// most common first. Out-of-range and repeated indices are dropped, the model's order is kept —
+    /// it is the order the card shows — and the list is cut to `maxSensesTotal`. Nothing is added back:
+    /// the earlier one-per-part-of-speech coverage and the fill from `select` brought rare senses
+    /// (*light* "with few burdens", *get* the tennis noun) onto the card. `nil` when no index is
+    /// usable: the caller falls back to `select`.
     public static func selection(_ indices: [Int], from candidates: [WordNetSense]) -> [WordNetSense]? {
         var picks: [Int] = []
         for index in indices where candidates.indices.contains(index) && !picks.contains(index) {
             picks.append(index)
         }
         guard !picks.isEmpty else { return nil }
-        picks = Array(picks.prefix(maxSensesTotal))
-
-        for partOfSpeech in PartOfSpeech.allCases {
-            guard !picks.contains(where: { candidates[$0].partOfSpeech == partOfSpeech }),
-                  let first = candidates.firstIndex(where: { $0.partOfSpeech == partOfSpeech })
-            else { continue }
-            if picks.count < maxSensesTotal {
-                picks.append(first)
-            } else if let spare = picks.lastIndex(where: { pick in
-                picks.count(where: { candidates[$0].partOfSpeech == candidates[pick].partOfSpeech }) > 1
-            }) {
-                picks[spare] = first
-            }
-        }
-
-        let fallback = select(candidates)
-        for index in candidates.indices where picks.count < maxSensesTotal {
-            if !picks.contains(index), fallback.contains(candidates[index]) {
-                picks.append(index)
-            }
-        }
-
-        let position = Dictionary(uniqueKeysWithValues: PartOfSpeech.allCases.enumerated().map { ($1, $0) })
-        return picks
-            .sorted {
-                (position[candidates[$0].partOfSpeech] ?? 0, $0) < (position[candidates[$1].partOfSpeech] ?? 0, $1)
-            }
-            .map { candidates[$0] }
+        return picks.prefix(maxSensesTotal).map { candidates[$0] }
     }
 
     /// A kept sense with its part-of-speech position and rank, for `select`'s regrouping.

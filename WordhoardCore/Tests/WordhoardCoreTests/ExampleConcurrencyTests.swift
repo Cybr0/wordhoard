@@ -4,7 +4,7 @@ import Testing
 import WordhoardCore
 
 /// Plan 2.8 (#20): example calls run in a window of `maxConcurrentExampleCalls`, the first card returns
-/// before any topic call, cancellation closes the window, and translation stays batched per word.
+/// before any topic call, cancellation closes the window.
 @Suite("Example concurrency")
 struct ExampleConcurrencyTests {
     private static let threeTopics = ["en.present_perfect", "en.passive_voice", "en.past_simple"].compactMap {
@@ -23,10 +23,13 @@ struct ExampleConcurrencyTests {
             let calls = ScriptedModelCalls(script: Self.taggedScript, delays: [.writeExample: .milliseconds(50)])
             let generator = limit.map {
                 FoundationModelsCardGenerator(
-                    calls: calls, lookup: .shared, translator: StubTranslator(), maxConcurrentExampleCalls: $0
+                    calls: calls, lookup: .shared, wiktionary: WiktionaryLookup(entries: [:]),
+                    maxConcurrentExampleCalls: $0, maxTopicExampleSenses: .max
                 )
-            } ?? FoundationModelsCardGenerator(calls: calls, lookup: .shared, translator: StubTranslator())
-            let request = makeRequest("book", native: nil, topics: Self.threeTopics)
+            } ?? FoundationModelsCardGenerator(
+                calls: calls, lookup: .shared, wiktionary: WiktionaryLookup(entries: [:]), maxTopicExampleSenses: .max
+            )
+            let request = makeRequest("book", topics: Self.threeTopics)
             let card = try await generator.generateCard(request)
             #expect(card.senses.count == 4)
             #expect(card.senses.enumerated().allSatisfy { index, sense in
@@ -56,8 +59,13 @@ struct ExampleConcurrencyTests {
         let calls = GatedModelCalls(inner: ScriptedModelCalls(script: Self.taggedScript)) { definition, topic in
             definition.contains("a written work") && topic?.key == "en.present_perfect"
         }
-        let generator = FoundationModelsCardGenerator(calls: calls, lookup: .shared, translator: StubTranslator())
-        let request = makeRequest("book", native: nil, topics: Self.threeTopics)
+        let generator = FoundationModelsCardGenerator(
+            calls: calls,
+            lookup: .shared,
+            wiktionary: WiktionaryLookup(entries: [:]),
+            maxTopicExampleSenses: .max
+        )
+        let request = makeRequest("book", topics: Self.threeTopics)
         let card = try await generator.generateCard(request)
         let received = Mutex<[GeneratedTopicExample]>([])
         let consumer = Task {
@@ -85,7 +93,7 @@ struct ExampleConcurrencyTests {
     func noTopicExampleIsRequestedBeforeTheFirstCardReturns() async throws {
         let calls = ScriptedModelCalls(delays: [.writeExample: .milliseconds(10)])
         let generator = makeGenerator(calls)
-        let request = makeRequest("book", native: nil, topics: Self.threeTopics)
+        let request = makeRequest("book", topics: Self.threeTopics)
         let card = try await generator.generateCard(request)
         let atReturn = calls.calls(.writeExample)
         #expect(atReturn.count == 4)
@@ -104,8 +112,13 @@ struct ExampleConcurrencyTests {
             guard let topic else { return false }
             return !(definition.contains("a written work") && topic.key == "en.present_perfect")
         }
-        let generator = FoundationModelsCardGenerator(calls: calls, lookup: .shared, translator: StubTranslator())
-        let request = makeRequest("book", native: nil, topics: Self.threeTopics)
+        let generator = FoundationModelsCardGenerator(
+            calls: calls,
+            lookup: .shared,
+            wiktionary: WiktionaryLookup(entries: [:]),
+            maxTopicExampleSenses: .max
+        )
+        let request = makeRequest("book", topics: Self.threeTopics)
         let card = try await generator.generateCard(request)
         let beforeStream = calls.inner.calls(.writeExample).count
         let window = FoundationModelsCardGenerator.defaultMaxConcurrentExampleCalls
@@ -127,14 +140,5 @@ struct ExampleConcurrencyTests {
         #expect(calls.inner.calls(.writeExample).count == beforeStream + 1, "no gated slot got through")
         #expect(calls.gate.arrivals == window, "no call started after the cancel")
         #expect(1 + calls.gate.arrivals < 12, "the stream did not run to the end")
-    }
-
-    @Test("translation stays at most two framework batches per word")
-    func translationUsesAtMostTwoBatchesPerWord() async throws {
-        let translator = StubTranslator()
-        let generator = makeGenerator(ScriptedModelCalls(), translator: translator)
-        let card = try await generator.generateCard(makeRequest("book", topics: Self.threeTopics))
-        #expect(card.senses.count == 4)
-        #expect((1 ... 2).contains(translator.batches.count))
     }
 }

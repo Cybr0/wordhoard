@@ -20,6 +20,8 @@ public struct GeneratedCard: Equatable, Sendable {
 
 /// Which route the sense inventory took (ADR 0001 point 1). Recorded by the regression runner.
 public enum GenerationPath: String, Equatable, Sendable {
+    /// Simple Wiktionary knows the lemma (Phase 7): its learner definitions in frequency order.
+    case wiktionary
     /// WordNet knows the lemma; its senses are the only senses.
     case wordnet
     /// A function word from the stoplist: model-only senses, verified.
@@ -38,12 +40,6 @@ public struct GeneratedSense: Equatable, Sendable {
     /// The WordNet gloss; nil for model senses.
     public var gloss: String?
     public var definition: String
-    /// nil: no native language, pack missing, or not translated. Never unverified model text (A9): a
-    /// model proposal lands here only after the framework's back-translation confirmed it (plan 2.10).
-    public var translation: String?
-    /// `true` when `translation` is the framework's translation of the definition because the proposed
-    /// equivalent was rejected or could not be written (plan 2.10).
-    public var translationIsFallback: Bool
     public var synonyms: [String]
     public var antonyms: [String]
     /// nil only after a refusal or a drop (A6, 2.9); see `GenerationNote.exampleRefused` / `.exampleDropped`.
@@ -54,8 +50,6 @@ public struct GeneratedSense: Equatable, Sendable {
         senseSource: SenseSource,
         gloss: String?,
         definition: String,
-        translation: String?,
-        translationIsFallback: Bool = false,
         synonyms: [String],
         antonyms: [String],
         neutralExample: GeneratedExample?
@@ -64,8 +58,6 @@ public struct GeneratedSense: Equatable, Sendable {
         self.senseSource = senseSource
         self.gloss = gloss
         self.definition = definition
-        self.translation = translation
-        self.translationIsFallback = translationIsFallback
         self.synonyms = synonyms
         self.antonyms = antonyms
         self.neutralExample = neutralExample
@@ -107,10 +99,4 @@ public enum GenerationNote: Equatable, Sendable {
     /// That example was written twice without the headword and dropped (2.9); `topic == nil` is the
     /// neutral example. Topic examples are not on the card when they drop, so only neutral ones occur.
     case exampleDropped(senseIndex: Int, topic: GrammarTopicID?)
-    /// The language pack is not installed (or a batch failed); those translations are nil.
-    case translationUnavailable(language: String)
-    /// That sense's proposed equivalent was rejected by back-translation (`rejectedProposal` is the
-    /// model's text, for the regression runner; `nil` when the proposal call was refused or failed), so
-    /// its translation is the translated definition, flagged `translationIsFallback` (plan 2.10).
-    case translationFallback(senseIndex: Int, rejectedProposal: String?)
 }

@@ -30,6 +30,9 @@
                     _ = try await ImageCreator()
                     return .available
                 } catch {
+                    // Why it is unavailable decides what the owner can do about it (#47), so say it.
+                    Self.logger.error("Image Playground unavailable: \(String(describing: error), privacy: .public)")
+                    Self.recordForDebugging(error)
                     return .unavailable
                 }
             }
@@ -62,6 +65,21 @@
             } catch {
                 throw Task.isCancelled ? CancellationError() : ImageGeneratorError.failed
             }
+        }
+
+        /// Debug builds also write the last availability error to `Documents/image-playground-error.txt`,
+        /// so it can be read off a phone with `devicectl device copy from` without Console.
+        private static func recordForDebugging(_ error: any Error) {
+            #if DEBUG
+                guard let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+                else { return }
+                let text = "\(Date.now.ISO8601Format()) \(String(describing: error)) | \(error.localizedDescription)\n"
+                try? text.write(
+                    to: documents.appendingPathComponent("image-playground-error.txt"),
+                    atomically: true,
+                    encoding: .utf8
+                )
+            #endif
         }
 
         /// Provisional until the #5 device check (ADR 0003): a guardrail refusal that arrives as

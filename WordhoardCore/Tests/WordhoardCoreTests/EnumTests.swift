@@ -16,7 +16,7 @@ func partOfSpeechHasTheEightSchemaCases() {
 
 @Test("the other enums have exactly the cases the requirements list")
 func otherEnumsHaveTheRequiredCases() {
-    #expect(SenseSource.allCases == [.wordnet, .model])
+    #expect(SenseSource.allCases == [.wiktionary, .wordnet, .model])
     #expect(FieldSource.allCases == [.auto, .user])
     #expect(ImageSource.allCases == [.generated, .library, .camera])
     #expect(ReviewDirection.allCases == [.wordToMeaning, .meaningToWord])

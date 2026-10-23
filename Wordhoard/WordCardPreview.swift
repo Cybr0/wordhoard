@@ -2,7 +2,7 @@ import SwiftUI
 import WordhoardCore
 
 /// A card over an in-memory store with one inserted and saved word, so the preview reads real
-/// relationships: two senses, one with a WordNet badge, a translation, synonyms and a topic example.
+/// relationships: two senses, one with a WordNet badge, synonyms and a topic example.
 @MainActor
 private func previewCard() -> WordCardView? {
     guard let store = AppDependencies.previewStore() else {
@@ -16,7 +16,6 @@ private func previewCard() -> WordCardView? {
         definition: "A written or printed work consisting of pages bound together.",
         order: 0,
         senseSource: .wordnet,
-        translation: "книга",
         synonyms: ["volume", "tome"]
     )
     noun.examples = [
@@ -32,8 +31,7 @@ private func previewCard() -> WordCardView? {
         store: store,
         imageStore: nil,
         imageQueue: nil,
-        autofill: AutofillService(store: store, generator: StubCardGenerator()),
-        translator: StubTranslator()
+        autofill: AutofillService(store: store, generator: StubCardGenerator())
     )
 }
 

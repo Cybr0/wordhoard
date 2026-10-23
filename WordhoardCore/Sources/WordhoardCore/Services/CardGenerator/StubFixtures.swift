@@ -27,7 +27,6 @@ public enum StubFixtures {
                 senseSource: .wordnet,
                 gloss: headwordPlaceholder,
                 definition: "a \(headwordPlaceholder)",
-                translation: nil,
                 synonyms: [],
                 antonyms: [],
                 neutralExample: GeneratedExample(text: "This is a \(headwordPlaceholder).", grammarTopic: nil)
@@ -45,7 +44,6 @@ public enum StubFixtures {
                 senseSource: .wordnet,
                 gloss: "a written work or composition that has been published",
                 definition: "a written or printed work consisting of pages bound together",
-                translation: "книга",
                 synonyms: ["volume", "publication"],
                 antonyms: [],
                 neutralExample: GeneratedExample(text: "She left her book on the train.", grammarTopic: nil)
@@ -55,7 +53,6 @@ public enum StubFixtures {
                 senseSource: .wordnet,
                 gloss: "arrange for and reserve (something for someone else) in advance",
                 definition: "to reserve a seat, room, ticket, etc. in advance",
-                translation: "бронировать",
                 synonyms: ["reserve"],
                 antonyms: ["cancel"],
                 neutralExample: GeneratedExample(text: "We booked a table for eight o'clock.", grammarTopic: nil)
@@ -63,8 +60,6 @@ public enum StubFixtures {
         ]
     )
 
-    /// Plan 2.10: the proposed equivalent was rejected, so the translation is the framework's
-    /// translation of the definition and is flagged; the card captions it.
     public static let lookUp = GeneratedCard(
         headword: "look up",
         path: .wordnet,
@@ -74,14 +69,12 @@ public enum StubFixtures {
                 senseSource: .wordnet,
                 gloss: "seek information from",
                 definition: "to search for information in a book or on a computer",
-                translation: "искать информацию в книге или на компьютере",
-                translationIsFallback: true,
                 synonyms: ["consult", "refer"],
                 antonyms: [],
                 neutralExample: GeneratedExample(text: "I looked up the word in a dictionary.", grammarTopic: nil)
             ),
         ],
-        notes: [.translationFallback(senseIndex: 0, rejectedProposal: "посмотреть вверх")]
+        notes: []
     )
 
     /// A stoplist word: one model sense, no gloss.
@@ -94,7 +87,6 @@ public enum StubFixtures {
                 senseSource: .model,
                 gloss: nil,
                 definition: "in spite of what has just been said",
-                translation: "тем не менее",
                 synonyms: ["nevertheless", "nonetheless"],
                 antonyms: [],
                 neutralExample: GeneratedExample(
@@ -118,7 +110,6 @@ public enum StubFixtures {
                 senseSource: .wordnet,
                 gloss: "light yielded by the combustion of illuminating gas",
                 definition: "light yielded by the combustion of illuminating gas",
-                translation: "газовый свет",
                 synonyms: [],
                 antonyms: [],
                 neutralExample: GeneratedExample(text: "The street was lit by gaslight.", grammarTopic: nil)
@@ -137,7 +128,6 @@ public enum StubFixtures {
                 senseSource: .model,
                 gloss: nil,
                 definition: "in spite of",
-                translation: "несмотря на",
                 synonyms: ["notwithstanding"],
                 antonyms: [],
                 neutralExample: GeneratedExample(text: "Despite the rain, we went for a walk.", grammarTopic: nil)

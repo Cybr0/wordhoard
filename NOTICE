@@ -19,6 +19,16 @@ Open English WordNet (2024 edition)
   Full text: WordhoardCore/Sources/WordhoardCore/Resources/WordNet/OEWN-LICENSE.txt
   (shipped inside the app bundle next to the data).
 
-Apple frameworks (Foundation Models, Translation, Image Playground, SwiftData,
+Simple English Wiktionary (extract, October 2026 dump)
+  https://simple.wiktionary.org · extract by kaikki.org (wiktextract, Tatu Ylonen, LREC 2022)
+  License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+  The bundled simplewikt.json is a modified extract (at most eight senses per
+  word, old and rare senses removed; see tools/convert_simplewikt.py) and is
+  distributed under CC BY-SA 4.0. Only this data file is under CC BY-SA; the
+  app code stays Apache 2.0.
+  Full text: WordhoardCore/Sources/WordhoardCore/Resources/Wiktionary/SIMPLEWIKT-LICENSE.txt
+  (shipped inside the app bundle next to the data).
+
+Apple frameworks (Foundation Models, Image Playground, SwiftData,
 App Intents) are used under the Apple Developer Program License Agreement and
 are not redistributed.

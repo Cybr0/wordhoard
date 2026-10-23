@@ -23,14 +23,13 @@ struct CardGeneratorTests {
     @Test("the stub returns the fixture for the normalized headword and records the request")
     func stubReturnsTheFixtureCardForTheNormalizedHeadword() async throws {
         let stub = StubCardGenerator()
-        let request = CardRequest(headword: "Book ", nativeLanguage: "ru", topics: [])
+        let request = CardRequest(headword: "Book ", topics: [])
 
         let card = try await stub.generateCard(request)
 
         #expect(card.path == .wordnet)
         #expect(card.senses.map(\.partOfSpeech) == [.noun, .verb])
         #expect(card.senses[1].definition.contains("reserve"))
-        #expect(card.senses[1].translation == "бронировать")
         #expect(card.senses.allSatisfy { $0.senseSource == .wordnet && $0.gloss != nil })
         #expect(card.senses.allSatisfy { $0.neutralExample != nil })
         #expect(card.notes.isEmpty)
@@ -42,7 +41,6 @@ struct CardGeneratorTests {
     func stubFallsBackToAGenericCardOrFails() async throws {
         let card = try await StubCardGenerator().generateCard(CardRequest(
             headword: "zebra",
-            nativeLanguage: nil,
             topics: []
         ))
         #expect(card.headword == "zebra")
@@ -56,7 +54,7 @@ struct CardGeneratorTests {
 
         let strict = StubCardGenerator(fallback: nil)
         await #expect(throws: CardGeneratorError.failed("no fixture")) {
-            try await strict.generateCard(CardRequest(headword: "zebra", nativeLanguage: nil, topics: []))
+            try await strict.generateCard(CardRequest(headword: "zebra", topics: []))
         }
         #expect(strict.requests.count == 1, "a miss is still a recorded call")
     }
@@ -65,7 +63,6 @@ struct CardGeneratorTests {
     func notFoundIsACardWithNoSenses() async throws {
         let card = try await StubCardGenerator().generateCard(CardRequest(
             headword: "asdfgh",
-            nativeLanguage: "ru",
             topics: []
         ))
         #expect(card.path == .notFound)
@@ -77,7 +74,6 @@ struct CardGeneratorTests {
     func aRefusedDefinitionIsANoteAndTheGlossIsKept() async throws {
         let card = try await StubCardGenerator().generateCard(CardRequest(
             headword: "gaslight",
-            nativeLanguage: nil,
             topics: []
         ))
         #expect(card.path == .wordnet)
@@ -90,26 +86,24 @@ struct CardGeneratorTests {
     @Test("stoplist fixtures are model senses without a gloss: `however` an adverb, `despite` a preposition")
     func stoplistFixturesAreModelSensesWithoutAGloss() async throws {
         let stub = StubCardGenerator()
-        let however = try await stub.generateCard(CardRequest(headword: "However", nativeLanguage: "ru", topics: []))
+        let however = try await stub.generateCard(CardRequest(headword: "However", topics: []))
         #expect(however.path == .stoplist)
         #expect(however.senses.map(\.partOfSpeech) == [.adverb])
         #expect(however.senses.first?.senseSource == .model)
         #expect(however.senses.first?.gloss == nil)
-        #expect(however.senses.first?.translation == "тем не менее")
 
-        let despite = try await stub.generateCard(CardRequest(headword: "despite", nativeLanguage: "ru", topics: []))
+        let despite = try await stub.generateCard(CardRequest(headword: "despite", topics: []))
         #expect(despite.path == .stoplist)
         #expect(despite.senses.map(\.partOfSpeech) == [.preposition])
         #expect(despite.senses.first?.senseSource == .model)
         #expect(despite.senses.first?.definition == "in spite of")
-        #expect(despite.senses.first?.translation == "несмотря на")
         #expect(stub.requests.map(\.headword) == ["However", "despite"])
     }
 
     @Test("the topic stream yields one example per sense and requested topic, nothing for no topics")
     func topicExamplesAreYieldedPerSenseAndTopic() async throws {
         let stub = StubCardGenerator()
-        let request = CardRequest(headword: "book", nativeLanguage: "ru", topics: Self.twoTopics)
+        let request = CardRequest(headword: "book", topics: Self.twoTopics)
         let card = try await stub.generateCard(request)
 
         let examples = try await collect(stub.generateTopicExamples(for: card, request: request))
@@ -124,7 +118,7 @@ struct CardGeneratorTests {
         #expect(examples.allSatisfy { $0.example.text.contains("book") })
         #expect(stub.topicRequests == [request])
 
-        let noTopics = CardRequest(headword: "book", nativeLanguage: "ru", topics: [])
+        let noTopics = CardRequest(headword: "book", topics: [])
         let none = try await collect(stub.generateTopicExamples(for: card, request: noTopics))
         #expect(none.isEmpty)
         #expect(stub.topicRequests == [request, noTopics])
@@ -133,7 +127,7 @@ struct CardGeneratorTests {
     @Test("overrides drive the stream: a misfit yields nothing, a text replaces, a failure ends it")
     func topicExampleOverridesDriveTheStream() async throws {
         let stub = StubCardGenerator()
-        let request = CardRequest(headword: "book", nativeLanguage: nil, topics: Self.twoTopics)
+        let request = CardRequest(headword: "book", topics: Self.twoTopics)
         let card = try await stub.generateCard(request)
 
         stub.topicExampleOverrides = [.init(1, Self.passiveVoice.key): .doesNotFit]
@@ -164,7 +158,7 @@ struct CardGeneratorTests {
     @Test("unavailable generators throw `.unavailable(reason)` and record no request")
     func unavailableGeneratorsThrowWithoutCalling() async throws {
         let unavailable = UnavailableCardGenerator()
-        let request = CardRequest(headword: "book", nativeLanguage: nil, topics: Self.twoTopics)
+        let request = CardRequest(headword: "book", topics: Self.twoTopics)
         #expect(await unavailable.availability() == .unavailable(.appleIntelligenceNotEnabled))
         await #expect(throws: CardGeneratorError.unavailable(.appleIntelligenceNotEnabled)) {
             try await unavailable.generateCard(request)
@@ -189,7 +183,7 @@ struct CardGeneratorTests {
     @Test("the stub's delay is observable on both stages")
     func stubDelayIsHonored() async throws {
         let stub = StubCardGenerator(delay: .milliseconds(50))
-        let request = CardRequest(headword: "book", nativeLanguage: nil, topics: [Self.presentPerfect])
+        let request = CardRequest(headword: "book", topics: [Self.presentPerfect])
         let clock = ContinuousClock()
 
         let start = clock.now
@@ -212,7 +206,7 @@ struct CardGeneratorTests {
         let sense = card.senses[0]
         let example = GeneratedExample(text: "t", grammarTopic: nil)
         let topicExample = GeneratedTopicExample(senseIndex: 0, example: example)
-        let request = CardRequest(headword: "book", nativeLanguage: nil, topics: Self.twoTopics)
+        let request = CardRequest(headword: "book", topics: Self.twoTopics)
         let note = GenerationNote.exampleRefused(senseIndex: 0, topic: nil)
         let closure: @Sendable () -> Bool = {
             card == card && sense == sense && example == example && topicExample == topicExample

@@ -31,7 +31,7 @@ struct WordNetLookupTests {
         let json = try #require(bundle.url(forResource: "WordNet/oewn-2024", withExtension: "json"))
         #expect(bundle.url(forResource: "WordNet/function-words", withExtension: "txt") != nil)
         let license = try #require(bundle.url(forResource: "WordNet/OEWN-LICENSE", withExtension: "txt"))
-        #expect(try Data(contentsOf: json).count == 15_492_477)
+        #expect(try Data(contentsOf: json).count == 16_245_137)
         #expect(try String(contentsOf: license, encoding: .utf8).contains("Creative Commons"))
     }
 

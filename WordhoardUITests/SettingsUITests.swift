@@ -21,7 +21,7 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(gear.waitForExistence(timeout: 5))
         gear.tap()
         for identifier in [
-            "settings.nativeLanguage", "settings.topics", "settings.export", "settings.import", "settings.about",
+            "settings.topics", "settings.export", "settings.import", "settings.about",
         ] {
             XCTAssertTrue(app.buttons[identifier].waitForExistence(timeout: 5), identifier)
         }

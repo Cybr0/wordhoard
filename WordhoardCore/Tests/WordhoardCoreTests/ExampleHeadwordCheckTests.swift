@@ -85,7 +85,7 @@ struct ExampleHeadwordCheckTests {
         let (neutralGenerator, neutralCalls) = makeHowever(
             neutralAnswers: [Self.withoutHeadword, Self.withoutHeadword], topicAnswers: [Self.withHeadword]
         )
-        let dropped = try await neutralGenerator.generateCard(makeRequest("however", native: nil))
+        let dropped = try await neutralGenerator.generateCard(makeRequest("however"))
         #expect(dropped.path == .stoplist)
         #expect(dropped.senses.count == 1, "the card is still returned")
         #expect(dropped.senses.first?.neutralExample == nil)
@@ -109,7 +109,7 @@ struct ExampleHeadwordCheckTests {
         #expect(topicCalls(lateCalls).map(\.retry) == [false, true])
 
         let (neutralRefusal, _) = makeHowever(neutralAnswers: [.doesNotFit], topicAnswers: [Self.withHeadword])
-        let neutralCard = try await neutralRefusal.generateCard(makeRequest("however", native: nil))
+        let neutralCard = try await neutralRefusal.generateCard(makeRequest("however"))
         #expect(neutralCard.senses.first?.neutralExample == nil)
         #expect(neutralCard.notes == [.exampleRefused(senseIndex: 0, topic: nil)], "a neutral skip reads as a refusal")
 
@@ -139,7 +139,12 @@ struct ExampleHeadwordCheckServiceTests {
             }
             return .text("I have \(partOfSpeech.rawValue)ed the \(headword) twice.")
         }))
-        let generator = FoundationModelsCardGenerator(calls: calls, lookup: .shared, translator: StubTranslator())
+        let generator = FoundationModelsCardGenerator(
+            calls: calls,
+            lookup: .shared,
+            wiktionary: WiktionaryLookup(entries: [:]),
+            maxTopicExampleSenses: .max
+        )
         let service = AutofillService(store: store, generator: generator)
 
         let word = try store.add("book").word

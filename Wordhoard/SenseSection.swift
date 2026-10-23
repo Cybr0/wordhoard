@@ -16,17 +16,6 @@ struct SenseSection: View {
                 model.setDefinition(text, for: sense)
             }
             .accessibilityIdentifier(identifier("definition"))
-            CommittingTextField(Text("Translation"), value: sense.translation ?? "", axis: .vertical) { text in
-                model.setTranslation(text, for: sense)
-            }
-            .accessibilityIdentifier(identifier("translation"))
-            if sense.translationIsFallback {
-                // Plan 2.10: the proposed equivalent was not confirmed, so this is the definition translated.
-                Text("Translated from the definition")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier(identifier("translationNote"))
-            }
             // Short placeholders keep the definition's size at AX5; the stored "big, large" shows the commas.
             CommittingTextField(Text("Synonyms"), value: joined(sense.synonyms)) { text in
                 model.setSynonyms(text, for: sense)
@@ -162,6 +151,8 @@ struct SenseSection: View {
 
     private func sourceName(_ source: SenseSource) -> Text {
         switch source {
+        case .wiktionary:
+            Text("Wiktionary")
         case .wordnet:
             Text("WordNet")
         case .model:

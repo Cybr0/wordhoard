@@ -26,13 +26,11 @@ struct FilledBook {
 /// The `book` fixture with its noun sense's fields replaced.
 func bookWithNoun(
     definition: String = StubFixtures.book.senses[0].definition,
-    translation: String? = StubFixtures.book.senses[0].translation,
     synonyms: [String] = StubFixtures.book.senses[0].synonyms,
     antonyms: [String] = StubFixtures.book.senses[0].antonyms
 ) -> GeneratedCard {
     var card = StubFixtures.book
     card.senses[0].definition = definition
-    card.senses[0].translation = translation
     card.senses[0].synonyms = synonyms
     card.senses[0].antonyms = antonyms
     return card
@@ -44,7 +42,6 @@ func modelAdverb(_ definition: String) -> GeneratedSense {
         senseSource: .model,
         gloss: nil,
         definition: definition,
-        translation: nil,
         synonyms: [],
         antonyms: [],
         neutralExample: GeneratedExample(text: "\(definition).", grammarTopic: nil)

@@ -49,7 +49,7 @@ struct AutofillServiceTests {
         #expect(filled.autofillState == .ready)
         let senses = filled.sortedSenses
         #expect(senses.map(\.partOfSpeech) == [.noun, .verb])
-        #expect(senses.allSatisfy { $0.senseSource == .wordnet && $0.gloss != nil && $0.translation != nil })
+        #expect(senses.allSatisfy { $0.senseSource == .wordnet && $0.gloss != nil && $0.translation == nil })
         #expect(senses.flatMap(\.examples).filter { $0.grammarTopic == nil }.count == 2)
         #expect(service.currentWordID == nil)
         #expect(service.lastFailure[word.id] == nil)
@@ -238,26 +238,17 @@ struct AutofillServiceTests {
         #expect(stub.topicRequests.isEmpty, "no senses, no topic stream")
     }
 
-    @Test("the request carries resolved topics and the native language")
-    func theRequestCarriesResolvedTopicsAndTheNativeLanguage() async throws {
+    @Test("the request carries the headword and the resolved topics")
+    func theRequestCarriesResolvedTopics() async throws {
         let stub = StubCardGenerator()
         let service = try makeService(stub, topics: [Self.presentPerfect, "en.bogus"])
-        try store.settings().nativeLanguage = "ru"
         let word = try store.add("book").word
         service.enqueue(word)
         await service.drain()
 
         let request = try #require(stub.requests.first)
         #expect(request.headword == "book")
-        #expect(request.nativeLanguage == "ru")
         #expect(request.topics == [GrammarCatalog.english.topic(for: Self.presentPerfect)].compactMap(\.self))
         #expect(request.topics.first?.description.isEmpty == false)
-
-        try store.settings().nativeLanguage = nil
-        let second = try store.add("apple").word
-        service.enqueue(second)
-        await service.drain()
-        #expect(stub.requests.last?.nativeLanguage == nil)
-        #expect(stub.requests.count == 2)
     }
 }

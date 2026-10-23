@@ -23,7 +23,7 @@ struct SettingsTransferQATests {
         let summary = try #require(settings.importWords(file))
         #expect(summary.wordsCreated == 2)
         #expect(settings.failure == nil)
-        #expect(settings.nativeLanguage == "ru")
+        #expect(try target.settings().nativeLanguage == "ru", "old files' stored language still round-trips")
         #expect(settings.activeTopics == ["en.present_perfect", "en.second_conditional"])
         #expect(!settings.autoGenerateImages)
 
@@ -35,30 +35,6 @@ struct SettingsTransferQATests {
         #expect(again.wordsCreated == 0)
         #expect(again.wordsUpdated == 0)
         #expect(!again.settingsChanged)
-    }
-
-    @Test("an import never changes the onboarding flag, and later settings changes keep it")
-    func importAndSettingsChangesKeepTheOnboardingFlag() async throws {
-        let store = try WordStore(container: WordhoardContainer.makeInMemory())
-        let onboarding = OnboardingModel(store: store, languages: FixedLanguageSource(tags: nil), systemLanguage: "en")
-        await onboarding.load()
-        #expect(onboarding.complete())
-
-        let settings = SettingsModel(store: store)
-        settings.setNativeLanguage("es")
-        settings.setNativeLanguage(nil)
-        settings.setAutoGenerateImages(false)
-        settings.setTopicActive("en.past_simple", true)
-        settings.resetTopicsToDefault()
-        // A file exported from a store that was never onboarded.
-        #expect(settings.importWords(GoldenExport.data)?.wordsCreated == 2)
-        #expect(try store.settings().hasCompletedOnboarding)
-
-        // And the other way: an import into a fresh install does not mark it onboarded.
-        let fresh = try WordStore(container: WordhoardContainer.makeInMemory())
-        let file = try SettingsModel(store: store).exportData(appVersion: "1.0.0 (1)")
-        SettingsModel(store: fresh).importWords(file)
-        #expect(try fresh.settings().hasCompletedOnboarding == false)
     }
 
     @Test("imported words get no picture status and no picture job")

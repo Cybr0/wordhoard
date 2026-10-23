@@ -253,7 +253,6 @@ public final class AutofillService {
             }
             return CardRequest(
                 headword: word.headword,
-                nativeLanguage: settings.nativeLanguage,
                 topics: keys.compactMap(catalog.topic(for:))
             )
         } catch {

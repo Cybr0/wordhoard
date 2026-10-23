@@ -15,7 +15,6 @@ public final class ScriptedModelCalls: ModelCalls {
         case verify(headword: String, sense: ProposedSense, wordClass: FunctionWordClass?)
         case selectSenses(headword: String, candidates: [WordNetSense])
         case writeDefinition(headword: String, sense: WordNetSense)
-        case proposeTranslation(headword: String, sense: GeneratedSense, nativeLanguage: String)
         case writeExample(
             headword: String,
             partOfSpeech: PartOfSpeech,
@@ -31,7 +30,6 @@ public final class ScriptedModelCalls: ModelCalls {
             case .verify: .verify
             case .selectSenses: .selectSenses
             case .writeDefinition: .writeDefinition
-            case .proposeTranslation: .proposeTranslation
             case .writeExample: .writeExample
             }
         }
@@ -42,26 +40,18 @@ public final class ScriptedModelCalls: ModelCalls {
         case verify
         case selectSenses
         case writeDefinition
-        case proposeTranslation
         case writeExample
     }
 
-    /// The answers. Defaults: no proposed senses, every verdict yes, the first four candidates (rank 1
-    /// of every part of speech first, as the round-robin lists them), `"def:<gloss>"`, the proposal
-    /// `"<native>:<headword>"` (it contains the headword, so the generator rejects it and falls back
-    /// to the translated definition; script a native word and a `StubTranslator` table to accept one),
-    /// `"I <part of speech> the <headword>"` for every example (it contains the headword, so the
+    /// The answers. Defaults: no proposed senses, every verdict yes, the 2-per-part-of-speech set as
+    /// the ranking, `"def:<gloss>"`, `"I <part of speech> the <headword>"` for every example (it contains the headword,
+    /// so the
     /// generator's headword check passes). The example closure's last argument is `mustContainHeadword`.
     public struct Script: Sendable {
         public var proposeSenses: @Sendable (_ headword: String) throws -> [ProposedSense]
         public var verify: @Sendable (_ headword: String, _ sense: ProposedSense) throws -> Bool
         public var selectSenses: @Sendable (_ headword: String, _ candidates: [WordNetSense]) throws -> [Int]
         public var writeDefinition: @Sendable (_ headword: String, _ sense: WordNetSense) throws -> String
-        public var proposeTranslation: @Sendable (
-            _ headword: String,
-            _ sense: GeneratedSense,
-            _ nativeLanguage: String
-        ) throws -> String
         public var writeExample: @Sendable (
             _ headword: String,
             _ partOfSpeech: PartOfSpeech,
@@ -74,15 +64,13 @@ public final class ScriptedModelCalls: ModelCalls {
             proposeSenses: @escaping @Sendable (String) throws -> [ProposedSense] = { _ in [] },
             verify: @escaping @Sendable (String, ProposedSense) throws -> Bool = { _, _ in true },
             selectSenses: @escaping @Sendable (String, [WordNetSense]) throws -> [Int] = { _, candidates in
-                Array(candidates.indices.prefix(4))
+                // A neutral answer: the 2-per-part-of-speech set, grouped by part of speech (what a
+                // failed call falls back to), so tests that do not care about ranking see a stable card.
+                WordNetLookup.select(candidates).compactMap { candidates.firstIndex(of: $0) }
             },
             writeDefinition: @escaping @Sendable (String, WordNetSense) throws -> String = { _, sense in
                 "def:\(sense.gloss)"
             },
-            proposeTranslation: @escaping @Sendable (String, GeneratedSense, String) throws
-                -> String = { headword, _, nativeLanguage in
-                    "\(nativeLanguage):\(headword)"
-                },
             writeExample: @escaping @Sendable (String, PartOfSpeech, String, GrammarTopic?, Bool) throws
                 -> ExampleAnswer = { headword, partOfSpeech, _, _, _ in
                     .text("I \(partOfSpeech.rawValue) the \(headword)")
@@ -92,7 +80,6 @@ public final class ScriptedModelCalls: ModelCalls {
             self.verify = verify
             self.selectSenses = selectSenses
             self.writeDefinition = writeDefinition
-            self.proposeTranslation = proposeTranslation
             self.writeExample = writeExample
         }
     }
@@ -163,16 +150,6 @@ public final class ScriptedModelCalls: ModelCalls {
     public func writeDefinition(headword: String, sense: WordNetSense) async throws -> String {
         try await perform(.writeDefinition(headword: headword, sense: sense)) {
             try script.writeDefinition(headword, sense)
-        }
-    }
-
-    public func proposeTranslation(
-        headword: String,
-        sense: GeneratedSense,
-        nativeLanguage: String
-    ) async throws -> String {
-        try await perform(.proposeTranslation(headword: headword, sense: sense, nativeLanguage: nativeLanguage)) {
-            try script.proposeTranslation(headword, sense, nativeLanguage)
         }
     }
 

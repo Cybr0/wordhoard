@@ -190,22 +190,20 @@ struct AutofillEdgeCaseTests {
         #expect(filled.autofillState == .ready)
     }
 
-    @Test("fill in again keeps a user translation and its cleared fallback flag")
-    func fillInAgainKeepsAUserTranslationUnflagged() async throws {
+    @Test("fill in again leaves a translation stored by an older version untouched")
+    func fillInAgainLeavesAStoredTranslationAlone() async throws {
         let service = AutofillService(store: store, generator: StubCardGenerator())
         let word = try store.add("look up").word
         service.enqueue(word)
         await service.drain()
         let sense = try #require(word.sortedSenses.first)
-        #expect(sense.translationIsFallback, "the look up fixture carries a fallback translation")
+        sense.translation = "искать"
+        try store.save(word)
 
-        WordCardModel(word: word, store: store).setTranslation("искать", for: sense)
         service.retry(word)
         await service.drain()
 
         let refilled = try #require(try stored(word.id).sortedSenses.first)
-        #expect(refilled.translation == "искать")
-        #expect(refilled.fieldSource(for: .translation) == .user)
-        #expect(refilled.translationIsFallback == false)
+        #expect(refilled.translation == "искать", "cards carry no translation, so a stored one is never replaced")
     }
 }

@@ -14,12 +14,14 @@ extension FoundationModelsCardGenerator {
     func writeNeutralExamples(_ card: inout GeneratedCard) async throws {
         let headword = card.headword
         var outcomes: [Int: ExampleOutcome] = [:]
-        try await forEachConcurrently(Array(card.senses.enumerated())) { index, sense in
+        // Senses that already carry an example (Simple Wiktionary's own, Phase 7) need no call.
+        let missing = card.senses.enumerated().filter { $0.element.neutralExample == nil }
+        try await forEachConcurrently(Array(missing)) { index, sense in
             try await (index, self.requestExample(headword: headword, sense: sense, topic: nil))
         } onResult: { index, outcome in
             outcomes[index] = outcome
         }
-        for index in card.senses.indices {
+        for (index, _) in missing {
             switch outcomes[index] {
             case let .text(text):
                 card.senses[index].neutralExample = GeneratedExample(text: text, grammarTopic: nil)
@@ -51,7 +53,9 @@ extension FoundationModelsCardGenerator {
         yield: (GeneratedTopicExample) -> Void
     ) async throws {
         let headword = Self.trimmed(request.headword)
-        let slots = card.senses.enumerated().flatMap { senseIndex, sense in
+        // Topic examples only for the most common senses (Phase 7): a card now lists every sense in use
+        // (*set* has 14), and 14 × 5 topics kept the serial queue busy for minutes on the iPhone.
+        let slots = card.senses.prefix(maxTopicExampleSenses).enumerated().flatMap { senseIndex, sense in
             request.topics.map { TopicSlot(senseIndex: senseIndex, sense: sense, topic: $0) }
         }
         try await forEachConcurrently(slots) { slot in

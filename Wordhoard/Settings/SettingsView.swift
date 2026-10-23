@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 import WordhoardCore
 
 /// Settings (S1–S3, S5, S6; plan 5.3, #45): a sheet over the word list with its own stack and Done.
-/// Translation → native language; Grammar → the 3.1 topics screen; Images → the auto-pictures toggle;
+/// Grammar → the 3.1 topics screen; Images → the auto-pictures toggle;
 /// Data → export and import (1.7, moved here from the list's "More" menu); About. The Private Cloud
 /// Compute toggle (A10) is not built: it arrives with the entitlement. Every write goes through
 /// `SettingsModel`; the import hands the picked file's bytes to it, so Core never sees a URL.
@@ -31,7 +31,6 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                translationSection
                 grammarSection
                 imagesSection
                 dataSection
@@ -78,31 +77,6 @@ struct SettingsView: View {
     }
 
     // MARK: - Sections
-
-    private var translationSection: some View {
-        Section {
-            NavigationLink(value: SettingsRoute.language) {
-                LabeledContent {
-                    languageName
-                } label: {
-                    Text("Native language")
-                }
-            }
-            .accessibilityIdentifier("settings.nativeLanguage")
-        } header: {
-            Text("Translation")
-        } footer: {
-            Text("Changes apply to new autofill only. Existing cards keep their translations.")
-        }
-    }
-
-    private var languageName: Text {
-        if let tag = model.nativeLanguage {
-            Text(verbatim: NativeLanguage(tag: tag).displayName)
-        } else {
-            Text("No translation")
-        }
-    }
 
     private var grammarSection: some View {
         Section("Grammar") {
@@ -160,14 +134,14 @@ struct SettingsView: View {
 
     @ViewBuilder private func destination(_ route: SettingsRoute) -> some View {
         switch route {
-        case .language:
-            LanguageSettingsView(model: model)
         case .topics:
             GrammarTopicsView(store: store)
         case .about:
             AboutView()
         case .wordNetLicense:
             LicenseTextView(title: Text("Open English WordNet license"), text: CoreInfo.wordNetLicenseText())
+        case .wiktionaryLicense:
+            LicenseTextView(title: Text("Simple English Wiktionary license"), text: CoreInfo.wiktionaryLicenseText())
         case .appLicense:
             LicenseTextView(title: Text("Apache License 2.0"), text: AboutView.appLicenseText())
         }

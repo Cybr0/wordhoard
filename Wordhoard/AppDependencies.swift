@@ -4,7 +4,7 @@ import SwiftData
 import WordhoardCore
 
 /// Everything the app shares, built once per process (plan 5.1, #6): the container, the store, the
-/// picture directory and queue, the autofill service and the translator. The scene and the App Intent
+/// picture directory and queue and the autofill service. The scene and the App Intent
 /// read the same instance. An intent declared in the app target runs inside the app process (launched in
 /// the background when needed), so sharing is a matter of reaching this object; there is no app group
 /// and no second container.
@@ -26,8 +26,6 @@ final class AppDependencies {
     /// until `WordhoardApp` reports an active scene, so a Siri background launch runs no job.
     let imageQueue: ImageGenerationQueue
     let autofill: AutofillService
-    /// The card asks it whether the native language's pack is installed (plan 2.10).
-    let translator: any Translator
 
     private let logger = Logger(subsystem: "Wordhoard", category: "app")
 
@@ -37,8 +35,7 @@ final class AppDependencies {
         (container, isStorageUnavailable) = Self.makeContainer(logger: logger)
         store = WordStore(container: container)
         imageStore = Self.makeImageStore(logger: logger)
-        translator = options.makeTranslator()
-        autofill = AutofillService(store: store, generator: options.makeGenerator(translator: translator))
+        autofill = AutofillService(store: store, generator: options.makeGenerator())
         imageQueue = ImageGenerationQueue(
             store: store,
             imageStore: imageStore,
@@ -46,7 +43,7 @@ final class AppDependencies {
             promptWriter: options.makeImagePromptWriter()
         )
         connectPicturesToAutofill()
-        warmUpSettings(options)
+        warmUpSettings()
         Task.detached {
             await WordNetLookup.shared.warmUp()
         }
@@ -78,19 +75,11 @@ final class AppDependencies {
 
     /// Warms up the settings record now, before any in-place edit can be pending, so its first-use save
     /// never becomes a surprise commit point from inside a card (1.4 ruling on #30).
-    private func warmUpSettings(_ options: LaunchOptions) {
+    private func warmUpSettings() {
         do {
             _ = try store.settings()
         } catch {
             logger.error("Could not load settings: \(error.localizedDescription, privacy: .public)")
-        }
-        // Debug presets go through the one settings write path; unchanged values save nothing.
-        let settings = SettingsModel(store: store)
-        if let tag = options.nativeLanguageTag {
-            settings.setNativeLanguage(tag)
-        }
-        if options.skipsOnboarding {
-            settings.markOnboardingCompleted()
         }
     }
 

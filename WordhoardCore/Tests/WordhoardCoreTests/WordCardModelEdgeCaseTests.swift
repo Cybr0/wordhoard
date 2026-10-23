@@ -74,7 +74,6 @@ struct WordCardModelEdgeCaseTests {
         let model = WordCardModel(word: word, store: store)
 
         model.setDefinition("a written work", for: sense)
-        model.setTranslation("книга", for: sense)
         model.setSynonyms("a, b", for: sense)
         model.setAntonyms(" , ", for: sense)
 
@@ -97,11 +96,9 @@ struct WordCardModelEdgeCaseTests {
         let model = WordCardModel(word: word, store: store)
 
         model.setDefinition("", for: sense)
-        model.setTranslation("", for: sense)
         model.setSynonyms("", for: sense)
 
         #expect(sense.definition == "")
-        #expect(sense.translation == nil)
         #expect(sense.synonyms == [])
         for field in [SenseField.definition, .translation, .synonyms] {
             #expect(sense.fieldSource(for: field) == .user, "\(field)")
@@ -169,7 +166,6 @@ struct WordCardModelEdgeCaseTests {
         // Tabbing through the empty sense commits each field unchanged.
         model.setPartOfSpeech(.other, for: added)
         model.setDefinition("", for: added)
-        model.setTranslation("", for: added)
         model.setSynonyms("", for: added)
         model.setAntonyms("", for: added)
         #expect(added.fieldSources.isEmpty)
@@ -233,7 +229,6 @@ struct WordCardModelEdgeCaseTests {
 
         // Every setter the view can fire from `onDisappear` or a focus change after "Remove sense".
         model.setDefinition("late", for: removed)
-        model.setTranslation("late", for: removed)
         model.setSynonyms("late", for: removed)
         model.setAntonyms("late", for: removed)
         model.setPartOfSpeech(.verb, for: removed)

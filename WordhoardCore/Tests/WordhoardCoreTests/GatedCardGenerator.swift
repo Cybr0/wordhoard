@@ -216,10 +216,6 @@ struct GatedModelCalls: ModelCalls {
         try await inner.writeDefinition(headword: headword, sense: sense)
     }
 
-    func proposeTranslation(headword: String, sense: GeneratedSense, nativeLanguage: String) async throws -> String {
-        try await inner.proposeTranslation(headword: headword, sense: sense, nativeLanguage: nativeLanguage)
-    }
-
     func writeExample(
         headword: String,
         partOfSpeech: PartOfSpeech,

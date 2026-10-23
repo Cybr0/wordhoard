@@ -17,18 +17,26 @@ enum GeneratorFixtures {
     ]
 }
 
-func makeRequest(_ headword: String, native: String? = "ru", topics: [GrammarTopic] = []) -> CardRequest {
-    CardRequest(headword: headword, nativeLanguage: native, topics: topics)
+func makeRequest(_ headword: String, topics: [GrammarTopic] = []) -> CardRequest {
+    CardRequest(headword: headword, topics: topics)
 }
 
 func makeGenerator(
     _ calls: ScriptedModelCalls,
-    translator: StubTranslator = StubTranslator(),
     lookup: WordNetLookup = .shared,
-    maxConcurrentExampleCalls: Int = FoundationModelsCardGenerator.defaultMaxConcurrentExampleCalls
+    // Empty by default, so the WordNet and model-only paths stay under test; Wiktionary tests pass one.
+    wiktionary: WiktionaryLookup = WiktionaryLookup(entries: [:]),
+    maxConcurrentExampleCalls: Int = FoundationModelsCardGenerator.defaultMaxConcurrentExampleCalls,
+    // Unlimited by default: the routing and concurrency suites cover every sense of four-sense *book*;
+    // the cap itself has its own test.
+    maxTopicExampleSenses: Int = .max
 ) -> FoundationModelsCardGenerator {
     FoundationModelsCardGenerator(
-        calls: calls, lookup: lookup, translator: translator, maxConcurrentExampleCalls: maxConcurrentExampleCalls
+        calls: calls,
+        lookup: lookup,
+        wiktionary: wiktionary,
+        maxConcurrentExampleCalls: maxConcurrentExampleCalls,
+        maxTopicExampleSenses: maxTopicExampleSenses
     )
 }
 

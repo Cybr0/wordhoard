@@ -28,8 +28,9 @@ struct AutofillPipelineEdgeCaseTests {
         let generator = FoundationModelsCardGenerator(
             calls: ScriptedModelCalls(script: Self.taggedScript),
             lookup: .shared,
-            translator: StubTranslator(),
-            maxConcurrentExampleCalls: limit
+            wiktionary: WiktionaryLookup(entries: [:]),
+            maxConcurrentExampleCalls: limit,
+            maxTopicExampleSenses: .max
         )
         let service = AutofillService(store: store, generator: generator)
         let word = try store.add("book").word

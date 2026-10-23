@@ -19,6 +19,9 @@ let package = Package(
                 // The Open English WordNet bundle, the function-word stoplist and the CC BY 4.0 license
                 // (NOTICE), read by `WordNetLookup` as `WordNet/<name>`; one copy in git, shared with the spike.
                 .copy("Resources/WordNet"),
+                // The Simple English Wiktionary bundle and its CC BY-SA 4.0 notice (NOTICE), read by
+                // `WiktionaryLookup` as `Wiktionary/simplewikt.json` (Phase 7).
+                .copy("Resources/Wiktionary"),
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

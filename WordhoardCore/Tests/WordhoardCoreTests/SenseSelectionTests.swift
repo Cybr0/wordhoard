@@ -2,10 +2,10 @@ import Foundation
 import Testing
 import WordhoardCore
 
-/// Plan 2.6 (#18): the model picks ≤ 4 senses from WordNet's list. The pipeline runs over
-/// `ScriptedModelCalls`; *book* at five senses per part of speech is a synthetic bundle shaped like the
-/// regenerated one (noun 1…5, verb 1 *engage*, verb 2 *reserve*, verb 3…5), because the shipped bundle
-/// still holds two per part of speech and so gives *book* exactly four senses and no call.
+/// Plan 2.6 (#18), reworked in Phase 7: the model ranks WordNet's senses by everyday frequency and
+/// leaves out rare ones; the card keeps the model's order. The pipeline runs over `ScriptedModelCalls`;
+/// *book* at five senses per part of speech is a small synthetic bundle (noun 1…5, verb 1 *engage*,
+/// verb 2 *reserve*, verb 3…5) so the answers are easy to read.
 @Suite("Sense selection")
 struct SenseSelectionTests {
     private typealias Answer = @Sendable () throws -> [Int]
@@ -35,10 +35,8 @@ struct SenseSelectionTests {
 
     // MARK: - Bundle
 
-    @Test(
-        "the bundle carries *book* → *reserve* within 20 MB; *run* → *direct or control* needs the regenerated bundle"
-    )
-    func theBiggerBundleCarriesRunManageAndBookReserve() async throws {
+    @Test("the bundle carries *book* → *reserve* and *run* → *direct or control* within 20 MB")
+    func theBundleCarriesRunManageAndBookReserve() async throws {
         let url = try #require(CoreInfo.resourceBundle.url(
             forResource: "oewn-2024", withExtension: "json", subdirectory: "WordNet"
         ))
@@ -49,38 +47,24 @@ struct SenseSelectionTests {
         #expect(book.senses.contains { $0.partOfSpeech == .verb && $0.synonyms.contains("reserve") })
 
         let run = try #require(await WordNetLookup.shared.entry(for: "run"))
-        withKnownIssue("the 5-per-part-of-speech bundle is not generated yet; the owner regenerates it (#18)") {
-            #expect(run.senses.count > 4)
-            #expect(run.senses.contains { $0.partOfSpeech == .verb && $0.gloss.contains("direct or control") })
-        }
+        #expect(run.senses.count > 4)
+        #expect(run.candidates.contains { $0.partOfSpeech == .verb && $0.gloss.contains("direct or control") })
     }
 
     // MARK: - Candidates
 
-    @Test("candidates are WordNet's senses round-robin by part of speech, capped at ten")
+    @Test("candidates are WordNet's senses round-robin by part of speech, capped at twelve")
     func candidatesAreRoundRobinByPartOfSpeechAndCapped() async throws {
         let book = try #require(await Self.bigBookLookup().entry(for: "book"))
         #expect(book.senses.count == 10)
         let candidates = book.candidates
         #expect(candidates.count == 10)
         #expect(candidates.map(\.partOfSpeech) == [
-            .noun,
-            .verb,
-            .noun,
-            .verb,
-            .noun,
-            .verb,
-            .noun,
-            .verb,
-            .noun,
-            .verb,
+            .noun, .verb, .noun, .verb, .noun, .verb, .noun, .verb, .noun, .verb,
         ])
         #expect(candidates.map(\.gloss).prefix(4) == [
             "noun gloss 1", "engage for a performance", "noun gloss 2", Self.reserveGloss,
         ])
-
-        let light = try #require(await WordNetLookup.shared.entry(for: "light"))
-        #expect(light.candidates.map(\.partOfSpeech) == [.noun, .verb, .adjective, .adverb, .noun, .verb, .adjective])
 
         let many = (0 ..< 4).flatMap { rank in
             [PartOfSpeech.noun, .verb, .adjective, .adverb].map {
@@ -90,10 +74,10 @@ struct SenseSelectionTests {
         let capped = WordNetLookup.candidates(many.sorted { $0.partOfSpeech.rawValue < $1.partOfSpeech.rawValue })
         #expect(capped.count == WordNetLookup.maxCandidates)
         #expect(capped.prefix(4).map(\.partOfSpeech) == [.noun, .verb, .adjective, .adverb])
-        #expect(capped.map(\.gloss).suffix(2) == ["noun 2", "verb 2"])
+        #expect(capped.map(\.gloss).suffix(4) == ["noun 2", "verb 2", "adjective 2", "adverb 2"])
     }
 
-    @Test("the selection prompt numbers every candidate from 1 with its part of speech and gloss")
+    @Test("the selection prompt numbers every candidate from 1 and asks for everyday meanings, most common first")
     func selectionPromptListsTheCandidates() async throws {
         let book = try #require(await Self.bigBookLookup().entry(for: "book"))
         let prompt = SenseSelectionPrompt.prompt(headword: "book", candidates: book.candidates)
@@ -101,56 +85,42 @@ struct SenseSelectionTests {
         #expect(prompt.contains("4. (verb) \(Self.reserveGloss)"))
         #expect(prompt.contains("10. (verb) verb gloss 5"))
         #expect(!prompt.contains("11."))
-        #expect(SenseSelectionPrompt.instructions.contains("Include every part of speech that has a common sense"))
+        #expect(prompt.contains("most common"))
+        #expect(SenseSelectionPrompt.instructions.contains("Leave out rare"))
         #expect(!SenseSelectionPrompt.instructions.lowercased().contains("translat"))
     }
 
     // MARK: - Applying the answer
 
-    @Test("the model's picks become the senses, regrouped by part of speech, with every part covered, or fall back")
-    func selectionIsAppliedWithPosCoverageAndFallback() async throws {
+    @Test("the model's ranking becomes the card in its order, rare senses are not added back, or it falls back")
+    func selectionKeepsTheModelsOrderOrFallsBack() async throws {
         let lookup = try Self.bigBookLookup()
 
         func card(_ answer: @escaping Answer) async throws -> (GeneratedCard, ScriptedModelCalls) {
             let calls = ScriptedModelCalls(script: .init(selectSenses: { _, _ in try answer() }))
-            let card = try await makeGenerator(calls, lookup: lookup).generateCard(makeRequest("book", native: nil))
+            let card = try await makeGenerator(calls, lookup: lookup).generateCard(makeRequest("book"))
             return (card, calls)
         }
 
-        let (picked, pickedCalls) = try await card { [7, 0, 2] }
-        #expect(Self.glosses(picked) == ["noun gloss 1", "noun gloss 2", "engage for a performance", "verb gloss 4"])
+        let (picked, pickedCalls) = try await card { [3, 0, 7] }
+        #expect(Self.glosses(picked) == [Self.reserveGloss, "noun gloss 1", "verb gloss 4"], "the model's order")
         #expect(picked.notes.isEmpty)
         #expect(pickedCalls.calls(.selectSenses).count == 1)
         #expect(pickedCalls.calls.first?.method == .selectSenses, "selection precedes every definition")
-        #expect(pickedCalls.calls(.writeDefinition).count == 4, "definitions only for the selected senses")
+        #expect(pickedCalls.calls(.writeDefinition).count == 3, "definitions only for the selected senses")
         if case let .some(.selectSenses(headword, candidates)) = pickedCalls.calls.first {
             #expect(headword == "book")
             #expect(candidates.count == 10)
         }
 
-        let (twoNouns, _) = try await card { [0, 2] }
-        #expect(
-            Self.glosses(twoNouns) == ["noun gloss 1", "noun gloss 2", "engage for a performance", Self.reserveGloss],
-            "two nouns → a verb is added for coverage, then *reserve* fills the last slot"
-        )
-        #expect(twoNouns.notes.isEmpty)
-
-        let (fourNouns, _) = try await card { [0, 2, 4, 6] }
-        #expect(
-            Self.glosses(fourNouns) == ["noun gloss 1", "noun gloss 2", "noun gloss 3", "engage for a performance"],
-            "at four picks the last spare noun makes room for the verb"
-        )
+        let (one, _) = try await card { [3] }
+        #expect(Self.glosses(one) == [Self.reserveGloss], "one common meaning stays one sense; nothing is filled in")
 
         let (five, _) = try await card { [0, 1, 2, 3, 9] }
-        #expect(Self.glosses(five) == ["noun gloss 1", "noun gloss 2", "engage for a performance", Self.reserveGloss])
+        #expect(Self.glosses(five) == ["noun gloss 1", "engage for a performance", "noun gloss 2", Self.reserveGloss])
 
         let (duplicates, _) = try await card { [3, 3, -1, 0] }
-        #expect(Self.glosses(duplicates) == [
-            "noun gloss 1",
-            "noun gloss 2",
-            "engage for a performance",
-            Self.reserveGloss,
-        ])
+        #expect(Self.glosses(duplicates) == [Self.reserveGloss, "noun gloss 1"])
         #expect(duplicates.notes.isEmpty, "partly invalid indices are dropped silently")
 
         let fallback = ["noun gloss 1", "noun gloss 2", "engage for a performance", Self.reserveGloss]
@@ -168,7 +138,7 @@ struct SenseSelectionTests {
         }
     }
 
-    @Test("`selection` is pure: out-of-range indices alone give nil, coverage and fill never exceed four")
+    @Test("`selection` is pure: invalid indices alone give nil, the order is kept, at most four")
     func selectionPostProcessingIsPure() {
         let senses = [PartOfSpeech.noun, .verb, .adjective, .adverb, .noun, .verb, .adjective, .adverb].enumerated()
             .map {
@@ -176,35 +146,26 @@ struct SenseSelectionTests {
             }
         #expect(WordNetLookup.selection([10, -3], from: senses) == nil)
         #expect(WordNetLookup.selection([], from: senses) == nil)
-        let covered = WordNetLookup.selection([4, 5, 6, 7], from: senses)
-        #expect(covered?.map(\.gloss) == ["g4", "g5", "g6", "g7"])
-        let fromOne = WordNetLookup.selection([4], from: senses)
-        #expect(fromOne?.map(\.gloss) == ["g4", "g1", "g2", "g3"], "rank 1 of each missing part, regrouped")
-        #expect(fromOne?.map(\.partOfSpeech) == [.noun, .verb, .adjective, .adverb])
-
-        let nouns = (1 ... 5).map {
-            WordNetSense(partOfSpeech: .noun, gloss: "noun \($0)", synonyms: [], antonyms: [], example: nil)
-        }
-        #expect(
-            WordNetLookup.selection([4], from: nouns)?.map(\.gloss) == ["noun 1", "noun 2", "noun 5"],
-            "a short pick fills from the 2-per-part-of-speech set only, never with noun 3"
-        )
+        #expect(WordNetLookup.selection([5, 4, 7, 6, 0], from: senses)?.map(\.gloss) == ["g5", "g4", "g7", "g6"])
+        #expect(WordNetLookup.selection([4], from: senses)?.map(\.gloss) == ["g4"])
     }
 
     // MARK: - No call
 
-    @Test("lemmas with four senses or fewer and stoplist words make no selection call")
-    func selectionIsSkippedForSmallEntries() async throws {
-        for headword in ["look up", "gaslight", "book", "however"] {
+    @Test("one-sense lemmas and stoplist words make no selection call; two or more senses do")
+    func selectionIsSkippedOnlyForSingleSenses() async throws {
+        for headword in ["look up", "however"] {
             let calls = ScriptedModelCalls(script: .init(proposeSenses: { _ in [GeneratorFixtures.howeverSense] }))
-            let card = try await makeGenerator(calls).generateCard(makeRequest(headword, native: nil))
+            let card = try await makeGenerator(calls).generateCard(makeRequest(headword))
             #expect(calls.calls(.selectSenses).isEmpty, "\(headword)")
             #expect(!card.notes.contains(.senseSelectionFellBack))
             #expect(!card.senses.isEmpty)
         }
-        let calls = ScriptedModelCalls()
-        let light = try await makeGenerator(calls).generateCard(makeRequest("light", native: nil))
-        #expect(calls.calls(.selectSenses).count == 1, "the shipped bundle lists seven senses for *light*")
-        #expect(light.senses.map(\.partOfSpeech) == [.noun, .verb, .adjective, .adverb])
+        for headword in ["book", "light", "gaslight"] {
+            let calls = ScriptedModelCalls()
+            let entry = try #require(await WordNetLookup.shared.entry(for: headword))
+            _ = try await makeGenerator(calls).generateCard(makeRequest(headword))
+            #expect(calls.calls(.selectSenses).count == (entry.senses.count > 1 ? 1 : 0), "\(headword)")
+        }
     }
 }

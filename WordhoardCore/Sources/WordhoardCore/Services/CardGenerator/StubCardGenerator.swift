@@ -167,7 +167,6 @@ public final class StubCardGenerator: CardGenerator {
             var sense = sense
             sense.gloss = sense.gloss.map(fill)
             sense.definition = fill(sense.definition)
-            sense.translation = sense.translation.map(fill)
             sense.synonyms = sense.synonyms.map(fill)
             sense.antonyms = sense.antonyms.map(fill)
             sense.neutralExample = sense.neutralExample.map { example in

@@ -119,26 +119,6 @@ final class WordhoardUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["No words yet"].exists)
     }
 
-    /// Plan 2.10: a translation that is the translated definition carries a caption; a card with no
-    /// translation because the native language's pack is missing says so in one line (A9).
-    @MainActor
-    func testFallbackTranslationIsCaptioned() {
-        var app = launchApp()
-        openNewCard("look up", in: app)
-        XCTAssertTrue(app.staticTexts["wordCard.sense.0.translationNote"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["wordCard.sense.0.translationNote"].label, "Translated from the definition")
-        XCTAssertFalse(app.staticTexts["wordCard.translationNote"].exists, "the stub's packs are installed")
-
-        app.terminate()
-        app = launchApp(arguments: ["--native-language", "ru", "--translator", "unavailable"])
-        openNewCard("zebra", in: app)
-        let note = app.staticTexts["wordCard.translationNote"]
-        XCTAssertTrue(note.waitForExistence(timeout: 5))
-        XCTAssertTrue(note.label.hasPrefix("Translations need the "), note.label)
-        XCTAssertTrue(note.label.hasSuffix(" pack. Download it in Settings › Translate."), note.label)
-        XCTAssertFalse(app.staticTexts["wordCard.sense.0.translationNote"].exists)
-    }
-
     /// Adds `headword` from the list and opens its card.
     @MainActor
     private func openNewCard(_ headword: String, in app: XCUIApplication) {

@@ -64,42 +64,6 @@ struct WordCardModelTests {
         #expect(stored.fieldSource(for: .definition) == .user)
     }
 
-    @Test("editing a translation marks it .user and persists it")
-    func editingATranslationMarksItUserAndPersistsIt() throws {
-        let (word, sense) = try makeBook()
-        let savedAt = word.updatedAt
-        let model = WordCardModel(word: word, store: store)
-
-        model.setTranslation("книга", for: sense)
-
-        #expect(sense.translation == "книга")
-        #expect(sense.fieldSources == [SenseField.translation.rawValue: .user])
-        #expect(word.updatedAt > savedAt)
-        #expect(try storedSense(sense.id)?.translation == "книга")
-        #expect(try storedSense(sense.id)?.fieldSource(for: .translation) == .user)
-    }
-
-    @Test("clearing a translation stores nil and still marks it .user")
-    func clearingATranslationStoresNilAndMarksItUser() throws {
-        let (word, sense) = try makeBook()
-        sense.translation = "книга"
-        try store.save(word)
-        let model = WordCardModel(word: word, store: store)
-
-        model.setTranslation("", for: sense)
-        #expect(sense.translation == nil)
-        #expect(sense.fieldSources == [SenseField.translation.rawValue: .user])
-        #expect(try storedSense(sense.id)?.translation == nil)
-
-        sense.translation = "книга"
-        sense.fieldSources = [:]
-        try store.save(word)
-        model.setTranslation("   \n", for: sense)
-        #expect(sense.translation == nil)
-        #expect(sense.fieldSources == [SenseField.translation.rawValue: .user])
-        #expect(try storedSense(sense.id)?.translation == nil)
-    }
-
     @Test("editing synonyms marks only synonyms .user and persists the split list")
     func editingSynonymsMarksThemUserAndPersistsThem() throws {
         let (word, sense) = try makeBook()
@@ -164,8 +128,6 @@ struct WordCardModelTests {
         model.setSynonyms("big , large", for: sense)
         model.setSynonyms("big,large,big", for: sense)
         model.setAntonyms("", for: sense)
-        model.setTranslation("", for: sense)
-        model.setTranslation("  ", for: sense)
         model.setPartOfSpeech(.noun, for: sense)
 
         #expect(sense.fieldSources.isEmpty)

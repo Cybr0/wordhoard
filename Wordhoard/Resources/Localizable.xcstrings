@@ -203,16 +203,6 @@
         }
       }
     },
-    "Changes apply to new autofill only. Existing cards keep their translations." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes apply to new autofill only. Existing cards keep their translations."
-          }
-        }
-      }
-    },
     "Choose photo…" : {
       "localizations" : {
         "en" : {
@@ -369,16 +359,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn't save your changes"
-          }
-        }
-      }
-    },
-    "Couldn't save your choice" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't save your choice"
           }
         }
       }
@@ -633,16 +613,6 @@
         }
       }
     },
-    "Loading languages…" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Loading languages…"
-          }
-        }
-      }
-    },
     "Model" : {
       "localizations" : {
         "en" : {
@@ -669,16 +639,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Move up"
-          }
-        }
-      }
-    },
-    "Native language" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Native language"
           }
         }
       }
@@ -913,6 +873,26 @@
         }
       }
     },
+    "Simple English Wiktionary license" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simple English Wiktionary license"
+          }
+        }
+      }
+    },
+    "Simple English Wiktionary — CC BY-SA 4.0, by its contributors; extract by kaikki.org" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simple English Wiktionary — CC BY-SA 4.0, by its contributors; extract by kaikki.org"
+          }
+        }
+      }
+    },
     "Source code and license" : {
       "localizations" : {
         "en" : {
@@ -1077,46 +1057,6 @@
         }
       }
     },
-    "Translated from the definition" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Translated from the definition"
-          }
-        }
-      }
-    },
-    "Translation" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Translation"
-          }
-        }
-      }
-    },
-    "Translation isn't available for %@ yet. You can type translations yourself." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Translation isn't available for %@ yet. You can type translations yourself."
-          }
-        }
-      }
-    },
-    "Translations need the %@ pack. Download it in Settings › Translate." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Translations need the %@ pack. Download it in Settings › Translate."
-          }
-        }
-      }
-    },
     "Try again" : {
       "localizations" : {
         "en" : {
@@ -1137,22 +1077,22 @@
         }
       }
     },
-    "Welcome to Wordhoard" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Welcome to Wordhoard"
-          }
-        }
-      }
-    },
     "Which word?" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Which word?"
+          }
+        }
+      }
+    },
+    "Wiktionary" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiktionary"
           }
         }
       }
@@ -1223,16 +1163,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wordhoard makes a picture for each new word on your iPhone. You can always add a photo yourself."
-          }
-        }
-      }
-    },
-    "Wordhoard writes definitions and examples on your iPhone and translates them with Apple's on-device Translation. Choose the language translations should be in. You can change this later in Settings." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wordhoard writes definitions and examples on your iPhone and translates them with Apple's on-device Translation. Choose the language translations should be in. You can change this later in Settings."
           }
         }
       }

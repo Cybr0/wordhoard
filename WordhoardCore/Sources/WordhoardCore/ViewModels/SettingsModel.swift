@@ -33,9 +33,6 @@ public final class SettingsModel {
     /// The active topics the catalog knows. Unknown stored keys never appear here.
     public private(set) var activeTopics: Set<GrammarTopicID> = []
 
-    /// The stored native language; `nil` is "No translation".
-    public private(set) var nativeLanguage: String?
-
     /// "Generate images automatically" (S5).
     public private(set) var autoGenerateImages = true
 
@@ -60,7 +57,6 @@ public final class SettingsModel {
         do {
             let settings = try store.settings()
             activeTopics = knownKeys(in: settings.activeGrammarTopics)
-            nativeLanguage = settings.nativeLanguage
             autoGenerateImages = settings.autoGenerateImages
         } catch {
             logger.error("Could not load settings: \(error.localizedDescription, privacy: .public)")
@@ -100,13 +96,7 @@ public final class SettingsModel {
         write(topics, replacing: stored)
     }
 
-    // MARK: - Language, images, onboarding
-
-    /// The language new autofill translates into (S1); `nil` is "No translation". Existing cards keep
-    /// their translations. An unchanged value saves nothing.
-    public func setNativeLanguage(_ tag: String?) {
-        change(\.nativeLanguage, to: tag)
-    }
+    // MARK: - Images and onboarding
 
     /// Whether new words get a picture automatically (S5); read by the picture queue on every add.
     public func setAutoGenerateImages(_ isOn: Bool) {
