@@ -35,7 +35,7 @@ jobs:
     env:
       SWIFTFORMAT_VERSION: "0.63.1"
       # Non-empty: skip the preinstalled SwiftFormat and download the pinned release (tests that path).
-      SWIFTFORMAT_FORCE_DOWNLOAD: "1"
+      SWIFTFORMAT_FORCE_DOWNLOAD: ""
     steps:
       - uses: actions/checkout@v4
 
