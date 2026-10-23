@@ -32,6 +32,10 @@ jobs:
     # and cannot build an iOS 27 deployment target.
     runs-on: xcode-27
     timeout-minutes: 45
+    env:
+      SWIFTFORMAT_VERSION: "0.63.1"
+      # Non-empty: skip the preinstalled SwiftFormat and download the pinned release (tests that path).
+      SWIFTFORMAT_FORCE_DOWNLOAD: ""
     steps:
       - uses: actions/checkout@v4
 
@@ -41,12 +45,33 @@ jobs:
           xcodebuild -version
           swift --version
 
+      # SwiftFormat is pinned because new releases add rules that fail Lint (#65); bumping it means updating
+      # `.swiftformat`'s header, the local tool and reformatting the code in one PR.
       - name: Install tools
         run: |
           brew install xcodegen swiftlint
-          command -v swiftformat || brew install swiftformat
+          if [ -z "$SWIFTFORMAT_FORCE_DOWNLOAD" ] \
+            && [ "$(swiftformat --version 2>/dev/null)" = "$SWIFTFORMAT_VERSION" ]; then
+            echo "Using preinstalled SwiftFormat $SWIFTFORMAT_VERSION at $(command -v swiftformat)"
+          else
+            echo "Preinstalled SwiftFormat: $(swiftformat --version 2>/dev/null || echo none); downloading $SWIFTFORMAT_VERSION"
+            SF_DIR="$RUNNER_TEMP/swiftformat-$SWIFTFORMAT_VERSION"
+            mkdir -p "$SF_DIR"
+            curl -fsSL -o "$SF_DIR/swiftformat.zip" \
+              "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat.zip"
+            unzip -o -q "$SF_DIR/swiftformat.zip" -d "$SF_DIR"
+            rm "$SF_DIR/swiftformat.zip"
+            chmod +x "$SF_DIR/swiftformat"
+            echo "$SF_DIR" >> "$GITHUB_PATH"
+            export PATH="$SF_DIR:$PATH"
+          fi
+          ACTUAL="$(swiftformat --version 2>/dev/null || true)"
+          if [ "$ACTUAL" != "$SWIFTFORMAT_VERSION" ]; then
+            echo "::error::SwiftFormat must be $SWIFTFORMAT_VERSION (see .swiftformat header), got '${ACTUAL:-none}' at $(command -v swiftformat || echo 'no path')"
+            exit 1
+          fi
           xcodegen --version
-          swiftformat --version
+          echo "swiftformat $(swiftformat --version) at $(command -v swiftformat)"
           swiftlint version
 
       - name: Lint
